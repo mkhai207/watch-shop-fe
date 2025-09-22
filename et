@@ -1,0 +1,19 @@
+warning: in the working copy of 'ORDER_CREATION_GUIDE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/helpers/axios/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/hooks/useAuth.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/hooks/useOrder.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/auth.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/order.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/views/pages/manage-system/order/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/views/pages/manage-system/user/index.tsx', LF will be replaced by CRLF the next time Git touches it
+src/configs/api.ts
+src/helpers/axios/index.tsx
+src/hooks/useAuth.tsx
+src/hooks/useBrand.tsx
+src/services/auth.ts
+src/services/brand.ts
+src/services/category.ts
+src/views/pages/manage-system/product/components/add-product-modal/index.tsx
+src/views/pages/manage-system/product/components/edit-product-modal/index.tsx
+src/views/pages/manage-system/product/index.tsx
+src/views/pages/manage-system/user/index.tsx
