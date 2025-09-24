@@ -7,54 +7,58 @@ export interface MenuItem {
 
 export const VerticalItems: MenuItem[] = [
   {
-    title: 'Hệ thống',
-    icon: 'icon-park-outline:system',
+    title: 'Điều hướng',
+    icon: 'mdi:menu',
     children: [
       {
-        title: 'Thống kê',
-        icon: 'material-symbols:analytics',
+        title: 'Dashboard',
+        icon: 'mdi:view-dashboard-outline',
         path: '/manage-system/dashboard'
       },
       {
-        title: 'Người dùng',
-        icon: 'mdi:user',
-        path: '/manage-system/user'
-      }
-    ]
-  },
-  {
-    title: 'Quản trị sản phẩm',
-    icon: 'oui:nav-manage',
-    children: [
-      {
         title: 'Sản phẩm',
-        icon: 'ix:product',
+        icon: 'mdi:package-variant',
         path: '/manage-system/product'
       },
       {
         title: 'Đơn hàng',
-        icon: 'lets-icons:order',
+        icon: 'mdi:cart-outline',
         path: '/manage-system/order'
       },
       {
-        title: 'Đánh giá',
-        icon: 'material-symbols:rate-review-outline-rounded',
-        path: '/manage-system/review'
-      },
-      {
-        title: 'Khuyến mãi',
-        icon: 'mdi:discount',
-        path: '/manage-system/discount'
-      },
-      {
-        title: 'Phân loại',
-        icon: 'material-symbols:category',
-        path: '/manage-system/category'
+        title: 'Khách hàng',
+        icon: 'mdi:account-group-outline',
+        path: '/manage-system/user'
       },
       {
         title: 'Thương hiệu',
-        icon: 'tabler:brand-nexo',
+        icon: 'mdi:office-building-outline',
         path: '/manage-system/brand'
+      },
+      {
+        title: 'Phân loại',
+        icon: 'mdi:tag-outline',
+        path: '/manage-system/category'
+      },
+      {
+        title: 'Khuyến mãi',
+        icon: 'mdi:percent-outline',
+        path: '/manage-system/discount'
+      },
+      {
+        title: 'Đánh giá',
+        icon: 'mdi:star-outline',
+        path: '/manage-system/review'
+      },
+      {
+        title: 'Báo cáo',
+        icon: 'mdi:chart-box-outline',
+        path: '/manage-system/analytics'
+      },
+      {
+        title: 'Cài đặt',
+        icon: 'mdi:cog-outline',
+        path: '/manage-system/settings'
       }
     ]
   }
