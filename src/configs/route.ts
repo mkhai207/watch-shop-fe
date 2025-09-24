@@ -10,5 +10,6 @@ export const ROUTE_CONFIG = {
   ORDER_HISTORY: '/order/order-history',
   ORDER: '/order',
   MANAGE_BRAND: '/manage-system/brand',
+  MANAGE_CATEGORY: '/manage-system/category',
   MANAGE_REVIEW: '/manage-system/review'
 }

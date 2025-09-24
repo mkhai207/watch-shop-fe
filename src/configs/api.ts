@@ -36,6 +36,9 @@ export const CONFIG_API = {
     UPDATE_CATEGORY: `${BASE_URL}/categories/update`,
     DELETE_CATEGORY: `${BASE_URL}/categories/delete`
   },
+  CATEGORY_V1: {
+    INDEX: `${BASE_URL}/categorys`
+  },
   BRAND: {
     INDEX: `${BASE_URL}/brands`
   },
