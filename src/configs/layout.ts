@@ -56,6 +56,11 @@ export const VerticalItems: MenuItem[] = [
         path: '/manage-system/review'
       },
       {
+        title: 'Vật liệu dây đeo',
+        icon: 'mdi:watch',
+        path: '/manage-system/strap-material'
+      },
+      {
         title: 'Báo cáo',
         icon: 'mdi:chart-box-outline',
         path: '/manage-system/analytics'

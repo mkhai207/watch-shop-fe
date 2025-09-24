@@ -45,6 +45,9 @@ export const CONFIG_API = {
   COLOR: {
     INDEX: `${BASE_URL}/colors`
   },
+  STRAP_MATERIAL: {
+    INDEX: `${BASE_URL}/strap-materials`
+  },
   PRODUCT: {
     INDEX: `${BASE_URL}/products`
   },
