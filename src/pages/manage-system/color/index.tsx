@@ -20,7 +20,6 @@ import {
   TextField,
   Typography
 } from '@mui/material'
-import Avatar from '@mui/material/Avatar'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import Chip from '@mui/material/Chip'
@@ -32,49 +31,67 @@ import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import {
-  getCategorys,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getCategoryById
-} from 'src/services/categoryManage'
-import type {
-  TCategory,
-  TCreateCategory,
-  TUpdateCategory,
-  GetCategorysResponse,
-  GetCategoryResponse
-} from 'src/types/category/manage'
-import { uploadImage } from 'src/services/file'
+import { getColors, createColor, updateColor, deleteColor, getColorById } from 'src/services/color'
+import type { TColor, TCreateColor, TUpdateColor, GetColorsResponse, GetColorResponse } from 'src/types/color'
 import Spinner from 'src/components/spinner'
-import { formatCompactVN } from 'src/utils/date'
 import toast from 'react-hot-toast'
+import { formatCompactVN } from 'src/utils/date'
 
-const CategoryPage: NextPage = () => {
-  const [categories, setCategories] = useState<TCategory[]>([])
+const ColorPage: NextPage = () => {
+  const [colors, setColors] = useState<TColor[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
   const [search, setSearch] = useState<string>('')
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
-  const [selected, setSelected] = useState<TCategory | null>(null)
+  const [selected, setSelected] = useState<TColor | null>(null)
   const [nameInput, setNameInput] = useState<string>('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [descriptionInput, setDescriptionInput] = useState<string>('')
+  const [hexInput, setHexInput] = useState<string>('')
+  const PRESET_COLORS = useMemo(
+    () => [
+      '#000000',
+      '#FFFFFF',
+      '#FF0000',
+      '#00FF00',
+      '#0000FF',
+      '#FFFF00',
+      '#FFA500',
+      '#800080',
+      '#00FFFF',
+      '#FFC0CB',
+      '#8B4513',
+      '#808080',
+      '#A52A2A',
+      '#2F4F4F',
+      '#FFD700',
+      '#1E90FF',
+      '#32CD32',
+      '#FF69B4',
+      '#4B0082',
+      '#DC143C'
+    ],
+    []
+  )
 
-  const totalCategories = categories.length
+  const isValidHex = (value: string) => /^#([0-9A-Fa-f]{6})$/.test(value)
+  const handleHexChange = (value: string) => {
+    setHexInput(value)
+  }
+  const handlePickColor = (hex: string) => {
+    handleHexChange(hex.toUpperCase())
+  }
+
+  const totalColors = colors.length
   const totalProducts = 0
   const avgRating = undefined as number | undefined
-  const newCategories = undefined as number | undefined
+  const newColors = undefined as number | undefined
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await getCategorys()
-      const data = res as GetCategorysResponse
-      setCategories(data?.categorys?.rows || [])
+      const res = await getColors()
+      const data = res as GetColorsResponse
+      setColors(data?.colors?.rows || [])
     } catch (err: any) {
       toast.error(err?.message || 'Lỗi tải dữ liệu')
     } finally {
@@ -88,10 +105,14 @@ const CategoryPage: NextPage = () => {
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deleted'>('all')
   const filtered = useMemo(() => {
-    const bySearch = categories.filter(c => {
+    const bySearch = colors.filter(c => {
       if (!search) return true
       const lower = search.toLowerCase().trim()
-      return c.name.toLowerCase().includes(lower) || c.id.toLowerCase().includes(lower)
+      return (
+        c.name.toLowerCase().includes(lower) ||
+        c.id.toLowerCase().includes(lower) ||
+        c.hex_code.toLowerCase().includes(lower)
+      )
     })
     const byStatus = bySearch.filter(c => {
       if (statusFilter === 'all') return true
@@ -99,33 +120,24 @@ const CategoryPage: NextPage = () => {
       return statusFilter === 'deleted' ? deleted : !deleted
     })
     return byStatus
-  }, [categories, search, statusFilter])
+  }, [colors, search, statusFilter])
 
   const handleOpenCreate = () => {
     setNameInput('')
-    setDescriptionInput('')
-    setImageFile(null)
-    setImagePreview(null)
+    setHexInput('')
     setOpenCreate(true)
   }
 
   const handleCreate = async () => {
-    const payload: TCreateCategory = { name: nameInput.trim() }
-    if (!payload.name) return toast.error('Tên phân loại không được để trống')
+    const payload: TCreateColor = { name: nameInput.trim(), hex_code: hexInput.trim() }
+    if (!payload.name) return toast.error('Tên màu không được để trống')
+    if (!payload.hex_code) return toast.error('Mã màu không được để trống')
     try {
       setActionLoading(true)
-      if (imageFile) {
-        const uploadRes = await uploadImage(imageFile)
-        const imageUrl = (uploadRes as any)?.uploadedImage?.url as string | undefined
-        if (imageUrl) payload.image_url = imageUrl
-      }
-      if (descriptionInput.trim()) payload.description = descriptionInput.trim()
-      const res = await createCategory(payload)
-      if ((res as any)?.category) {
-        toast.success('Tạo phân loại thành công')
+      const res = await createColor(payload)
+      if ((res as any)?.color) {
+        toast.success('Tạo màu thành công')
         setOpenCreate(false)
-        setImageFile(null)
-        setImagePreview(null)
         fetchData()
       } else {
         throw new Error('Tạo thất bại')
@@ -137,22 +149,17 @@ const CategoryPage: NextPage = () => {
     }
   }
 
-  const [editDescription, setEditDescription] = useState<string>('')
-  const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
-  const [editImageFile, setEditImageFile] = useState<File | null>(null)
-
-  const handleOpenEdit = async (category: TCategory) => {
+  const handleOpenEdit = async (color: TColor) => {
     try {
       setActionLoading(true)
-      const res = (await getCategoryById(category.id)) as GetCategoryResponse
-      const full = res?.category || category
+      const res = (await getColorById(color.id)) as GetColorResponse
+      const full = res?.color || color
       setSelected(full)
       setNameInput(full.name)
-      setEditDescription(full.description || '')
-      setEditImagePreview(full.image_url || null)
+      setHexInput(full.hex_code)
       setOpenEdit(true)
     } catch (e) {
-      toast.error('Không tải được chi tiết phân loại')
+      toast.error('Không tải được chi tiết màu')
     } finally {
       setActionLoading(false)
     }
@@ -160,24 +167,16 @@ const CategoryPage: NextPage = () => {
 
   const handleEdit = async () => {
     if (!selected) return
-    const payload: TUpdateCategory = { name: nameInput.trim() }
-    if (!payload.name) return toast.error('Tên phân loại không được để trống')
+    const payload: TUpdateColor = { name: nameInput.trim(), hex_code: hexInput.trim() }
+    if (!payload.name) return toast.error('Tên màu không được để trống')
+    if (!payload.hex_code) return toast.error('Mã màu không được để trống')
     try {
       setActionLoading(true)
-      if (editImageFile) {
-        const uploadRes = await uploadImage(editImageFile)
-        const imageUrl = (uploadRes as any)?.uploadedImage?.url as string | undefined
-        if (imageUrl) (payload as any).image_url = imageUrl
-      }
-      if (editDescription.trim()) (payload as any).description = editDescription.trim()
-
-      const res = await updateCategory(selected.id, payload)
-      if ((res as any)?.category) {
-        toast.success('Cập nhật phân loại thành công')
+      const res = await updateColor(selected.id, payload)
+      if ((res as any)?.color) {
+        toast.success('Cập nhật màu thành công')
         setOpenEdit(false)
         setSelected(null)
-        setEditImageFile(null)
-        setEditImagePreview(null)
         fetchData()
       } else {
         throw new Error('Cập nhật thất bại')
@@ -189,13 +188,13 @@ const CategoryPage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (category: TCategory) => {
-    if (!confirm(`Xóa phân loại "${category.name}"?`)) return
+  const handleDelete = async (color: TColor) => {
+    if (!confirm(`Xóa màu "${color.name}"?`)) return
     try {
       setActionLoading(true)
-      const res = await deleteCategory(category.id)
-      if ((res as any)?.category || (res as any)?.success) {
-        toast.success('Xóa phân loại thành công')
+      const res = await deleteColor(color.id)
+      if ((res as any)?.color || (res as any)?.success) {
+        toast.success('Xóa màu thành công')
         fetchData()
       } else {
         throw new Error('Xóa thất bại')
@@ -208,12 +207,12 @@ const CategoryPage: NextPage = () => {
   }
 
   const [openView, setOpenView] = useState<boolean>(false)
-  const [viewing, setViewing] = useState<TCategory | null>(null)
-  const handleOpenView = async (category: TCategory) => {
+  const [viewing, setViewing] = useState<TColor | null>(null)
+  const handleOpenView = async (color: TColor) => {
     try {
       setActionLoading(true)
-      const res = (await getCategoryById(category.id)) as GetCategoryResponse
-      setViewing(res?.category || category)
+      const res = (await getColorById(color.id)) as GetColorResponse
+      setViewing(res?.color || color)
       setOpenView(true)
     } catch (e) {
       toast.error('Không tải được chi tiết')
@@ -227,10 +226,10 @@ const CategoryPage: NextPage = () => {
       {(loading || actionLoading) && <Spinner />}
       <Stack direction='row' alignItems='center' justifyContent='space-between' sx={{ mb: 3 }}>
         <Typography variant='h5' fontWeight={700}>
-          Quản lý phân loại
+          Quản lý màu sắc
         </Typography>
         <Button variant='contained' startIcon={<AddIcon />} onClick={handleOpenCreate}>
-          Thêm phân loại
+          Thêm màu
         </Button>
       </Stack>
 
@@ -239,13 +238,13 @@ const CategoryPage: NextPage = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant='body2' color='text.secondary'>
-                Tổng phân loại
+                Tổng màu
               </Typography>
               <Typography variant='h5' fontWeight={700} sx={{ my: 1 }}>
-                {totalCategories || 'N/A'}
+                {totalColors || 'N/A'}
               </Typography>
               <Typography variant='caption' color='text.secondary'>
-                {totalCategories ? `${totalCategories} đang hoạt động` : 'N/A'}
+                {totalColors ? `${totalColors} đang hoạt động` : 'N/A'}
               </Typography>
             </CardContent>
           </Card>
@@ -260,7 +259,7 @@ const CategoryPage: NextPage = () => {
                 {totalProducts || 'N/A'}
               </Typography>
               <Typography variant='caption' color='text.secondary'>
-                Từ tất cả phân loại
+                Từ tất cả màu
               </Typography>
             </CardContent>
           </Card>
@@ -287,10 +286,10 @@ const CategoryPage: NextPage = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant='body2' color='text.secondary'>
-                Phân loại mới
+                Màu mới
               </Typography>
               <Typography variant='h5' fontWeight={700} sx={{ my: 1 }}>
-                {typeof newCategories === 'number' ? newCategories : 'N/A'}
+                {typeof newColors === 'number' ? newColors : 'N/A'}
               </Typography>
               <Typography variant='caption' color='text.secondary'>
                 Trong tháng này
@@ -304,7 +303,7 @@ const CategoryPage: NextPage = () => {
         <Stack direction='row' spacing={2}>
           <TextField
             size='small'
-            placeholder='Tìm theo tên hoặc ID...'
+            placeholder='Tìm theo tên, ID hoặc mã màu...'
             value={search}
             onChange={e => setSearch(e.target.value)}
             InputProps={{ startAdornment: (<SearchIcon fontSize='small' />) as any }}
@@ -335,9 +334,8 @@ const CategoryPage: NextPage = () => {
           <TableHead>
             <TableRow>
               <TableCell width={90}>ID</TableCell>
-              <TableCell width={80}>Ảnh</TableCell>
-              <TableCell>Tên phân loại</TableCell>
-              <TableCell>Mô tả</TableCell>
+              <TableCell>Tên màu</TableCell>
+              <TableCell width={140}>Mã màu</TableCell>
               <TableCell width={120}>Trạng thái</TableCell>
               <TableCell width={120} align='right'>
                 Thao tác
@@ -345,25 +343,31 @@ const CategoryPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(category => (
-              <TableRow key={category.id} hover sx={{ opacity: category.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{category.id}</TableCell>
+            {filtered.map(color => (
+              <TableRow key={color.id} hover sx={{ opacity: color.del_flag === '1' ? 0.6 : 1 }}>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{color.id}</TableCell>
+                <TableCell sx={{ textDecoration: color.del_flag === '1' ? 'line-through' : 'none' }}>
+                  {color.name}
+                </TableCell>
                 <TableCell>
-                  <Avatar
-                    src={category.image_url || undefined}
-                    alt={category.name}
-                    variant='rounded'
-                    sx={{ width: 40, height: 40 }}
-                  >
-                    {category.name?.charAt(0) || 'C'}
-                  </Avatar>
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        backgroundColor: color.hex_code
+                      }}
+                    />
+                    <Typography variant='body2' sx={{ fontFamily: 'monospace' }}>
+                      {color.hex_code}
+                    </Typography>
+                  </Box>
                 </TableCell>
-                <TableCell sx={{ textDecoration: category.del_flag === '1' ? 'line-through' : 'none' }}>
-                  {category.name}
-                </TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>{category.description || '-'}</TableCell>
                 <TableCell width={120}>
-                  {category.del_flag === '1' ? (
+                  {color.del_flag === '1' ? (
                     <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
                   ) : (
                     <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
@@ -371,21 +375,17 @@ const CategoryPage: NextPage = () => {
                 </TableCell>
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
-                    <IconButton size='small' onClick={() => handleOpenView(category)}>
+                    <IconButton size='small' onClick={() => handleOpenView(color)}>
                       <VisibilityIcon fontSize='small' />
                     </IconButton>
-                    <IconButton
-                      size='small'
-                      disabled={category.del_flag === '1'}
-                      onClick={() => handleOpenEdit(category)}
-                    >
+                    <IconButton size='small' disabled={color.del_flag === '1'} onClick={() => handleOpenEdit(color)}>
                       <EditIcon fontSize='small' />
                     </IconButton>
                     <IconButton
                       size='small'
                       color='error'
-                      disabled={category.del_flag === '1'}
-                      onClick={() => handleDelete(category)}
+                      disabled={color.del_flag === '1'}
+                      onClick={() => handleDelete(color)}
                     >
                       <DeleteIcon fontSize='small' />
                     </IconButton>
@@ -395,7 +395,7 @@ const CategoryPage: NextPage = () => {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align='center'>
+                <TableCell colSpan={5} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
                 </TableCell>
               </TableRow>
@@ -406,48 +406,57 @@ const CategoryPage: NextPage = () => {
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thêm phân loại</DialogTitle>
+        <DialogTitle>Thêm màu</DialogTitle>
         <DialogContent>
           <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
             <TextField
               autoFocus
               fullWidth
-              label='Tên phân loại'
+              label='Tên màu'
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
             />
             <TextField
-              fullWidth
-              multiline
-              minRows={2}
               sx={{ mt: 2 }}
-              label='Mô tả'
-              value={descriptionInput}
-              onChange={e => setDescriptionInput(e.target.value)}
+              fullWidth
+              label='Mã màu (vd: #000000)'
+              value={hexInput}
+              onChange={e => handleHexChange(e.target.value)}
+              helperText={hexInput && !isValidHex(hexInput) ? 'Định dạng hợp lệ: #RRGGBB' : ' '}
+              error={!!hexInput && !isValidHex(hexInput)}
             />
-            <Box sx={{ mt: 2 }}>
-              <Button component='label' variant='outlined'>
-                Chọn ảnh
-                <input
-                  hidden
-                  type='file'
-                  accept='image/*'
-                  onChange={e => {
-                    const f = e.target.files?.[0] || null
-                    setImageFile(f)
-                    if (imagePreview) URL.revokeObjectURL(imagePreview)
-                    setImagePreview(f ? URL.createObjectURL(f) : null)
-                  }}
-                />
-              </Button>
-              <Typography variant='caption' sx={{ ml: 2 }}>
-                {imageFile ? imageFile.name : 'Chưa chọn ảnh'}
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <input
+                type='color'
+                value={isValidHex(hexInput) ? hexInput : '#000000'}
+                onChange={e => handlePickColor(e.target.value)}
+                style={{ width: 48, height: 32, border: 'none', background: 'transparent' }}
+              />
+              <Typography variant='body2' color='text.secondary'>
+                Chọn nhanh từ bảng màu
               </Typography>
-              {imagePreview ? (
-                <Box sx={{ mt: 2 }}>
-                  <Avatar src={imagePreview} variant='rounded' sx={{ width: 72, height: 72 }} />
-                </Box>
-              ) : null}
+            </Box>
+            <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(10, 24px)', gap: 1 }}>
+              {PRESET_COLORS.map(color => {
+                const selected = isValidHex(hexInput) && hexInput.toUpperCase() === color.toUpperCase()
+                return (
+                  <Box
+                    key={color}
+                    onClick={() => handlePickColor(color)}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      border: '1px solid',
+                      borderColor: selected ? 'primary.main' : 'divider',
+                      boxShadow: selected ? '0 0 0 2px rgba(25,118,210,0.3)' : 'none',
+                      cursor: 'pointer',
+                      backgroundColor: color
+                    }}
+                    title={color}
+                  />
+                )
+              })}
             </Box>
           </Box>
         </DialogContent>
@@ -461,48 +470,57 @@ const CategoryPage: NextPage = () => {
 
       {/* Edit Dialog */}
       <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Cập nhật phân loại</DialogTitle>
+        <DialogTitle>Cập nhật màu</DialogTitle>
         <DialogContent>
           <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
             <TextField
               autoFocus
               fullWidth
-              label='Tên phân loại'
+              label='Tên màu'
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
             />
             <TextField
-              fullWidth
-              multiline
-              minRows={2}
               sx={{ mt: 2 }}
-              label='Mô tả'
-              value={editDescription}
-              onChange={e => setEditDescription(e.target.value)}
+              fullWidth
+              label='Mã màu (vd: #000000)'
+              value={hexInput}
+              onChange={e => handleHexChange(e.target.value)}
+              helperText={hexInput && !isValidHex(hexInput) ? 'Định dạng hợp lệ: #RRGGBB' : ' '}
+              error={!!hexInput && !isValidHex(hexInput)}
             />
-            <Box sx={{ mt: 2 }}>
-              <Button component='label' variant='outlined'>
-                Đổi ảnh
-                <input
-                  hidden
-                  type='file'
-                  accept='image/*'
-                  onChange={e => {
-                    const f = e.target.files?.[0] || null
-                    setEditImageFile(f)
-                    if (editImagePreview) URL.revokeObjectURL(editImagePreview)
-                    setEditImagePreview(f ? URL.createObjectURL(f) : editImagePreview)
-                  }}
-                />
-              </Button>
-              <Typography variant='caption' sx={{ ml: 2 }}>
-                {editImageFile ? editImageFile.name : 'Giữ nguyên nếu không chọn ảnh'}
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <input
+                type='color'
+                value={isValidHex(hexInput) ? hexInput : '#000000'}
+                onChange={e => handlePickColor(e.target.value)}
+                style={{ width: 48, height: 32, border: 'none', background: 'transparent' }}
+              />
+              <Typography variant='body2' color='text.secondary'>
+                Chọn nhanh từ bảng màu
               </Typography>
-              {editImagePreview ? (
-                <Box sx={{ mt: 2 }}>
-                  <Avatar src={editImagePreview} variant='rounded' sx={{ width: 72, height: 72 }} />
-                </Box>
-              ) : null}
+            </Box>
+            <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(10, 24px)', gap: 1 }}>
+              {PRESET_COLORS.map(color => {
+                const selected = isValidHex(hexInput) && hexInput.toUpperCase() === color.toUpperCase()
+                return (
+                  <Box
+                    key={color}
+                    onClick={() => handlePickColor(color)}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      border: '1px solid',
+                      borderColor: selected ? 'primary.main' : 'divider',
+                      boxShadow: selected ? '0 0 0 2px rgba(25,118,210,0.3)' : 'none',
+                      cursor: 'pointer',
+                      backgroundColor: color
+                    }}
+                    title={color}
+                  />
+                )
+              })}
             </Box>
           </Box>
         </DialogContent>
@@ -516,28 +534,26 @@ const CategoryPage: NextPage = () => {
 
       {/* View Dialog */}
       <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin phân loại</DialogTitle>
+        <DialogTitle>Thông tin màu</DialogTitle>
         <DialogContent>
           {viewing ? (
             <Box sx={{ mt: 1 }}>
               <Stack direction='row' spacing={2} alignItems='center'>
-                <Avatar src={viewing.image_url || undefined} variant='rounded' sx={{ width: 72, height: 72 }} />
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    backgroundColor: viewing.hex_code
+                  }}
+                />
                 <Box>
                   <Typography variant='h6'>{viewing.name}</Typography>
-                  <Chip
-                    label={viewing.del_flag === '1' ? 'Đã xóa' : 'Hoạt động'}
-                    color={viewing.del_flag === '1' ? 'error' : 'success'}
-                    size='small'
-                    variant='outlined'
-                  />
+                  <Chip label={viewing.hex_code} size='small' variant='outlined' />
                 </Box>
               </Stack>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant='subtitle2' color='text.secondary'>
-                  Mô tả
-                </Typography>
-                <Typography sx={{ mt: 0.5 }}>{viewing.description || '-'}</Typography>
-              </Box>
               <Grid container spacing={2} sx={{ mt: 1 }}>
                 <Grid item xs={12} sm={6}>
                   <Typography variant='subtitle2' color='text.secondary'>
@@ -575,6 +591,6 @@ const CategoryPage: NextPage = () => {
   )
 }
 
-;(CategoryPage as any).getLayout = (page: React.ReactNode) => <ManageSystemLayout>{page}</ManageSystemLayout>
+;(ColorPage as any).getLayout = (page: React.ReactNode) => <ManageSystemLayout>{page}</ManageSystemLayout>
 
-export default CategoryPage
+export default ColorPage

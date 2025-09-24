@@ -42,6 +42,9 @@ export const CONFIG_API = {
   BRAND: {
     INDEX: `${BASE_URL}/brands`
   },
+  COLOR: {
+    INDEX: `${BASE_URL}/colors`
+  },
   PRODUCT: {
     INDEX: `${BASE_URL}/products`
   },

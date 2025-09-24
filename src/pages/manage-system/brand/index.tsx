@@ -36,6 +36,7 @@ import { getBrands, createBrand, updateBrand, deleteBrand, getBrandById } from '
 import type { TBrand, TCreateBrand, TUpdateBrand, GetBrandsResponse, GetBrandResponse } from 'src/types/brand'
 import { uploadImage } from 'src/services/file'
 import Spinner from 'src/components/spinner'
+import { formatCompactVN } from 'src/utils/date'
 import toast from 'react-hot-toast'
 
 const BrandPage: NextPage = () => {
@@ -529,13 +530,13 @@ const BrandPage: NextPage = () => {
                   <Typography variant='subtitle2' color='text.secondary'>
                     Tạo lúc
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.created_at || '-'}</Typography>
+                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.created_at) || '-'}</Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant='subtitle2' color='text.secondary'>
                     Cập nhật lúc
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.updated_at || '-'}</Typography>
+                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.updated_at) || '-'}</Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant='subtitle2' color='text.secondary'>

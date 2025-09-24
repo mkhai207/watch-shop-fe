@@ -46,6 +46,11 @@ export const VerticalItems: MenuItem[] = [
         path: '/manage-system/discount'
       },
       {
+        title: 'Màu sắc',
+        icon: 'mdi:palette',
+        path: '/manage-system/color'
+      },
+      {
         title: 'Đánh giá',
         icon: 'mdi:star-outline',
         path: '/manage-system/review'
