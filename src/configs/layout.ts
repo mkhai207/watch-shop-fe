@@ -61,6 +61,11 @@ export const VerticalItems: MenuItem[] = [
         path: '/manage-system/strap-material'
       },
       {
+        title: 'Loại máy',
+        icon: 'mdi:cogs',
+        path: '/manage-system/movement-type'
+      },
+      {
         title: 'Báo cáo',
         icon: 'mdi:chart-box-outline',
         path: '/manage-system/analytics'

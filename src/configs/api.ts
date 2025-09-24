@@ -48,6 +48,9 @@ export const CONFIG_API = {
   STRAP_MATERIAL: {
     INDEX: `${BASE_URL}/strap-materials`
   },
+  MOVEMENT_TYPE: {
+    INDEX: `${BASE_URL}/movement-type`
+  },
   PRODUCT: {
     INDEX: `${BASE_URL}/products`
   },
