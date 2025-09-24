@@ -46,7 +46,7 @@ export const CONFIG_API = {
     INDEX: `${BASE_URL}/variants`
   },
   FILE: {
-    UPLOAD: `${BASE_URL}/upload`
+    UPLOAD: `${BASE_URL}/uploads`
   },
   USER_INTERACTION: {
     INDEX: `${BASE_URL}/user-interactions`

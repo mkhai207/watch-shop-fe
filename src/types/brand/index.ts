@@ -1,10 +1,13 @@
 export type TBrand = {
   id: string
   name: string
-  created_at: string
-  created_by: string
-  updated_at: string
-  updated_by: string
+  logo_url?: string
+  description?: string
+  created_at?: string | null
+  created_by?: string | null
+  updated_at?: string | null
+  updated_by?: string | null
+  del_flag?: string | null
 }
 
 export type TParamsGetBrands = {
@@ -16,27 +19,31 @@ export type TParamsGetBrands = {
 
 export type TCreateBrand = {
   name: string
+  logo_url?: string
+  description?: string
 }
 
 export type TUpdateBrand = {
-  id: string
   name: string
+  logo_url?: string
+  description?: string
 }
 
 export type GetBrandsResponse = {
-  success: boolean
-  message: string
-  data: TBrand[]
+  brands: {
+    count: number
+    rows: TBrand[]
+  }
 }
 
 export type CreateBrandResponse = {
-  success: boolean
-  message: string
-  data: TBrand
+  brand: TBrand
 }
 
 export type UpdateBrandResponse = {
-  success: boolean
-  message: string
-  data: TBrand
-} 
+  brand: TBrand
+}
+
+export type GetBrandResponse = {
+  brand: TBrand
+}
