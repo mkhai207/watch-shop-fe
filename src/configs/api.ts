@@ -51,6 +51,12 @@ export const CONFIG_API = {
   MOVEMENT_TYPE: {
     INDEX: `${BASE_URL}/movement-type`
   },
+  WATCH: {
+    INDEX: `${BASE_URL}/watches`
+  },
+  WATCH_VARIANT: {
+    INDEX: `${BASE_URL}/watch-variants`
+  },
   PRODUCT: {
     INDEX: `${BASE_URL}/products`
   },

@@ -18,7 +18,7 @@ export const VerticalItems: MenuItem[] = [
       {
         title: 'Sản phẩm',
         icon: 'mdi:package-variant',
-        path: '/manage-system/product'
+        path: '/manage-system/watch'
       },
       {
         title: 'Đơn hàng',
