@@ -91,7 +91,7 @@ const CardProduct = (props: TCardProduct) => {
       <CardContent
         sx={{
           padding: '16px',
-          backgroundColor: '#f9f9f9',
+          backgroundColor: 'background.default',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',

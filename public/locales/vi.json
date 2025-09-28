@@ -62,5 +62,17 @@
   "admin-dashboard": "Trang quản trị",
   "best-seller": "Sản phẩm bán chạy",
   "you-may-like": "Có thể bạn sẽ thích",
-  "similar-products": "Sản phẩm tương tự"
+  "similar-products": "Sản phẩm tương tự",
+  "wishlist": "Danh sách yêu thích",
+  "settings": "Cài đặt",
+  "help-support": "Trợ giúp & Hỗ trợ",
+  "my-orders": "Đơn hàng của tôi",
+  "account-management": "Quản lý tài khoản",
+  "system-administration": "Quản trị hệ thống",
+  "personal-information": "Quản lý thông tin cá nhân",
+  "view-order-history": "Xem lịch sử đơn hàng",
+  "saved-products": "Sản phẩm đã lưu",
+  "customize-account": "Tùy chỉnh tài khoản",
+  "contact-support": "Liên hệ hỗ trợ",
+  "logout-account": "Đăng xuất khỏi tài khoản"
 }

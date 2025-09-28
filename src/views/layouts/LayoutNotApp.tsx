@@ -4,9 +4,9 @@ import Box from '@mui/material/Box'
 import Toolbar from '@mui/material/Toolbar'
 import Container from '@mui/material/Container'
 import { NextPage } from 'next'
-import HorizontalLayout from './HorizontalLayout'
 import { useTheme } from '@mui/material'
-import FooterLayout from './FooterLayout'
+import LuxuryHeader from 'src/components/luxury-header/LuxuryHeader'
+import LuxuryFooter from 'src/components/luxury-footer/LuxuryFooter'
 
 type TProps = {
   children: React.ReactNode
@@ -16,34 +16,29 @@ const LayoutNotApp: NextPage<TProps> = ({ children }) => {
   const theme = useTheme()
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <CssBaseline />
-      <HorizontalLayout toggleDrawer={() => {}} open={false} isHideMenu />
+      <LuxuryHeader />
       <Box
         component='main'
         sx={{
-          backgroundColor: theme =>
-            theme.palette.mode === 'light' ? theme.palette.grey[100] : theme.palette.grey[900],
+          backgroundColor: theme.palette.background.default,
           flexGrow: 1,
-          height: '100vh',
-          overflow: 'auto'
+          pt: 8, // Account for fixed header
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
-        <Toolbar />
         <Container
           maxWidth='lg'
           sx={{
-            m: 4,
-            backgroundColor: theme.palette.background.paper,
-            width: 'calc(100vw - 32px)',
-            maxWidth: 'unset !important',
-            overflow: 'auto',
-            maxHeight: `calc(100vh - ${theme.mixins.toolbar.minHeight} - 32px)`
+            flexGrow: 1,
+            py: 4
           }}
         >
           {children}
         </Container>
-        <FooterLayout />
+        <LuxuryFooter />
       </Box>
     </Box>
   )

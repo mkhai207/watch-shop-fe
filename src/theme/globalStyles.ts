@@ -22,7 +22,7 @@ const GlobalStyles = (theme: Theme) => {
       right: '0 !important',
       left: 'auto !important',
       '&:hover, &:focus, &.ps--clicking': {
-        backgroundColor: theme.palette.mode === 'light' ? '#F1F0F5 !important' : '#393D55 !important'
+        backgroundColor: theme.palette.mode === 'light' ? '#f5f4f2 !important' : '#393D55 !important'
       },
       '& .ps__thumb-y': {
         right: '3px !important',
@@ -54,6 +54,12 @@ const GlobalStyles = (theme: Theme) => {
         position: 'fixed',
         backgroundColor: theme.palette.primary.main
       }
+    },
+    html: {
+      scrollBehavior: 'smooth'
+    },
+    body: {
+      scrollBehavior: 'smooth'
     }
   }
 }

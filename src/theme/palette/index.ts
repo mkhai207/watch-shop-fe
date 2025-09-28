@@ -16,7 +16,7 @@ const DefaultPalette = (mode: Palette['mode'], skin: Skin): Palette => {
     } else if (skin === 'bordered' && mode === 'dark') {
       return darkPaperBgColor
     } else if (mode === 'light') {
-      return '#F8F7FA'
+      return '#faf8f5'
     } else return '#25293C'
   }
 
@@ -27,11 +27,11 @@ const DefaultPalette = (mode: Palette['mode'], skin: Skin): Palette => {
       light: lightColor,
       lightPaperBg: whiteColor,
       darkPaperBg: darkPaperBgColor,
-      bodyBg: mode === 'light' ? '#F8F7FA' : '#25293C', // Same as palette.background.default but doesn't consider bordered skin
-      trackBg: mode === 'light' ? '#F1F0F2' : '#363B54',
-      avatarBg: mode === 'light' ? '#DBDADE' : '#4A5072',
-      tableHeaderBg: mode === 'light' ? '#F6F6F7' : '#4A5072',
-      borderColor: mode === 'light' ? '#E0E0E0' : '#4A5072' // them
+      bodyBg: mode === 'light' ? '#faf8f5' : '#25293C', // Same as palette.background.default but doesn't consider bordered skin
+      trackBg: mode === 'light' ? '#f5f4f2' : '#363B54',
+      avatarBg: mode === 'light' ? '#e8e6e3' : '#4A5072',
+      tableHeaderBg: mode === 'light' ? '#f5f4f2' : '#4A5072',
+      borderColor: mode === 'light' ? '#e8e6e3' : '#4A5072' // them
     },
     mode: mode,
     common: {
@@ -39,9 +39,9 @@ const DefaultPalette = (mode: Palette['mode'], skin: Skin): Palette => {
       white: whiteColor
     },
     primary: {
-      light: '#8479F2',
-      main: '#7367F0',
-      dark: '#655BD3',
+      light: '#df736e',
+      main: '#dc655f',
+      dark: '#c55a54',
       contrastText: whiteColor
     },
     secondary: {
@@ -78,7 +78,7 @@ const DefaultPalette = (mode: Palette['mode'], skin: Skin): Palette => {
       50: '#FAFAFA',
       100: '#F5F5F5',
       200: '#EEEEEE',
-      300: '#E0E0E0',
+      300: '#e8e6e3',
       400: '#BDBDBD',
       500: '#9E9E9E',
       600: '#757575',

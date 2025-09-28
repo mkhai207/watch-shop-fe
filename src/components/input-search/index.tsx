@@ -273,7 +273,7 @@ import React, { useEffect, useState, forwardRef, useRef } from 'react'
 
 // ** Mui
 import { InputBase, styled, IconButton, ClickAwayListener } from '@mui/material'
-import Icon from 'src/components/Icon'
+import { Icon } from '@iconify/react'
 
 interface TInputSearch {
   value: string

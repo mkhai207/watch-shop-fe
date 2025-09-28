@@ -1,60 +1,31 @@
-// ** Mui Imports
-import { Badge, styled } from '@mui/material'
-import Avatar from '@mui/material/Avatar'
-import Box from '@mui/material/Box'
-import Divider from '@mui/material/Divider'
-import IconButton from '@mui/material/IconButton'
-import Menu from '@mui/material/Menu'
-import MenuItem from '@mui/material/MenuItem'
-import Tooltip from '@mui/material/Tooltip'
-import Typography from '@mui/material/Typography'
-import Image from 'next/image'
+import React, { useState } from 'react'
+import {
+  Avatar,
+  Box,
+  Chip,
+  Divider,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+  alpha,
+  useTheme
+} from '@mui/material'
 import { useRouter } from 'next/router'
-import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import IconifyIcon from 'src/components/Icon'
+import Image from 'next/image'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
 
-type TProps = {}
-
-const StyledBadge = styled(Badge)(({ theme }) => ({
-  '& .MuiBadge-badge': {
-    backgroundColor: '#44b700',
-    color: '#44b700',
-    boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
-    '&::after': {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      borderRadius: '50%',
-      animation: 'ripple 1.2s infinite ease-in-out',
-      border: '1px solid currentColor',
-      content: '""'
-    }
-  },
-  '@keyframes ripple': {
-    '0%': {
-      transform: 'scale(.8)',
-      opacity: 1
-    },
-    '100%': {
-      transform: 'scale(2.4)',
-      opacity: 0
-    }
-  }
-}))
-
-const UserDropdown = (props: TProps) => {
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
-
-  const open = Boolean(anchorEl)
+const UserDropdown = () => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const theme = useTheme()
   const { user, logout } = useAuth()
   const router = useRouter()
-
   const { t } = useTranslation()
+
+  const open = Boolean(anchorEl)
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -64,144 +35,372 @@ const UserDropdown = (props: TProps) => {
     setAnchorEl(null)
   }
 
-  const handleNavigateMyProfile = () => {
-    router.push(`/${ROUTE_CONFIG.MY_PROFILE}`)
-  }
-
-  const handleNavigateOrderHistory = () => {
-    router.push(`/${ROUTE_CONFIG.ORDER_HISTORY}`)
-  }
-
-  const handleNavigateAdmin = () => {
-    router.push(`/${ROUTE_CONFIG.MANAGE_PAGE}`)
+  const handleNavigate = (path: string) => {
+    router.push(path)
+    handleClose()
   }
 
   return (
-    <React.Fragment>
-      <Box sx={{ display: 'flex', alignItems: 'center', textAlign: 'center' }}>
-        <Tooltip title={t('Account')}>
-          <IconButton
-            onClick={handleClick}
-            size='small'
-            sx={{ ml: 2 }}
-            aria-controls={open ? 'account-menu' : undefined}
-            aria-haspopup='true'
-            aria-expanded={open ? 'true' : undefined}
+    <>
+      <Tooltip title='Tài khoản' arrow>
+        <IconButton
+          onClick={handleClick}
+          size='small'
+          sx={{
+            ml: 2,
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'scale(1.05)',
+              backgroundColor: alpha(theme.palette.primary.main, 0.08)
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 36,
+              height: 36,
+              border: `2px solid ${alpha(theme.palette.primary.main, 0.1)}`
+            }}
           >
-            <StyledBadge overlap='circular' anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} variant='dot'>
-              <Avatar sx={{ width: 32, height: 32 }}>
-                {user?.avatar ? (
-                  <Image src={user?.avatar || ''} alt='avatar' width={80} height={80} />
-                ) : (
-                  <IconifyIcon icon='clarity:avatar-line' />
-                )}
-              </Avatar>
-            </StyledBadge>
-          </IconButton>
-        </Tooltip>
-      </Box>
+            {user?.avatar ? (
+              <Image src={user.avatar} alt='avatar' width={36} height={36} style={{ borderRadius: '50%' }} />
+            ) : (
+              <span style={{ fontSize: '20px' }}>👤</span>
+            )}
+          </Avatar>
+        </IconButton>
+      </Tooltip>
+
       <Menu
         anchorEl={anchorEl}
-        id='account-menu'
         open={open}
         onClose={handleClose}
-        onClick={handleClose}
-        slotProps={{
-          paper: {
-            elevation: 0,
-            sx: {
-              overflow: 'visible',
-              filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
-              mt: 1.5,
-              '& .MuiAvatar-root': {
-                width: 32,
-                height: 32,
-                ml: -0.5,
-                mr: 1
-              },
-              '&::before': {
-                content: '""',
-                display: 'block',
-                position: 'absolute',
-                top: 0,
-                right: 14,
-                width: 10,
-                height: 10,
-                bgcolor: 'background.paper',
-                transform: 'translateY(-50%) rotate(45deg)',
-                zIndex: 0
-              }
-            }
-          }
-        }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            minWidth: '280px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            mt: 1
+          }
+        }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mx: 2, py: 2, px: 2 }}>
-          <StyledBadge overlap='circular' anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} variant='dot'>
-            <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.avatar ? (
-                <Image
-                  src={user?.avatar || ''}
-                  alt='avatar'
-                  width={0}
-                  height={0}
-                  style={{
-                    height: '32px',
-                    width: '32px',
-                    objectFit: 'cover'
-                  }}
-                />
-              ) : (
-                <IconifyIcon icon='ph:user-thin' />
-              )}
-            </Avatar>
-          </StyledBadge>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography component={'span'}>{user?.fullName}</Typography>
-            <Typography component={'span'}>{user?.role?.name}</Typography>
+        {/* User Info Header */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            p: 3,
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 48,
+              height: 48,
+              border: `3px solid ${alpha(theme.palette.primary.main, 0.2)}`
+            }}
+          >
+            {user?.avatar ? (
+              <Image src={user.avatar} alt='avatar' width={48} height={48} style={{ borderRadius: '50%' }} />
+            ) : (
+              <span style={{ fontSize: '24px' }}>👤</span>
+            )}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant='subtitle1'
+              fontWeight={600}
+              sx={{
+                color: theme.palette.text.primary,
+                mb: 0.5,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {user?.fullName || 'Người dùng'}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={user?.role?.name || 'Khách hàng'}
+                size='small'
+                sx={{
+                  height: 20,
+                  fontSize: '0.75rem',
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  color: theme.palette.primary.main,
+                  fontWeight: 500
+                }}
+              />
+              <Chip
+                label='Online'
+                size='small'
+                sx={{
+                  height: 20,
+                  fontSize: '0.75rem',
+                  backgroundColor: '#44b700',
+                  color: 'white',
+                  fontWeight: 500
+                }}
+              />
+            </Box>
           </Box>
         </Box>
-        <Divider />
+
+        {/* Admin Section */}
         {(user?.role?.code === 'ADMIN' || user?.role?.code === 'STAFF') && (
-          <MenuItem onClick={handleNavigateAdmin}>
-            <Avatar>
-              <IconifyIcon icon='clarity:administrator-line' />
-            </Avatar>{' '}
-            {t('admin-dashboard')}
-          </MenuItem>
+          <>
+            <MenuItem
+              onClick={() => handleNavigate(`/${ROUTE_CONFIG.MANAGE_PAGE}`)}
+              sx={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                margin: '4px 8px',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                  transform: 'translateX(4px)'
+                }
+              }}
+            >
+              <Avatar
+                sx={{
+                  backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                  color: theme.palette.warning.main,
+                  width: 36,
+                  height: 36,
+                  mr: 2
+                }}
+              >
+                <span>👑</span>
+              </Avatar>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant='body2' fontWeight={500}>
+                  Trang quản trị
+                </Typography>
+                <Typography variant='caption' color='text.secondary'>
+                  Quản trị hệ thống
+                </Typography>
+              </Box>
+            </MenuItem>
+            <Divider sx={{ mx: 2, my: 1 }} />
+          </>
         )}
 
-        <MenuItem onClick={handleNavigateMyProfile}>
-          <Avatar>
-            <IconifyIcon icon='ph:user-thin' />
-          </Avatar>{' '}
-          {t('my-profile')}
+        {/* Main Menu Items */}
+        <MenuItem
+          onClick={() => handleNavigate(`/${ROUTE_CONFIG.MY_PROFILE}`)}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+              color: theme.palette.primary.main,
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>👤</span>
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Hồ sơ của tôi
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Quản lý thông tin cá nhân
+            </Typography>
+          </Box>
         </MenuItem>
 
-        <MenuItem onClick={handleNavigateOrderHistory}>
-          <Avatar sx={{ backgroundColor: 'transparent' }}>
-            <IconifyIcon icon='lets-icons:order-light' />
+        <MenuItem
+          onClick={() => handleNavigate(`/${ROUTE_CONFIG.ORDER_HISTORY}`)}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+              color: theme.palette.info.main,
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>📦</span>
           </Avatar>
-          {t('order-history')}
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Lịch sử đơn hàng
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Xem lịch sử đơn hàng
+            </Typography>
+          </Box>
         </MenuItem>
 
-        <MenuItem onClick={logout}>
-          <Avatar sx={{ backgroundColor: 'transparent' }}>
-            <IconifyIcon icon='teenyicons:password-outline' />
+        <MenuItem
+          onClick={() => handleNavigate('/wishlist')}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.error.main, 0.1),
+              color: theme.palette.error.main,
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>❤️</span>
           </Avatar>
-          {t('change-password')}
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Danh sách yêu thích
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Sản phẩm đã lưu
+            </Typography>
+          </Box>
         </MenuItem>
 
-        <Divider />
-        <MenuItem onClick={logout}>
-          <Avatar sx={{ backgroundColor: 'transparent' }}>
-            <IconifyIcon icon='material-symbols:logout' />
+        <MenuItem
+          onClick={() => handleNavigate('/settings')}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.grey[500], 0.1),
+              color: theme.palette.grey[600],
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>⚙️</span>
           </Avatar>
-          {t('logout')}
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Cài đặt
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Tùy chỉnh tài khoản
+            </Typography>
+          </Box>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => handleNavigate('/help')}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.success.main, 0.1),
+              color: theme.palette.success.main,
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>❓</span>
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Trợ giúp & Hỗ trợ
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Liên hệ hỗ trợ
+            </Typography>
+          </Box>
+        </MenuItem>
+
+        <Divider sx={{ mx: 2, my: 1 }} />
+
+        {/* Logout */}
+        <MenuItem
+          onClick={logout}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.error.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.error.main, 0.1),
+              color: theme.palette.error.main,
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>🚪</span>
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Đăng xuất
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Đăng xuất khỏi tài khoản
+            </Typography>
+          </Box>
         </MenuItem>
       </Menu>
-    </React.Fragment>
+    </>
   )
 }
 
