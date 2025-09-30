@@ -28,6 +28,8 @@ import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION_MIN } from 'src/configs/gridConfig'
 import { useAuth } from 'src/hooks/useAuth'
 import { getDetailsProductPublic, getSimilarProducts } from 'src/services/product'
+import { getWatchById } from 'src/services/watch'
+import type { TWatch } from 'src/types/watch'
 import { fetchReviewsByProductId } from 'src/services/review'
 import { AppDispatch, RootState } from 'src/stores'
 import { resetCart } from 'src/stores/apps/cart'
@@ -48,6 +50,12 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [productDetail, setProductDetail] = useState<TProductDetail | null>(null)
+  const [watchDetail, setWatchDetail] = useState<TWatch | null>(null)
+  // Variant selections for Watch detail
+  const [selectedStrapId, setSelectedStrapId] = useState<string | null>(null)
+  const [colorOptions, setColorOptions] = useState<{ id: string; name: string; hex_code?: string }[]>([])
+  const [strapOptions, setStrapOptions] = useState<{ id: string; name: string }[]>([])
+  const [filteredStrapOptions, setFilteredStrapOptions] = useState<{ id: string; name: string }[]>([])
   const router = useRouter()
   const dispatch: AppDispatch = useDispatch()
   const { isLoading, isSuccess, isError, message } = useSelector((state: RootState) => state.cart)
@@ -109,8 +117,66 @@ const DetailProductPage: NextPage<TProps> = () => {
   // Handle color change
   const handleColorChange = (colorId: string) => {
     setSelectedColor(colorId)
-    setSelectedSize('') // Reset size khi đổi color
+    setSelectedSize('') // Reset size khi đổi color for ProductDetail flow
   }
+
+  // For Watch detail: map variants to color/strap options and set defaults
+  useEffect(() => {
+    const initLookups = async () => {
+      if (!watchDetail) return
+      try {
+        const token =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('accessToken') || localStorage.getItem('token') || ''
+            : ''
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+        const activeVariants = (watchDetail.variants || []).filter((v: any) => String(v.del_flag) !== '1')
+        const uniqueColorIds = Array.from(new Set(activeVariants.map((v: any) => v.color_id)))
+        const uniqueStrapIds = Array.from(new Set(activeVariants.map((v: any) => v.strap_material_id)))
+
+        const [colorsRes, strapsRes] = await Promise.all([
+          fetch('http://localhost:8080/v1/colors?page=1&limit=1000', { headers }),
+          fetch('http://localhost:8080/v1/strap-materials?page=1&limit=1000', { headers })
+        ])
+        if (colorsRes.ok) {
+          const data = await colorsRes.json()
+          const rows = (data?.colors?.rows || []).filter((r: any) => uniqueColorIds.includes(r.id))
+          setColorOptions(rows.map((r: any) => ({ id: r.id, name: r.name, hex_code: r.hex_code })))
+        }
+        if (strapsRes.ok) {
+          const data = await strapsRes.json()
+          const rows = (data?.strapMaterials?.rows || []).filter((r: any) => uniqueStrapIds.includes(r.id))
+          setStrapOptions(rows.map((r: any) => ({ id: r.id, name: r.name })))
+        }
+
+        // defaults from first variant
+        const first = activeVariants?.[0]
+        if (first) {
+          setSelectedColor(first.color_id)
+          setSelectedStrapId(first.strap_material_id)
+        }
+      } catch {}
+    }
+    initLookups()
+  }, [watchDetail])
+
+  // When color changes, only show straps available with that color
+  useEffect(() => {
+    if (!watchDetail) return
+    const allowedIds = Array.from(
+      new Set(
+        (watchDetail.variants || [])
+          .filter((v: any) => String(v.del_flag) !== '1' && v.color_id === selectedColor)
+          .map((v: any) => v.strap_material_id)
+      )
+    )
+    const nextOptions = strapOptions.filter(s => allowedIds.includes(s.id))
+    setFilteredStrapOptions(nextOptions)
+    if (nextOptions.length && (!selectedStrapId || !allowedIds.includes(selectedStrapId))) {
+      setSelectedStrapId(nextOptions[0].id)
+    }
+  }, [selectedColor, strapOptions, watchDetail, selectedStrapId])
 
   const fetchGetDetailProductPublic = useCallback(async () => {
     const productId = router?.query?.productId as string
@@ -133,16 +199,29 @@ const DetailProductPage: NextPage<TProps> = () => {
         if (response?.data?.colors && response.data.colors.length > 0) {
           setSelectedColor(response.data.colors[0].id)
         }
+      } else {
+        // fallback: try watch details
+        const wRes = (await getWatchById(String(productId))) as any
+        if (wRes?.watch) {
+          setWatchDetail(wRes.watch)
+        }
       }
     } catch (error: any) {
       console.error('Error fetching products:', error)
+      // attempt watch fetch on error
+      try {
+        const wRes = (await getWatchById(String(productId))) as any
+        if (wRes?.watch) {
+          setWatchDetail(wRes.watch)
+        }
+      } catch {}
     } finally {
       setLoading(false)
     }
   }, [router?.query?.productId])
 
   const handleQuantityChange = (change: number) => {
-    const maxStock = getSelectedSizeStock()
+    const maxStock = getMaxQuantity()
     const newQuantity = quantity + change
     setQuantity(Math.max(1, Math.min(newQuantity, maxStock)))
   }
@@ -232,6 +311,32 @@ const DetailProductPage: NextPage<TProps> = () => {
   }
 
   const handleAddToCart = () => {
+    if (isWatch) {
+      if (!watchDetail?.id) {
+        return toast.error('Sản phẩm không tồn tại')
+      }
+      if (!selectedColor) {
+        return toast.error('Vui lòng chọn màu')
+      }
+      if (!selectedStrapId) {
+        return toast.error('Vui lòng chọn dây')
+      }
+
+      const variant = (watchDetail?.variants || []).find(
+        (v: any) =>
+          String(v.del_flag) !== '1' && v.color_id === selectedColor && v.strap_material_id === selectedStrapId
+      )
+      if (!variant) {
+        return toast.error('Biến thể không hợp lệ')
+      }
+      return dispatch(
+        addToCartAsync({
+          variant_id: Number(variant.id),
+          quantity
+        })
+      )
+    }
+
     if (!productDetail?.id) {
       return toast.error('Sản phẩm không tồn tại')
     }
@@ -252,6 +357,15 @@ const DetailProductPage: NextPage<TProps> = () => {
         quantity: quantity
       })
     )
+  }
+
+  const getMaxQuantity = () => {
+    if (isWatch) {
+      // stock by selected watch variant
+      const stock = (selectedVariant as any)?.stock_quantity || 0
+      return stock
+    }
+    return getSelectedSizeStock()
   }
 
   useEffect(() => {
@@ -279,10 +393,32 @@ const DetailProductPage: NextPage<TProps> = () => {
     }
   }, [productDetail])
 
+  const isWatch = !!watchDetail
+  const mainImages = parseSlider((isWatch ? watchDetail?.slider : (productDetail as any)?.slider) || '')
+  const displayName = (isWatch ? watchDetail?.name : productDetail?.name) || ''
+  // For watches, price is from selected variant if available
+  const selectedVariant = isWatch
+    ? (watchDetail?.variants || [])
+        .filter((v: any) => String(v.del_flag) !== '1')
+        .find((v: any) => v.color_id === selectedColor && v.strap_material_id === selectedStrapId)
+    : null
+  const displayPrice = isWatch
+    ? (selectedVariant?.price || 0) > 0
+      ? selectedVariant?.price
+      : watchDetail?.base_price || 0
+    : (productDetail as any)?.price || 0
+  const displayStatus = isWatch
+    ? watchDetail?.status
+      ? 'Còn hàng'
+      : 'Hết hàng'
+    : productDetail?.status
+      ? 'Còn hàng'
+      : 'Hết hàng'
+
   return (
     <>
       {isLoading && loading && <Spinner />}
-      <Container maxWidth='lg' sx={{ py: 4 }}>
+      <Container maxWidth='lg' sx={{ py: 4, mt: 4 }}>
         <Grid container spacing={4}>
           {/* Product Images Section */}
           <Grid item xs={12} md={6}>
@@ -300,17 +436,27 @@ const DetailProductPage: NextPage<TProps> = () => {
                 <CardMedia
                   component='img'
                   height={500}
-                  image={parseSlider(productDetail?.slider || '')[selectedImage]}
+                  image={mainImages[selectedImage]}
                   alt='Áo Sơ Mi Jeans Crotop'
                   sx={{ objectFit: 'cover' }}
                 />
               </Paper>
 
-              {/* Thumbnail Images */}
-              <Grid container spacing={1}>
-                {parseSlider(productDetail?.slider || '').map((image, index) => (
-                  <Grid item xs={4} key={index}>
+              {/* Thumbnail Images - horizontal list */}
+              <Box sx={{ mt: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    overflowX: 'auto',
+                    pb: 1,
+                    '&::-webkit-scrollbar': { height: 6 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: 'grey.400', borderRadius: 8 }
+                  }}
+                >
+                  {mainImages.map((image, index) => (
                     <Paper
+                      key={index}
                       elevation={selectedImage === index ? 3 : 1}
                       sx={{
                         cursor: 'pointer',
@@ -318,10 +464,8 @@ const DetailProductPage: NextPage<TProps> = () => {
                         borderColor: selectedImage === index ? 'primary.main' : 'grey.300',
                         overflow: 'hidden',
                         borderRadius: 1,
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          elevation: 2
-                        }
+                        minWidth: 100,
+                        maxWidth: 100
                       }}
                       onClick={() => setSelectedImage(index)}
                     >
@@ -333,9 +477,9 @@ const DetailProductPage: NextPage<TProps> = () => {
                         sx={{ objectFit: 'cover' }}
                       />
                     </Paper>
-                  </Grid>
-                ))}
-              </Grid>
+                  ))}
+                </Box>
+              </Box>
             </Box>
           </Grid>
 
@@ -345,118 +489,253 @@ const DetailProductPage: NextPage<TProps> = () => {
               {/* Title*/}
               <Box display='flex' justifyContent='space-between' alignItems='flex-start' mb={2}>
                 <Typography variant='h4' component='h1' fontWeight='bold' sx={{ flexGrow: 1, mr: 2 }}>
-                  {productDetail?.name}
+                  {displayName}
                 </Typography>
               </Box>
 
-              {/* Brand and Category Info */}
+              {/* Brand, Category, Movement */}
               <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
                 <Box component='span' fontWeight='medium'>
                   Thương hiệu:
                 </Box>{' '}
-                {productDetail?.brand.name}|{' '}
+                {isWatch ? (watchDetail?.brand as any)?.name : (productDetail as any)?.brand?.name}
+                {' | '}
                 <Box component='span' fontWeight='medium'>
                   Loại:
                 </Box>{' '}
-                {productDetail?.category.name} |{' '}
+                {isWatch ? (watchDetail?.category as any)?.name : (productDetail as any)?.category?.name}
+                {' | '}
+                <Box component='span' fontWeight='medium'>
+                  Bộ máy:
+                </Box>{' '}
+                {isWatch ? (watchDetail?.movementType as any)?.name : (productDetail as any)?.movementType?.name}
+                {' | '}
                 <Box component='span' fontWeight='medium'>
                   MSP:
                 </Box>{' '}
-                {productDetail?.id}
+                {isWatch ? watchDetail?.id : productDetail?.id}
               </Typography>
 
               {/* Price */}
               <Box mb={3}>
                 <Typography variant='h3' color='error' fontWeight='bold' sx={{ mb: 1 }}>
-                  {productDetail?.price} VNĐ
+                  {displayPrice.toLocaleString('vi-VN')} VNĐ
                 </Typography>
                 <Typography variant='body1' color='success.main' fontWeight='medium'>
                   <Box component='span' fontWeight='bold'>
                     Tình trạng:
                   </Box>{' '}
-                  {productDetail?.status ? 'Còn hàng' : 'Hết hàng'}
+                  {displayStatus}
                 </Typography>
               </Box>
+
+              {/* Variant selectors for Watch */}
+              {isWatch && (
+                <Box mb={3}>
+                  <Typography variant='body1' fontWeight='bold' gutterBottom>
+                    Tuỳ chọn
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant='body2' fontWeight='medium' gutterBottom>
+                        Màu sắc
+                      </Typography>
+                      <Box display='flex' gap={1} flexWrap='wrap'>
+                        {colorOptions.map(c => (
+                          <Tooltip key={c.id} title={c.name} arrow>
+                            <Box
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                backgroundColor: c.hex_code || '#ccc',
+                                border: '2px solid',
+                                borderColor: selectedColor === c.id ? 'primary.main' : 'grey.300',
+                                borderRadius: '50%',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => setSelectedColor(c.id)}
+                            />
+                          </Tooltip>
+                        ))}
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant='body2' fontWeight='medium' gutterBottom>
+                        Vật liệu dây
+                      </Typography>
+                      <Box display='flex' gap={1} flexWrap='wrap'>
+                        {filteredStrapOptions.map(s => (
+                          <Button
+                            key={s.id}
+                            size='small'
+                            variant={selectedStrapId === s.id ? 'contained' : 'outlined'}
+                            onClick={() => setSelectedStrapId(s.id)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            {s.name}
+                          </Button>
+                        ))}
+                      </Box>
+                    </Grid>
+                  </Grid>
+                  {/* Variant price caption removed as requested */}
+                </Box>
+              )}
+
+              {/* Watch specs */}
+              {isWatch && (
+                <Box mb={3}>
+                  <Grid container spacing={1.5}>
+                    {!!watchDetail?.model && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Model: <b>{watchDetail.model}</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {!!watchDetail?.case_material && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Vỏ: <b>{watchDetail.case_material}</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {!!watchDetail?.case_size && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Kích thước vỏ: <b>{watchDetail.case_size} mm</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {!!watchDetail?.strap_size && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Độ rộng dây: <b>{watchDetail.strap_size} mm</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {!!watchDetail?.water_resistance && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Chống nước: <b>{watchDetail.water_resistance}</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {watchDetail?.gender !== undefined && watchDetail?.gender !== null && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Giới tính: <b>{String(watchDetail.gender) === '1' ? 'Nữ' : 'Nam'}</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {!!watchDetail?.release_date && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Ra mắt: <b>{watchDetail.release_date}</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                    {watchDetail?.sold !== undefined && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant='body2'>
+                          Đã bán: <b>{watchDetail.sold}</b>
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Box>
+              )}
 
               {/* Color Selection */}
-              <Box mb={3}>
-                <Typography variant='body1' fontWeight='bold' gutterBottom>
-                  Màu sắc: {productDetail?.colors.find(color => color.id === selectedColor)?.name}
-                </Typography>
-                <Box display='flex' gap={1}>
-                  {productDetail?.colors.map(color => (
-                    <Tooltip key={color.id} title={color.name} arrow>
-                      <Box
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          backgroundColor: color.hex_code,
-                          border: '2px solid',
-                          borderColor: selectedColor === color.id ? 'primary.main' : 'grey.300',
-                          borderRadius: '50%',
-                          cursor: 'pointer',
-                          '&:hover': { transform: 'scale(1.1)' },
-                          transition: 'transform 0.2s'
-                        }}
-                        onClick={() => handleColorChange(color.id)}
-                      />
-                    </Tooltip>
-                  ))}
+              {!isWatch && (
+                <Box mb={3}>
+                  <Typography variant='body1' fontWeight='bold' gutterBottom>
+                    Màu sắc: {productDetail?.colors.find(color => color.id === selectedColor)?.name}
+                  </Typography>
+                  <Box display='flex' gap={1}>
+                    {productDetail?.colors.map(color => (
+                      <Tooltip key={color.id} title={color.name} arrow>
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            backgroundColor: color.hex_code,
+                            border: '2px solid',
+                            borderColor: selectedColor === color.id ? 'primary.main' : 'grey.300',
+                            borderRadius: '50%',
+                            cursor: 'pointer',
+                            '&:hover': { transform: 'scale(1.1)' },
+                            transition: 'transform 0.2s'
+                          }}
+                          onClick={() => handleColorChange(color.id)}
+                        />
+                      </Tooltip>
+                    ))}
+                  </Box>
                 </Box>
-              </Box>
+              )}
 
               {/* Size Selection */}
-              <Box mb={3}>
-                <Box display='flex' alignItems='center' gap={2} mb={2}>
-                  <Typography variant='body1' fontWeight='bold'>
-                    Kích thước:
-                  </Typography>
-                  <Button
-                    variant='text'
-                    size='small'
-                    startIcon={
-                      <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-                        <rect x='1' y='3' width='15' height='13' />
-                        <polygon points='16,3 21,8 21,21 8,21 8,13 16,3' />
-                      </svg>
-                    }
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Hướng dẫn chọn size
-                  </Button>
+              {!isWatch && (
+                <Box mb={3}>
+                  <Box display='flex' alignItems='center' gap={2} mb={2}>
+                    <Typography variant='body1' fontWeight='bold'>
+                      Kích thước:
+                    </Typography>
+                    <Button
+                      variant='text'
+                      size='small'
+                      startIcon={
+                        <svg
+                          width='20'
+                          height='20'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                        >
+                          <rect x='1' y='3' width='15' height='13' />
+                          <polygon points='16,3 21,8 21,21 8,21 8,13 16,3' />
+                        </svg>
+                      }
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Hướng dẫn chọn size
+                    </Button>
+                  </Box>
+                  {selectedColor ? (
+                    <Stack direction='row' spacing={1}>
+                      {getAvailableSizes().map(size => (
+                        <Button
+                          key={size.id}
+                          variant={selectedSize === size.id ? 'contained' : 'outlined'}
+                          size='small'
+                          onClick={() => setSelectedSize(size.id)}
+                          sx={{
+                            minWidth: 48,
+                            height: 40,
+                            fontWeight: 'medium'
+                          }}
+                        >
+                          {size.name}
+                          <Typography variant='caption' sx={{ ml: 0.5, opacity: 0.7 }}>
+                            ({size.stock})
+                          </Typography>
+                        </Button>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Typography variant='body2' color='text.secondary'>
+                      Vui lòng chọn màu sắc trước
+                    </Typography>
+                  )}
+                  {selectedSize && (
+                    <Typography variant='caption' color='success.main' sx={{ mt: 1, display: 'block' }}>
+                      Còn lại: {getSelectedSizeStock()} sản phẩm
+                    </Typography>
+                  )}
                 </Box>
-                {selectedColor ? (
-                  <Stack direction='row' spacing={1}>
-                    {getAvailableSizes().map(size => (
-                      <Button
-                        key={size.id}
-                        variant={selectedSize === size.id ? 'contained' : 'outlined'}
-                        size='small'
-                        onClick={() => setSelectedSize(size.id)}
-                        sx={{
-                          minWidth: 48,
-                          height: 40,
-                          fontWeight: 'medium'
-                        }}
-                      >
-                        {size.name}
-                        <Typography variant='caption' sx={{ ml: 0.5, opacity: 0.7 }}>
-                          ({size.stock})
-                        </Typography>
-                      </Button>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Typography variant='body2' color='text.secondary'>
-                    Vui lòng chọn màu sắc trước
-                  </Typography>
-                )}
-                {selectedSize && (
-                  <Typography variant='caption' color='success.main' sx={{ mt: 1, display: 'block' }}>
-                    Còn lại: {getSelectedSizeStock()} sản phẩm
-                  </Typography>
-                )}
-              </Box>
+              )}
 
               <Divider sx={{ my: 3 }} />
 
@@ -465,7 +744,11 @@ const DetailProductPage: NextPage<TProps> = () => {
                 <Typography variant='body1' fontWeight='bold' gutterBottom>
                   Số lượng:
                 </Typography>
-                {selectedSize ? (
+                {!isWatch && !selectedSize ? (
+                  <Typography variant='body2' color='text.secondary'>
+                    Vui lòng chọn size trước
+                  </Typography>
+                ) : (
                   <>
                     <Box display='flex' alignItems='center'>
                       <Paper
@@ -503,7 +786,7 @@ const DetailProductPage: NextPage<TProps> = () => {
                         <IconButton
                           size='small'
                           onClick={() => handleQuantityChange(1)}
-                          disabled={quantity >= getSelectedSizeStock()}
+                          disabled={quantity >= getMaxQuantity()}
                         >
                           <svg
                             width='18'
@@ -518,41 +801,21 @@ const DetailProductPage: NextPage<TProps> = () => {
                           </svg>
                         </IconButton>
                       </Paper>
+                      <Typography variant='body2' color='text.secondary' sx={{ ml: 2 }}>
+                        {getMaxQuantity()} sản phẩm có sẵn
+                      </Typography>
                     </Box>
-                    <Typography variant='caption' color='text.secondary' sx={{ mt: 1, display: 'block' }}>
-                      Tối đa: {getSelectedSizeStock()} sản phẩm
-                    </Typography>
+                    {(!isWatch && selectedSize) || isWatch ? (
+                      <Typography variant='caption' color='text.secondary' sx={{ mt: 1, display: 'block' }}>
+                        Còn lại: {getMaxQuantity()} sản phẩm
+                      </Typography>
+                    ) : null}
                   </>
-                ) : (
-                  <Typography variant='body2' color='text.secondary'>
-                    Vui lòng chọn size trước
-                  </Typography>
                 )}
               </Box>
 
-              {/* Action Buttons */}
+              {/* Action Button */}
               <Stack direction='row' spacing={2}>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  sx={{
-                    height: 36,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontWeight: 'bold',
-                    fontSize: '14px',
-                    '&:hover': {
-                      backgroundColor: theme.palette.customColors.avatarBg,
-                      transform: 'translateY(-1px)'
-                    },
-                    transition: 'all 0.3s ease-in-out'
-                  }}
-                  onClick={handleAddToCart}
-                >
-                  <IconifyIcon icon='mdi:cart' fontSize={18} />
-                  {t('add-to-cart')}
-                </Button>
                 <Button
                   fullWidth
                   variant='contained'
@@ -570,9 +833,10 @@ const DetailProductPage: NextPage<TProps> = () => {
                     },
                     transition: 'all 0.3s ease-in-out'
                   }}
+                  onClick={handleAddToCart}
                 >
-                  <IconifyIcon icon='icon-park-outline:buy' fontSize={18} />
-                  {t('buy-now')}
+                  <IconifyIcon icon='mdi:cart' fontSize={18} />
+                  Thêm vào giỏ hàng
                 </Button>
               </Stack>
             </Box>
@@ -613,17 +877,7 @@ const DetailProductPage: NextPage<TProps> = () => {
             <TabPanel value={tabValue} index={0}>
               <Box sx={{ maxWidth: '100%' }}>
                 {/* Product Title */}
-                <Typography
-                  variant='h6'
-                  component='h2'
-                  sx={{
-                    mb: 3,
-                    fontWeight: 'medium',
-                    color: 'text.primary'
-                  }}
-                >
-                  {productDetail?.name}
-                </Typography>
+                {/* Removed title above description as requested */}
 
                 {/* Product Description */}
                 <Typography
@@ -643,10 +897,11 @@ const DetailProductPage: NextPage<TProps> = () => {
                   sx={{
                     mb: 3,
                     lineHeight: 1.7,
-                    color: 'text.primary'
+                    color: 'text.primary',
+                    whiteSpace: 'pre-line'
                   }}
                 >
-                  {productDetail?.description}
+                  {isWatch ? watchDetail?.description || '-' : productDetail?.description || '-'}
                 </Typography>
               </Box>
             </TabPanel>

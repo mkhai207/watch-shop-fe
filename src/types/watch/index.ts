@@ -51,8 +51,11 @@ export type TUpdateWatch = Partial<TCreateWatch>
 
 export type GetWatchesResponse = {
   watches: {
-    count: number
-    rows: TWatch[]
+    page: number
+    limit: number
+    totalItems: number
+    totalPages: number
+    items: TWatch[]
   }
 }
 
@@ -73,6 +76,6 @@ export type GetWatchResponse = {
 
 export type CreateWatchVariant = Omit<
   TWatchVariant,
-  'id' | 'created_at' | 'created_by' | 'updated_at' | 'updated_by' | 'del_flag'
-> & { price?: number }
+  'id' | 'created_at' | 'created_by' | 'updated_at' | 'updated_by' | 'del_flag' | 'price'
+>
 export type CreateWatchVariantResponse = { variant: TWatchVariant }

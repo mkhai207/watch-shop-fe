@@ -43,7 +43,7 @@ const CartProduct = () => {
           >
             <Badge
               color='error'
-              badgeContent={items.length || 0}
+              badgeContent={items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0)}
               sx={{
                 '& .MuiBadge-badge': {
                   backgroundColor: '#d32f2f',

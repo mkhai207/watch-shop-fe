@@ -1,13 +1,13 @@
 import { NextPage } from 'next'
 import LayoutNotApp from 'src/views/layouts/LayoutNotApp'
-import ProductPage from 'src/views/pages/product'
+import LuxuryProductPage from 'src/views/pages/product/LuxuryProductPage'
 
 type TProps = {}
 
 const DetailProduct: NextPage<TProps> = () => {
   return (
     <>
-      <ProductPage />
+      <LuxuryProductPage />
     </>
   )
 }

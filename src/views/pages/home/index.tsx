@@ -9,7 +9,11 @@ import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
 import { getAllProductsPublic, getProductRecommend } from 'src/services/product'
+import { getWatches } from 'src/services/watch'
+import { getBrands } from 'src/services/brand'
+import { TBrand } from 'src/types/brand'
 import { TProduct } from 'src/types/product'
+import { TWatch } from 'src/types/watch'
 import CardProduct from '../../../components/card-product/CardProduct'
 import ChatBot from 'src/views/layouts/components/chatBot/ChatBot'
 
@@ -52,6 +56,18 @@ const HomePage: NextPage<TProps> = () => {
 
   const [loading, setLoading] = useState(false)
   const [newProducts, setNewProducts] = useState<TProduct[]>([])
+  const [brands, setBrands] = useState<TBrand[]>([])
+  const [brandSlide, setBrandSlide] = useState(0)
+  const [dragStartX, setDragStartX] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isBrandTransitioning, setIsBrandTransitioning] = useState(true)
+  const [brandAutoPausedUntil, setBrandAutoPausedUntil] = useState(0)
+  const [watches, setWatches] = useState<TWatch[]>([])
+  const [watchSlide, setWatchSlide] = useState(0)
+  const [watchDragStartX, setWatchDragStartX] = useState<number | null>(null)
+  const [isWatchDragging, setIsWatchDragging] = useState(false)
+  const [isWatchTransitioning, setIsWatchTransitioning] = useState(true)
+  const [watchAutoPausedUntil, setWatchAutoPausedUntil] = useState(0)
 
   const formatFiltersForAPI = (customLimit?: number, customSort?: string) => {
     const params: Record<string, any> = {
@@ -80,6 +96,28 @@ const HomePage: NextPage<TProps> = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGetBrands = async () => {
+    try {
+      const response = await getBrands()
+      // API returns { brands: { count, rows } }
+      const rows: TBrand[] = response?.brands?.rows || []
+      // Prefer visible brands (del_flag === '0') first
+      const visible = rows.filter(item => item.del_flag !== '1')
+      setBrands(visible.length ? visible : rows)
+    } catch (error: any) {
+      // silent fail to avoid blocking homepage
+    }
+  }
+
+  const handleGetWatches = async () => {
+    try {
+      const response = await getWatches()
+      const items: TWatch[] = (response as any)?.watches?.items || []
+      const visible = items.filter(item => item.del_flag !== '1')
+      setWatches(visible.length ? visible : items)
+    } catch (error: any) {}
   }
 
   const handleGetProductRecommend = async () => {
@@ -111,13 +149,106 @@ const HomePage: NextPage<TProps> = () => {
   useEffect(() => {
     setIsLoaded(true)
     handleGetListNewProducts()
+    handleGetBrands()
+    handleGetWatches()
   }, [])
 
   useEffect(() => {
     handleGetProductRecommend()
   }, [])
 
+  // Auto-advance brands carousel by 1, loop infinitely (smooth)
+  useEffect(() => {
+    const len = brands?.length || 0
+    if (len <= 1) return
+    const timer = setInterval(() => {
+      if (Date.now() >= brandAutoPausedUntil) {
+        setIsBrandTransitioning(true)
+        setBrandSlide(prev => prev + 1)
+      }
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [brands, brandAutoPausedUntil])
+
+  // Auto-advance watches carousel by 1, loop infinitely (smooth)
+  useEffect(() => {
+    const len = watches?.length || 0
+    if (len <= 1) return
+    const timer = setInterval(() => {
+      if (Date.now() >= watchAutoPausedUntil) {
+        setIsWatchTransitioning(true)
+        setWatchSlide(prev => prev + 1)
+      }
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [watches, watchAutoPausedUntil])
+
+  const handleBrandDragStart = (clientX: number) => {
+    setDragStartX(clientX)
+    setIsDragging(true)
+    setBrandAutoPausedUntil(Date.now() + 4000)
+  }
+
+  const handleBrandDragEnd = (clientX: number) => {
+    if (dragStartX === null) return
+    const delta = clientX - dragStartX
+    const threshold = 40
+    const len = brands?.length || 0
+    if (len > 0) {
+      if (delta > threshold) {
+        if (brandSlide === 0) {
+          setIsBrandTransitioning(false)
+          setBrandSlide(len)
+          setTimeout(() => {
+            setIsBrandTransitioning(true)
+            setBrandSlide(len - 1)
+          }, 0)
+        } else {
+          setIsBrandTransitioning(true)
+          setBrandSlide(prev => prev - 1)
+        }
+      } else if (delta < -threshold) {
+        setIsBrandTransitioning(true)
+        setBrandSlide(prev => prev + 1)
+      }
+    }
+    setDragStartX(null)
+    setIsDragging(false)
+  }
+
   const displayedProducts = newProducts.slice(currentSlide * productsPerPage, (currentSlide + 1) * productsPerPage)
+
+  const handleWatchDragStart = (clientX: number) => {
+    setWatchDragStartX(clientX)
+    setIsWatchDragging(true)
+  }
+
+  const handleWatchDragEnd = (clientX: number) => {
+    if (watchDragStartX === null) return
+    const delta = clientX - watchDragStartX
+    const threshold = 40
+    const len = watches?.length || 0
+    if (len > 0) {
+      if (delta > threshold) {
+        if (watchSlide === 0) {
+          setIsWatchTransitioning(false)
+          setWatchSlide(len)
+          setTimeout(() => {
+            setIsWatchTransitioning(true)
+            setWatchSlide(len - 1)
+          }, 0)
+        } else {
+          setIsWatchTransitioning(true)
+          setWatchSlide(prev => prev - 1)
+        }
+      } else if (delta < -threshold) {
+        setIsWatchTransitioning(true)
+        setWatchSlide(prev => prev + 1)
+      }
+    }
+    setWatchDragStartX(null)
+    setIsWatchDragging(false)
+  }
 
   return (
     <>
@@ -285,10 +416,10 @@ const HomePage: NextPage<TProps> = () => {
                   color: 'white'
                 }}
               >
-                <Typography variant='h4' fontWeight='bold' sx={{ mb: 1 }}>
+                <Typography variant='h4' fontWeight='bold' sx={{ mb: 1, color: 'primary.main' }}>
                   Bộ sưu tập mới 2024
                 </Typography>
-                <Typography variant='h6' sx={{ opacity: 0.9 }}>
+                <Typography variant='h6' sx={{ opacity: 0.9, color: 'common.white' }}>
                   Thiết kế độc quyền, chất lượng vượt trội
                 </Typography>
               </Box>
@@ -296,7 +427,7 @@ const HomePage: NextPage<TProps> = () => {
           </Container>
         </Box>
 
-        {/* Featured Watches Gallery */}
+        {/* Brands Carousel - Bộ sưu tập theo từng Brand */}
         <Box
           sx={{
             py: { xs: 6, sm: 8, md: 10, lg: 12 },
@@ -310,194 +441,178 @@ const HomePage: NextPage<TProps> = () => {
                 Bộ sưu tập đồng hồ cao cấp
               </Typography>
               <Typography variant='h6' color='text.secondary' sx={{ maxWidth: '600px', mx: 'auto' }}>
-                Khám phá những chiếc đồng hồ đẳng cấp từ các thương hiệu danh tiếng thế giới
+                Khám phá các bộ sưu tập theo thương hiệu
               </Typography>
             </Box>
 
-            <Grid container spacing={4} mb={8}>
-              <Grid item xs={12} md={6}>
+            {/* Carousel Slider for Brands (auto + drag + smooth) */}
+            <Box
+              position='relative'
+              mb={8}
+              onMouseDown={e => handleBrandDragStart(e.clientX)}
+              onMouseUp={e => handleBrandDragEnd(e.clientX)}
+              onMouseLeave={() => setIsDragging(false)}
+              onTouchStart={e => handleBrandDragStart(e.touches[0].clientX)}
+              onTouchEnd={e => handleBrandDragEnd(e.changedTouches[0].clientX)}
+              sx={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            >
+              <IconButton
+                sx={{
+                  position: 'absolute',
+                  left: -20,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 2,
+                  backgroundColor: 'white',
+                  boxShadow: 2,
+                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
+                  transition: 'all 0.3s ease'
+                }}
+                onClick={() => {
+                  const len = brands?.length || 0
+                  if (len > 0) {
+                    if (brandSlide === 0) {
+                      setIsBrandTransitioning(false)
+                      setBrandSlide(len)
+                      setTimeout(() => {
+                        setIsBrandTransitioning(true)
+                        setBrandSlide(len - 1)
+                      }, 0)
+                    } else {
+                      setIsBrandTransitioning(true)
+                      setBrandSlide(prev => prev - 1)
+                    }
+                  }
+                }}
+              >
+                <ChevronLeft />
+              </IconButton>
+
+              <IconButton
+                sx={{
+                  position: 'absolute',
+                  right: -20,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 2,
+                  backgroundColor: 'white',
+                  boxShadow: 2,
+                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
+                  transition: 'all 0.3s ease'
+                }}
+                onClick={() => {
+                  const len = brands?.length || 0
+                  if (len > 0) {
+                    setIsBrandTransitioning(true)
+                    setBrandSlide(prev => prev + 1)
+                    setBrandAutoPausedUntil(Date.now() + 4000)
+                  }
+                }}
+              >
+                <ChevronRight />
+              </IconButton>
+
+              {/* Smooth sliding track forward-only clones for perfect alignment */}
+              <Box sx={{ overflow: 'hidden', position: 'relative' }}>
                 <Box
                   sx={{
-                    position: 'relative',
-                    height: { xs: 300, md: 400 },
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    boxShadow: 3,
-                    cursor: 'pointer',
-                    backgroundColor: 'background.default',
-                    '&:hover': {
-                      transform: 'scale(1.02)',
-                      transition: 'transform 0.3s ease'
+                    display: 'flex',
+                    gap: 0,
+                    transform: `translateX(-${brandSlide * (100 / 3)}%)`,
+                    transition: isBrandTransitioning ? 'transform 600ms ease' : 'none'
+                  }}
+                  onTransitionEnd={() => {
+                    const len = brands.length
+                    if (len > 0) {
+                      if (brandSlide >= len) {
+                        setIsBrandTransitioning(false)
+                        setBrandSlide(brandSlide % len)
+                        setTimeout(() => setIsBrandTransitioning(true), 0)
+                      } else if (brandSlide < 0) {
+                        setIsBrandTransitioning(false)
+                        setBrandSlide(((brandSlide % len) + len) % len)
+                        setTimeout(() => setIsBrandTransitioning(true), 0)
+                      }
                     }
                   }}
-                  onClick={handleNavigateProduct}
                 >
+                  {(() => {
+                    const base = brands
+                    const clonesHead = base.slice(0, Math.min(3, base.length))
+                    const renderList = [...base, ...clonesHead]
+                    if (base.length === 0) {
+                      return (
+                        <Box sx={{ width: '100%' }}>
+                          <Typography textAlign='center' variant='h6' color='text.secondary'>
+                            {t('no_products')}
+                          </Typography>
+                        </Box>
+                      )
+                    }
+                    return renderList.map((brand, idx) => (
+                      <Box key={`${brand.id}-${idx}`} sx={{ flex: '0 0 33.3333%', boxSizing: 'border-box', p: 1.5 }}>
+                        <Box
+                          sx={{
+                            position: 'relative',
+                            height: { xs: 260, md: 360 },
+                            borderRadius: 3,
+                            overflow: 'hidden',
+                            boxShadow: 3,
+                            cursor: 'pointer',
+                            backgroundColor: 'grey.100',
+                            '&:hover': { transform: 'translateY(-4px)', boxShadow: 6, transition: 'all 0.3s ease' }
+                          }}
+                          onClick={handleNavigateProduct}
+                        >
+                          <Box
+                            component='img'
+                            src={brand.logo_url || '/images/placeholder-brand.jpg'}
+                            alt={brand.name}
+                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              background:
+                                'linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 70%, rgba(0,0,0,0.85) 100%)'
+                            }}
+                          />
+                          <Box sx={{ position: 'absolute', left: 16, right: 16, bottom: 16, color: 'white' }}>
+                            <Typography variant='h5' fontWeight='bold' sx={{ mb: 0.5, color: 'primary.main' }}>
+                              {brand.name}
+                            </Typography>
+                            {!!brand.description && (
+                              <Typography variant='body2' sx={{ opacity: 0.9, color: 'common.white' }}>
+                                {brand.description}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    ))
+                  })()}
+                </Box>
+              </Box>
+              <Box display='flex' justifyContent='center' gap={1.5} mt={3}>
+                {Array.from({ length: Math.max(brands?.length || 0, 1) }).map((_, idx) => (
                   <Box
-                    component='img'
-                    src='/images/luxury-rolex-submariner.png'
-                    alt='Rolex Submariner'
+                    key={idx}
                     sx={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      backgroundColor:
+                        (brands.length ? ((brandSlide % brands.length) + brands.length) % brands.length : 0) === idx
+                          ? 'primary.main'
+                          : 'grey.300',
+                      cursor: 'pointer'
                     }}
+                    onClick={() => setBrandSlide(idx)}
                   />
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                      p: 3,
-                      color: 'white'
-                    }}
-                  >
-                    <Typography variant='h5' fontWeight='bold' sx={{ mb: 1 }}>
-                      Rolex Submariner
-                    </Typography>
-                    <Typography variant='body1' sx={{ opacity: 0.9 }}>
-                      Biểu tượng của sự sang trọng và độ bền
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    position: 'relative',
-                    height: { xs: 300, md: 400 },
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    boxShadow: 3,
-                    cursor: 'pointer',
-                    backgroundColor: 'background.default',
-                    '&:hover': {
-                      transform: 'scale(1.02)',
-                      transition: 'transform 0.3s ease'
-                    }
-                  }}
-                  onClick={handleNavigateProduct}
-                >
-                  <Box
-                    component='img'
-                    src='/images/cartier-tank-luxury-watch.jpg'
-                    alt='Cartier Tank'
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                      p: 3,
-                      color: 'white'
-                    }}
-                  >
-                    <Typography variant='h5' fontWeight='bold' sx={{ mb: 1 }}>
-                      Cartier Tank
-                    </Typography>
-                    <Typography variant='body1' sx={{ opacity: 0.9 }}>
-                      Thiết kế cổ điển với phong cách Pháp tinh tế
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    position: 'relative',
-                    height: { xs: 300, md: 400 },
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    boxShadow: 3,
-                    cursor: 'pointer',
-                    backgroundColor: 'background.default',
-                    '&:hover': {
-                      transform: 'scale(1.02)',
-                      transition: 'transform 0.3s ease'
-                    }
-                  }}
-                  onClick={handleNavigateProduct}
-                >
-                  <Box
-                    component='img'
-                    src='/images/omega-speedmaster-professional-watch.jpg'
-                    alt='Omega Speedmaster'
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                      p: 3,
-                      color: 'white'
-                    }}
-                  >
-                    <Typography variant='h5' fontWeight='bold' sx={{ mb: 1 }}>
-                      Omega Speedmaster
-                    </Typography>
-                    <Typography variant='body1' sx={{ opacity: 0.9 }}>
-                      Đồng hồ của các phi hành gia NASA
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    position: 'relative',
-                    height: { xs: 300, md: 400 },
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    boxShadow: 3,
-                    cursor: 'pointer',
-                    backgroundColor: 'background.default',
-                    '&:hover': {
-                      transform: 'scale(1.02)',
-                      transition: 'transform 0.3s ease'
-                    }
-                  }}
-                  onClick={handleNavigateProduct}
-                >
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      color: 'white'
-                    }}
-                  >
-                    <Typography variant='h3' sx={{ mb: 2 }}>
-                      🕰️
-                    </Typography>
-                    <Typography variant='h4' fontWeight='bold' sx={{ mb: 2 }}>
-                      Khám phá thêm
-                    </Typography>
-                    <Typography variant='h6' sx={{ opacity: 0.9, textAlign: 'center' }}>
-                      Hàng trăm mẫu đồng hồ cao cấp đang chờ bạn
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
+                ))}
+              </Box>
+            </Box>
           </Container>
         </Box>
 
@@ -572,7 +687,7 @@ const HomePage: NextPage<TProps> = () => {
           </Container>
         </Box>
 
-        {/* Best Sellers Section */}
+        {/* Best Sellers Section - Watches Carousel */}
         <Box
           sx={{
             py: { xs: 6, sm: 8, md: 10, lg: 12 },
@@ -590,9 +705,16 @@ const HomePage: NextPage<TProps> = () => {
               </Typography>
             </Box>
 
-            {/* Product Carousel */}
-            <Box position='relative'>
-              {/* Navigation Arrows */}
+            {/* Watches smooth carousel (3 per view, step 1) */}
+            <Box
+              position='relative'
+              onMouseDown={e => handleWatchDragStart(e.clientX)}
+              onMouseUp={e => handleWatchDragEnd(e.clientX)}
+              onMouseLeave={() => setIsWatchDragging(false)}
+              onTouchStart={e => handleWatchDragStart(e.touches[0].clientX)}
+              onTouchEnd={e => handleWatchDragEnd(e.changedTouches[0].clientX)}
+              sx={{ cursor: isWatchDragging ? 'grabbing' : 'grab' }}
+            >
               <IconButton
                 sx={{
                   position: 'absolute',
@@ -602,13 +724,26 @@ const HomePage: NextPage<TProps> = () => {
                   zIndex: 2,
                   backgroundColor: 'white',
                   boxShadow: 2,
-                  '&:hover': {
-                    backgroundColor: 'grey.100',
-                    transform: 'translateY(-50%) scale(1.1)'
-                  },
+                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
                   transition: 'all 0.3s ease'
                 }}
-                onClick={prevSlide}
+                onClick={() => {
+                  const len = watches?.length || 0
+                  if (len > 0) {
+                    if (watchSlide === 0) {
+                      setIsWatchTransitioning(false)
+                      setWatchSlide(len)
+                      setTimeout(() => {
+                        setIsWatchTransitioning(true)
+                        setWatchSlide(len - 1)
+                      }, 0)
+                    } else {
+                      setIsWatchTransitioning(true)
+                      setWatchSlide(prev => prev - 1)
+                    }
+                    setWatchAutoPausedUntil(Date.now() + 4000)
+                  }
+                }}
               >
                 <ChevronLeft />
               </IconButton>
@@ -622,55 +757,94 @@ const HomePage: NextPage<TProps> = () => {
                   zIndex: 2,
                   backgroundColor: 'white',
                   boxShadow: 2,
-                  '&:hover': {
-                    backgroundColor: 'grey.100',
-                    transform: 'translateY(-50%) scale(1.1)'
-                  },
+                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
                   transition: 'all 0.3s ease'
                 }}
-                onClick={nextSlide}
+                onClick={() => {
+                  const len = watches?.length || 0
+                  if (len > 0) {
+                    setIsWatchTransitioning(true)
+                    setWatchSlide(prev => prev + 1)
+                    setWatchAutoPausedUntil(Date.now() + 4000)
+                  }
+                }}
               >
                 <ChevronRight />
               </IconButton>
 
-              {/* Products Grid */}
-              <Grid container spacing={3}>
-                {displayedProducts.length > 0 ? (
-                  displayedProducts.map((item: TProduct) => (
-                    <Grid item key={item.id} xs={12} sm={6} md={3}>
-                      <CardProduct item={item} />
-                    </Grid>
-                  ))
-                ) : (
-                  <Grid item xs={12}>
-                    <Typography textAlign='center' variant='h6' color='text.secondary'>
-                      {t('no_products')}
-                    </Typography>
-                  </Grid>
-                )}
-              </Grid>
-            </Box>
-
-            {/* Pagination Dots */}
-            <Box display='flex' justifyContent='center' gap={1} mt={4}>
-              {Array.from({ length: totalPages }).map((_, index) => (
+              <Box sx={{ overflow: 'hidden', position: 'relative' }}>
                 <Box
-                  key={index}
                   sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    backgroundColor: currentSlide === index ? 'primary.main' : 'grey.300',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      backgroundColor: currentSlide === index ? 'primary.dark' : 'grey.400',
-                      transform: 'scale(1.2)'
+                    display: 'flex',
+                    gap: 0,
+                    transform: `translateX(-${watchSlide * (100 / 4)}%)`,
+                    transition: isWatchTransitioning ? 'transform 600ms ease' : 'none'
+                  }}
+                  onTransitionEnd={() => {
+                    const len = watches.length
+                    if (len > 0) {
+                      if (watchSlide >= len) {
+                        setIsWatchTransitioning(false)
+                        setWatchSlide(watchSlide % len)
+                        setTimeout(() => setIsWatchTransitioning(true), 0)
+                      } else if (watchSlide < 0) {
+                        setIsWatchTransitioning(false)
+                        setWatchSlide(((watchSlide % len) + len) % len)
+                        setTimeout(() => setIsWatchTransitioning(true), 0)
+                      }
                     }
                   }}
-                  onClick={() => setCurrentSlide(index)}
-                />
-              ))}
+                >
+                  {(() => {
+                    const base = watches
+                    const clonesHead = base.slice(0, Math.min(4, base.length))
+                    const renderList = [...base, ...clonesHead]
+                    if (base.length === 0) {
+                      return (
+                        <Box sx={{ width: '100%' }}>
+                          <Typography textAlign='center' variant='h6' color='text.secondary'>
+                            {t('no_products')}
+                          </Typography>
+                        </Box>
+                      )
+                    }
+                    return renderList.map((watch, idx) => (
+                      <Box key={`${watch.id}-${idx}`} sx={{ flex: '0 0 25%', boxSizing: 'border-box', p: 1.5 }}>
+                        <CardProduct
+                          item={
+                            {
+                              id: watch.id,
+                              name: watch.name,
+                              thumbnail: watch.thumbnail || '',
+                              price: watch.base_price,
+                              sold: watch.sold || 0
+                            } as any
+                          }
+                        />
+                      </Box>
+                    ))
+                  })()}
+                </Box>
+              </Box>
+
+              <Box display='flex' justifyContent='center' gap={1.5} mt={3}>
+                {Array.from({ length: Math.max(watches?.length || 0, 1) }).map((_, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      backgroundColor:
+                        (watches.length ? ((watchSlide % watches.length) + watches.length) % watches.length : 0) === idx
+                          ? 'primary.main'
+                          : 'grey.300',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setWatchSlide(idx)}
+                  />
+                ))}
+              </Box>
             </Box>
 
             {/* View More Button */}
@@ -743,10 +917,13 @@ const HomePage: NextPage<TProps> = () => {
         >
           <Container maxWidth='lg'>
             <Box textAlign='center'>
-              <Typography variant='h3' component='h2' fontWeight='bold' sx={{ mb: 3 }}>
+              <Typography variant='h3' component='h2' fontWeight='bold' sx={{ mb: 3, color: 'common.white' }}>
                 Sẵn sàng tìm kiếm chiếc đồng hồ hoàn hảo?
               </Typography>
-              <Typography variant='h6' sx={{ mb: 4, opacity: 0.9, maxWidth: '600px', mx: 'auto' }}>
+              <Typography
+                variant='h6'
+                sx={{ mb: 4, opacity: 0.9, maxWidth: '600px', mx: 'auto', color: 'common.white' }}
+              >
                 Hãy để chúng tôi giúp bạn tìm được chiếc đồng hồ phù hợp nhất với phong cách và cá tính của bạn.
               </Typography>
               <Button

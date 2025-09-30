@@ -34,7 +34,8 @@ import {
   createWatchVariant,
   getWatchVariants,
   updateWatch,
-  updateWatchVariant
+  updateWatchVariant,
+  deleteWatchVariant
 } from 'src/services/watch'
 import type {
   TWatch,
@@ -132,7 +133,7 @@ const WatchPage: NextPage = () => {
     try {
       const [wRes, vRes] = await Promise.all([getWatches(), getWatchVariants()])
       const data = wRes as GetWatchesResponse
-      setItems(data?.watches?.rows || [])
+      setItems((data as any)?.watches?.items || [])
       const vrows = (vRes as any)?.variants?.rows || []
       const counts: Record<string, number> = {}
       vrows.forEach((v: any) => {
@@ -242,9 +243,8 @@ const WatchPage: NextPage = () => {
     watch_id: '' as any,
     color_id: '' as any,
     strap_material_id: '' as any,
-    stock_quantity: 0,
-    price: 0
-  })
+    stock_quantity: 0
+  } as any)
 
   // View & Edit states
   const [openViewWatch, setOpenViewWatch] = useState(false)
@@ -286,9 +286,8 @@ const WatchPage: NextPage = () => {
         watch_id: row.id as any,
         color_id: '' as any,
         strap_material_id: '' as any,
-        stock_quantity: 0,
-        price: 0
-      })
+        stock_quantity: 0
+      } as any)
       setOpenVariants(true)
     } catch {
       toast.error('Không tải được chi tiết')
@@ -300,13 +299,24 @@ const WatchPage: NextPage = () => {
   const handleCreateVariant = async () => {
     if (!variantNew.watch_id || !variantNew.color_id || !variantNew.strap_material_id)
       return toast.error('Chọn đủ thuộc tính')
+    if (!Number(variantNew.stock_quantity) || Number(variantNew.stock_quantity) <= 0)
+      return toast.error('Tồn kho phải lớn hơn 0')
     try {
       setActionLoading(true)
       const res = await createWatchVariant(variantNew)
       if ((res as any)?.variant?.id) {
         toast.success('Thêm biến thể thành công')
         setOpenVariants(false)
+        // Refresh main list counts
         fetchData()
+        // If viewing this watch details, refresh its info and variants list
+        const createdWatchId = String(variantNew.watch_id)
+        if (viewingWatch && String(viewingWatch.id) === createdWatchId) {
+          const [wRes, vRes] = await Promise.all([getWatchById(createdWatchId), getWatchVariants()])
+          setViewingWatch(((wRes as any)?.watch || viewingWatch) as any)
+          const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+          setViewVariants(all.filter(i => String(i.watch_id) === createdWatchId))
+        }
       } else {
         throw new Error('Thêm thất bại')
       }
@@ -860,34 +870,26 @@ const WatchPage: NextPage = () => {
           {variantEditing ? (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={4}>
-                <Select
+                <TextField
                   fullWidth
-                  value={(variantEditing as any).color_id as any}
-                  onChange={e => setVariantEditing((p: any) => ({ ...p, color_id: e.target.value }))}
-                >
-                  {colors
-                    .filter(c => c.del_flag !== '1')
-                    .map(c => (
-                      <MenuItem key={c.id} value={c.id}>
-                        {c.name}
-                      </MenuItem>
-                    ))}
-                </Select>
+                  label='Màu'
+                  value={
+                    colors.find(c => String(c.id) === String((variantEditing as any).color_id))?.name ||
+                    (variantEditing as any).color_id
+                  }
+                  InputProps={{ readOnly: true }}
+                />
               </Grid>
               <Grid item xs={12} md={4}>
-                <Select
+                <TextField
                   fullWidth
-                  value={(variantEditing as any).strap_material_id as any}
-                  onChange={e => setVariantEditing((p: any) => ({ ...p, strap_material_id: e.target.value }))}
-                >
-                  {strapMaterials
-                    .filter(s => s.del_flag !== '1')
-                    .map(s => (
-                      <MenuItem key={s.id} value={s.id}>
-                        {s.name}
-                      </MenuItem>
-                    ))}
-                </Select>
+                  label='Vật liệu dây'
+                  value={
+                    strapMaterials.find(s => String(s.id) === String((variantEditing as any).strap_material_id))
+                      ?.name || (variantEditing as any).strap_material_id
+                  }
+                  InputProps={{ readOnly: true }}
+                />
               </Grid>
               <Grid item xs={12} md={2}>
                 <TextField
@@ -911,9 +913,6 @@ const WatchPage: NextPage = () => {
               try {
                 setActionLoading(true)
                 await updateWatchVariant(String(v.id), {
-                  watch_id: v.watch_id,
-                  color_id: v.color_id,
-                  strap_material_id: v.strap_material_id,
                   stock_quantity: v.stock_quantity
                 } as any)
                 toast.success('Cập nhật biến thể thành công')
@@ -1047,9 +1046,17 @@ const WatchPage: NextPage = () => {
                   ))}
               </Box>
 
-              <Typography variant='subtitle1' sx={{ mt: 3 }}>
-                Biến thể liên quan
-              </Typography>
+              <Stack direction='row' alignItems='center' justifyContent='space-between' sx={{ mt: 3 }}>
+                <Typography variant='subtitle1'>Biến thể liên quan</Typography>
+                <Button
+                  size='small'
+                  variant='outlined'
+                  startIcon={<AddIcon />}
+                  onClick={() => viewingWatch && openVariantDialog(viewingWatch)}
+                >
+                  Thêm biến thể
+                </Button>
+              </Stack>
               <Table size='small' sx={{ mt: 1 }}>
                 <TableHead>
                   <TableRow>
@@ -1082,6 +1089,26 @@ const WatchPage: NextPage = () => {
                             }}
                           >
                             <EditIcon fontSize='small' />
+                          </IconButton>
+                          <IconButton
+                            size='small'
+                            onClick={async () => {
+                              try {
+                                setActionLoading(true)
+                                await deleteWatchVariant(String(v.id))
+                                toast.success('Đã xóa biến thể')
+                                const vRes = await getWatchVariants()
+                                const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+                                if (viewingWatch)
+                                  setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch?.id)))
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Xóa thất bại')
+                              } finally {
+                                setActionLoading(false)
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize='small' />
                           </IconButton>
                         </Stack>
                       </TableCell>
@@ -1361,7 +1388,8 @@ const WatchPage: NextPage = () => {
               if (!selected) return
               try {
                 setActionLoading(true)
-                const payload = { ...editForm, status: '0' as any }
+                const { variants, ...rest } = editForm as any
+                const payload = { ...rest, status: '0' as any }
                 await updateWatch(String(selected.id), payload as any)
                 toast.success('Cập nhật thành công')
                 setOpenEditWatch(false)

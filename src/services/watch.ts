@@ -91,3 +91,12 @@ export const updateWatchVariant = async (id: string, data: Partial<CreateWatchVa
     return error
   }
 }
+
+export const deleteWatchVariant = async (id: string) => {
+  try {
+    const res = await instanceAxios.delete(`${CONFIG_API.WATCH_VARIANT.INDEX}/${id}`)
+    return res.data
+  } catch (error) {
+    return error
+  }
+}

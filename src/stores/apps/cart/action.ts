@@ -21,24 +21,23 @@ export const addToCartAsync = createAsyncThunk('cart/addToCart', async (data: an
   }
 
   return {
-    data: null,
-    message: response?.response.data.message,
-    error: response?.response.data.error
+    data: response?.data || null,
+    message: response?.message || response?.response?.data?.message,
+    error: response?.error || response?.response?.data?.error
   }
 })
 
 // ** get cart items
 export const getCartItemsAsync = createAsyncThunk('cart/getCartItems', async () => {
   const response = await getCartItems()
-  console.log('getCartItemsAsync', response)
-
-  if (response?.data) {
-    return response
+  if (response?.cart) {
+    // Normalize to data array of items
+    return { status: 'success', data: response.cart.cartItems?.rows || [], message: '' }
   }
 
   return {
     data: null,
-    message: response?.response.data.message
+    message: response?.response?.data?.message || 'Failed to get cart'
   }
 })
 
