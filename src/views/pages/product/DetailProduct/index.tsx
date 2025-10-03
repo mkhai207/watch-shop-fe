@@ -311,6 +311,46 @@ const DetailProductPage: NextPage<TProps> = () => {
   }
 
   const handleAddToCart = () => {
+    const triggerFlyToCart = () => {
+      try {
+        const cartBtn = document.getElementById('header-cart-button')
+        const mainImageEl = document.querySelector('#product-main-image') as HTMLElement | null
+        if (!cartBtn || !mainImageEl) return
+
+        const rectStart = mainImageEl.getBoundingClientRect()
+        const rectEnd = cartBtn.getBoundingClientRect()
+
+        const ghost = document.createElement('div')
+        ghost.style.position = 'fixed'
+        ghost.style.left = rectStart.left + 'px'
+        ghost.style.top = rectStart.top + 'px'
+        ghost.style.width = rectStart.width + 'px'
+        ghost.style.height = rectStart.height + 'px'
+        ghost.style.backgroundImage = `url(${mainImageEl.getAttribute('src') || mainImages[selectedImage]})`
+        ghost.style.backgroundSize = 'cover'
+        ghost.style.backgroundPosition = 'center'
+        ghost.style.borderRadius = '8px'
+        ghost.style.zIndex = '9999'
+        ghost.style.transition =
+          'transform 0.85s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.85s ease-out, left 0.85s ease-out, top 0.85s ease-out, width 0.85s ease-out, height 0.85s ease-out'
+        document.body.appendChild(ghost)
+
+        requestAnimationFrame(() => {
+          const scale = 0.15
+          ghost.style.left = rectEnd.left + 'px'
+          ghost.style.top = rectEnd.top + 'px'
+          ghost.style.width = rectEnd.width + 'px'
+          ghost.style.height = rectEnd.height + 'px'
+          ghost.style.opacity = '0.4'
+          ghost.style.transform = `translate(0, 0) scale(${scale})`
+        })
+
+        setTimeout(() => {
+          ghost.remove()
+        }, 950)
+      } catch {}
+    }
+
     if (isWatch) {
       if (!watchDetail?.id) {
         return toast.error('Sản phẩm không tồn tại')
@@ -334,7 +374,7 @@ const DetailProductPage: NextPage<TProps> = () => {
           variant_id: Number(variant.id),
           quantity
         })
-      )
+      ).then(() => triggerFlyToCart())
     }
 
     if (!productDetail?.id) {
@@ -356,7 +396,7 @@ const DetailProductPage: NextPage<TProps> = () => {
         color_id: selectedColor || '',
         quantity: quantity
       })
-    )
+    ).then(() => triggerFlyToCart())
   }
 
   const getMaxQuantity = () => {
@@ -437,6 +477,7 @@ const DetailProductPage: NextPage<TProps> = () => {
                   component='img'
                   height={500}
                   image={mainImages[selectedImage]}
+                  id='product-main-image'
                   alt='Áo Sơ Mi Jeans Crotop'
                   sx={{ objectFit: 'cover' }}
                 />

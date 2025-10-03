@@ -8,7 +8,13 @@ export const serviceName = 'cart'
 // ** Add to cart
 export const addToCartAsync = createAsyncThunk('cart/addToCart', async (data: any, { dispatch }) => {
   const response = await addToCart(data)
-  if (response?.status === 'success' && response?.data) {
+  // Consider multiple possible success shapes
+  const isSuccess = Boolean(
+    response?.status === 'success' || response?.cartItem || response?.cart || response?.data?.id || response?.id
+  )
+
+  if (isSuccess) {
+    // Refresh cart immediately to update header badge
     dispatch(getCartItemsAsync())
     dispatch(
       createUserInteractionAsync({
@@ -17,11 +23,12 @@ export const addToCartAsync = createAsyncThunk('cart/addToCart', async (data: an
       })
     )
 
-    return response
+    return { status: 'success', data: response?.data || response?.cartItem || response?.cart || response }
   }
 
   return {
-    data: response?.data || null,
+    status: 'error',
+    data: null,
     message: response?.message || response?.response?.data?.message,
     error: response?.error || response?.response?.data?.error
   }
@@ -47,16 +54,16 @@ export const updateCartItemAsync = createAsyncThunk(
   async ({ itemId, data }: { itemId: string; data: TUpdateCartItem }, { dispatch }) => {
     const response = await updateCartItem(itemId, data)
 
-    if (response?.status === 'success' && response?.data) {
-      dispatch(getCartItemsAsync())
-
-      return response
+    // New API returns { cartItem: {...} }
+    if (response?.cartItem) {
+      return { status: 'success', data: response.cartItem, message: '' }
     }
 
     return {
+      status: 'error',
       data: null,
-      message: response?.response.data.message,
-      error: response?.response.data.error
+      message: response?.message || response?.response?.data?.message || 'Cập nhật số lượng thất bại',
+      error: response?.error || response?.response?.data?.error
     }
   }
 )
@@ -65,16 +72,18 @@ export const updateCartItemAsync = createAsyncThunk(
 export const deleteCartItemAsync = createAsyncThunk('cart/deleteCartItem', async (itemId: string, { dispatch }) => {
   const response = await deleteCartItem(itemId)
 
-  if (response?.status === 'success') {
+  // New API returns { success: true }
+  if (response?.success) {
     dispatch(getCartItemsAsync())
 
-    return response
+    return { status: 'success', data: null, message: 'Đã xóa sản phẩm khỏi giỏ hàng' }
   }
 
   return {
+    status: 'error',
     data: null,
-    message: response?.response.data.message,
-    error: response?.response.data.error
+    message: response?.message || response?.response?.data?.message || 'Xóa sản phẩm thất bại',
+    error: response?.error || response?.response?.data?.error
   }
 })
 

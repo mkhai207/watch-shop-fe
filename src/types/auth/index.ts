@@ -4,11 +4,12 @@ export type TLoginAuth = {
 }
 
 export type TRegisterAuth = {
-  fullName: string
-  phone: string
   email: string
+  userName: string
   password: string
-  confirmPassword: string
+  fistName: string
+  lastName: string
+  roleId: number
 }
 
 export type TPermission = {

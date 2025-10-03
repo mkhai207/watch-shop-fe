@@ -23,16 +23,16 @@ import { ROUTE_CONFIG } from 'src/configs/route'
 type TProps = {}
 
 type TDefaultValues = {
-  fullname: string
-  phone: string
   email: string
+  userName: string
   password: string
-  confirmPassword: string
+  fistName: string
+  lastName: string
+  roleId: number
 }
 
 const RegisterPage: NextPage<TProps> = () => {
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const theme = useTheme()
   const dispatch: AppDispatch = useDispatch()
@@ -40,22 +40,21 @@ const RegisterPage: NextPage<TProps> = () => {
   const router = useRouter()
 
   const schema = yup.object({
-    fullname: yup.string().required('Full name is required'),
-    phone: yup.string().required('Phone number is required'),
     email: yup.string().required('Email is required').matches(EMAIL_REG, 'The field is must email type'),
-    password: yup.string().required('Password is required'),
-    confirmPassword: yup
-      .string()
-      .required('Password is required')
-      .oneOf([yup.ref('password')], 'Passwords must match')
+    userName: yup.string().required('Username is required').min(3, 'Username must be at least 3 characters'),
+    password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
+    fistName: yup.string().required('First name is required'),
+    lastName: yup.string().required('Last name is required'),
+    roleId: yup.number().required('Role is required').min(1, 'Please select a role')
   })
 
   const defaultValues: TDefaultValues = {
-    fullname: '',
-    phone: '',
     email: '',
+    userName: '',
     password: '',
-    confirmPassword: ''
+    fistName: '',
+    lastName: '',
+    roleId: 1
   }
 
   const {
@@ -68,22 +67,8 @@ const RegisterPage: NextPage<TProps> = () => {
     resolver: yupResolver(schema)
   })
 
-  const onSubmit = (data: {
-    fullname: string
-    phone: string
-    email: string
-    password: string
-    confirmPassword: string
-  }) => {
-    dispatch(
-      registerAuthAsync({
-        fullName: data.fullname,
-        phone: data.phone,
-        email: data.email,
-        password: data.password,
-        confirmPassword: data.confirmPassword
-      })
-    )
+  const onSubmit = (data: TDefaultValues) => {
+    dispatch(registerAuthAsync(data))
   }
 
   useEffect(() => {
@@ -156,52 +141,6 @@ const RegisterPage: NextPage<TProps> = () => {
                       variant='outlined'
                       required
                       fullWidth
-                      label='FullName'
-                      placeholder='Input full name'
-                      onChange={onChange}
-                      onBlur={onBlur}
-                      value={value}
-                      error={Boolean(errors?.fullname)}
-                      helperText={errors?.fullname?.message}
-                    />
-                  )}
-                  name='fullname'
-                />
-              </Box>
-              <Box sx={{ mt: 2, width: '300px' }}>
-                <Controller
-                  control={control}
-                  rules={{
-                    required: true
-                  }}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <CustomTextField
-                      variant='outlined'
-                      required
-                      fullWidth
-                      label='Phone'
-                      placeholder='Input full name'
-                      onChange={onChange}
-                      onBlur={onBlur}
-                      value={value}
-                      error={Boolean(errors?.phone)}
-                      helperText={errors?.phone?.message}
-                    />
-                  )}
-                  name='phone'
-                />
-              </Box>
-              <Box sx={{ mt: 2, width: '300px' }}>
-                <Controller
-                  control={control}
-                  rules={{
-                    required: true
-                  }}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <CustomTextField
-                      variant='outlined'
-                      required
-                      fullWidth
                       label='Email'
                       placeholder='Input email'
                       onChange={onChange}
@@ -212,6 +151,78 @@ const RegisterPage: NextPage<TProps> = () => {
                     />
                   )}
                   name='email'
+                />
+              </Box>
+
+              <Box sx={{ mt: 2, width: '300px' }}>
+                <Controller
+                  control={control}
+                  rules={{
+                    required: true
+                  }}
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <CustomTextField
+                      variant='outlined'
+                      required
+                      fullWidth
+                      label='Username'
+                      placeholder='Input username'
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      value={value}
+                      error={Boolean(errors?.userName)}
+                      helperText={errors?.userName?.message}
+                    />
+                  )}
+                  name='userName'
+                />
+              </Box>
+
+              <Box sx={{ mt: 2, width: '300px' }}>
+                <Controller
+                  control={control}
+                  rules={{
+                    required: true
+                  }}
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <CustomTextField
+                      variant='outlined'
+                      required
+                      fullWidth
+                      label='First Name'
+                      placeholder='Input first name'
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      value={value}
+                      error={Boolean(errors?.fistName)}
+                      helperText={errors?.fistName?.message}
+                    />
+                  )}
+                  name='fistName'
+                />
+              </Box>
+
+              <Box sx={{ mt: 2, width: '300px' }}>
+                <Controller
+                  control={control}
+                  rules={{
+                    required: true
+                  }}
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <CustomTextField
+                      variant='outlined'
+                      required
+                      fullWidth
+                      label='Last Name'
+                      placeholder='Input last name'
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      value={value}
+                      error={Boolean(errors?.lastName)}
+                      helperText={errors?.lastName?.message}
+                    />
+                  )}
+                  name='lastName'
                 />
               </Box>
 
@@ -269,35 +280,17 @@ const RegisterPage: NextPage<TProps> = () => {
                       variant='outlined'
                       required
                       fullWidth
-                      label='confirmPassword'
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder='Input confirm password'
+                      label='Role ID'
+                      type='number'
+                      placeholder='Input role ID (1 for user)'
                       onChange={onChange}
                       onBlur={onBlur}
                       value={value}
-                      error={Boolean(errors?.confirmPassword)}
-                      helperText={errors?.confirmPassword?.message}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position='end'>
-                            <IconButton
-                              edge='end'
-                              onClick={() => {
-                                setShowConfirmPassword(!showConfirmPassword)
-                              }}
-                            >
-                              {showConfirmPassword ? (
-                                <IconifyIcon icon='material-symbols:visibility-outline' />
-                              ) : (
-                                <IconifyIcon icon='material-symbols:visibility-off-outline-rounded' />
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        )
-                      }}
+                      error={Boolean(errors?.roleId)}
+                      helperText={errors?.roleId?.message}
                     />
                   )}
-                  name='confirmPassword'
+                  name='roleId'
                 />
               </Box>
 

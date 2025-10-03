@@ -13,12 +13,36 @@ export interface CreateOrderResponse {
 
 export const getListOrders = async (data: { params: TParams; paramsSerializer?: (params: any) => string }) => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/get-orders`, {
+    // Call new v1 orders list endpoint and normalize to existing consumer shape
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}`, {
       params: data.params,
       paramsSerializer: data.paramsSerializer
     })
 
-    return res.data
+    const raw = res.data
+    // Expected backend shape:
+    // { orders: { count: number, rows: Array<...> } }
+    const rows = raw?.orders?.rows || []
+    const count = raw?.orders?.count ?? rows.length
+
+    // Normalize items for UI expectations
+    const normalized = rows.map((item: any) => ({
+      id: item.id,
+      name: item.guess_name || item.name || '',
+      shipping_address: item.shipping_address,
+      created_at: item.created_at,
+      status: item.status || item.current_status_id || 'PENDING'
+    }))
+
+    return {
+      status: 'success',
+      data: normalized,
+      meta: {
+        totalItems: count,
+        totalPages: 1,
+        currentPage: 1
+      }
+    }
   } catch (error) {
     return error
   }

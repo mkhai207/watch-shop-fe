@@ -87,21 +87,27 @@ export const cartSlice = createSlice({
     // updateCartItemAsync
     builder
       .addCase(updateCartItemAsync.pending, state => {
-        state.isLoading = true
+        // do not toggle global spinner for quantity changes
         state.isSuccess = false
         state.isError = false
         state.message = ''
         state.error = ''
       })
       .addCase(updateCartItemAsync.fulfilled, (state, action) => {
-        state.isLoading = false
+        const updated = action.payload?.data as any
+        if (updated?.id) {
+          const idx = state.items.findIndex(i => i.id === String(updated.id))
+          if (idx !== -1) {
+            state.items[idx] = { ...(state.items[idx] as any), ...updated }
+          }
+        }
         state.isSuccess = action.payload.status === 'success'
         state.isError = action.payload.status !== 'success'
         state.message = action.payload?.message
       })
       .addCase(updateCartItemAsync.rejected, (state, action) => {
-        state.isLoading = false
         state.isError = true
+        state.isSuccess = false
         state.error = action.error.message || 'Failed to update cart item'
       })
 

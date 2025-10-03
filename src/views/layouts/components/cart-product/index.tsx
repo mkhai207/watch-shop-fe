@@ -26,6 +26,7 @@ const CartProduct = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', textAlign: 'center' }}>
         <Tooltip title={t('cart')}>
           <IconButton
+            id='header-cart-button'
             onClick={handleNavigateCart}
             size='medium'
             sx={{
@@ -43,7 +44,7 @@ const CartProduct = () => {
           >
             <Badge
               color='error'
-              badgeContent={items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0)}
+              badgeContent={items?.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 0), 0) || 0}
               sx={{
                 '& .MuiBadge-badge': {
                   backgroundColor: '#d32f2f',

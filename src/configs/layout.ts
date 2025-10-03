@@ -56,6 +56,11 @@ export const VerticalItems: MenuItem[] = [
         path: '/manage-system/review'
       },
       {
+        title: 'Trạng thái đơn hàng',
+        icon: 'mdi:clipboard-list-outline',
+        path: '/manage-system/order-status'
+      },
+      {
         title: 'Vật liệu dây đeo',
         icon: 'mdi:watch',
         path: '/manage-system/strap-material'

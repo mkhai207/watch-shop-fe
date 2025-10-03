@@ -6,14 +6,18 @@ export const registerAuthAsync = createAsyncThunk('auth/register', async (data: 
   const response = await registerAuth(data)
   console.log('registerResponse', response)
 
-  if (response?.data) {
-    return response
+  if (response?.user) {
+    return {
+      data: response.user,
+      message: 'Đăng ký thành công!',
+      tokens: response.tokens
+    }
   }
 
   return {
     data: null,
-    message: response?.response.data.message,
-    error: response?.response.data.error
+    message: response?.response?.data?.message || 'Có lỗi xảy ra khi đăng ký',
+    error: response?.response?.data?.error || 'Unknown error'
   }
 })
 

@@ -1,7 +1,8 @@
 const typography = {
   fontFamily: [
+    'Be Vietnam Pro',
+    'Inter',
     'Public Sans',
-    'sans-serif',
     '-apple-system',
     'BlinkMacSystemFont',
     '"Segoe UI"',

@@ -1,4 +1,3 @@
-import { yupResolver } from '@hookform/resolvers/yup'
 import { Add as AddIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -6,7 +5,6 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   Chip,
   CircularProgress,
   colors,
@@ -15,27 +13,33 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
-  Grid,
   Menu,
   MenuItem,
-  TextField,
   Typography
 } from '@mui/material'
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { createAddress, deleteAddressById, getAddressesByUserId, updateAddressById } from 'src/services/address'
+import AddressForm from 'src/components/AddressForm'
+import {
+  createAddress,
+  deleteAddressById,
+  getAddressesByUserId,
+  updateAddressById,
+  listAddressesV1,
+  createAddressV1
+} from 'src/services/address'
 import { TAddress } from 'src/types/address'
-import * as yup from 'yup'
 
 interface AddressFormData {
   recipient_name: string
   phone_number: string
   street: string
   ward: string
+  wardCode?: string
   district: string
+  districtCode?: string
   city: string
+  provinceCode?: string
   is_default: boolean
 }
 
@@ -50,35 +54,6 @@ const AddressPage = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedContact, setSelectedContact] = useState<string | null>(null)
 
-  // Form validation schema
-  const schema = yup.object({
-    recipient_name: yup.string().required('Tên người nhận là bắt buộc'),
-    phone_number: yup
-      .string()
-      .required('Số điện thoại là bắt buộc')
-      .matches(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
-    street: yup.string().required('Địa chỉ đường/số nhà là bắt buộc'),
-    ward: yup.string().required('Phường/xã là bắt buộc'),
-    district: yup.string().required('Quận/huyện là bắt buộc'),
-    city: yup.string().required('Tỉnh/thành phố là bắt buộc'),
-    is_default: yup.boolean().default(false)
-  })
-
-  const defaultValues: AddressFormData = {
-    recipient_name: '',
-    phone_number: '',
-    street: '',
-    ward: '',
-    district: '',
-    city: '',
-    is_default: false
-  }
-
-  const { handleSubmit, control, reset } = useForm<AddressFormData>({
-    defaultValues,
-    mode: 'onBlur',
-    resolver: yupResolver(schema)
-  })
 
   // Load addresses on component mount
   useEffect(() => {
@@ -88,9 +63,17 @@ const AddressPage = () => {
   const fetchAddresses = async () => {
     setLoading(true)
     try {
-      const response = await getAddressesByUserId()
-      if (response?.status === 'success' && response?.data) {
-        setAddresses(response.data)
+      // Try v1 list first (same as checkout)
+      const v1 = await listAddressesV1()
+      const rows = v1?.addresses?.rows
+      if (Array.isArray(rows)) {
+        setAddresses(rows)
+      } else {
+        // Fallback to old API
+        const response = await getAddressesByUserId()
+        if (response?.status === 'success' && response?.data) {
+          setAddresses(response.data)
+        }
       }
     } catch (error) {
       console.error('Error fetching addresses:', error)
@@ -101,28 +84,13 @@ const AddressPage = () => {
   }
 
   const handleOpenDialog = (address: TAddress | null = null) => {
-    if (address) {
-      setEditingAddress(address)
-      reset({
-        recipient_name: address.recipient_name,
-        phone_number: address.phone_number,
-        street: address.street,
-        ward: address.ward,
-        district: address.district,
-        city: address.city,
-        is_default: address.is_default
-      })
-    } else {
-      setEditingAddress(null)
-      reset(defaultValues)
-    }
+    setEditingAddress(address)
     setDialogOpen(true)
   }
 
   const handleCloseDialog = () => {
     setDialogOpen(false)
     setEditingAddress(null)
-    reset(defaultValues)
   }
 
   const onSubmit = async (data: AddressFormData) => {
@@ -134,13 +102,23 @@ const AddressPage = () => {
           toast.success('Cập nhật địa chỉ thành công')
         }
       } else {
-        response = await createAddress(data)
-        if (response?.status === 'success') {
+        // Use v1 API for creating (same as checkout)
+        const v1Data = {
+          city: data.city,
+          district: data.district,
+          is_default: data.is_default ? '1' : '0',
+          street: data.street,
+          ward: data.ward,
+          phone_number: data.phone_number,
+          recipient_name: data.recipient_name
+        }
+        response = await createAddressV1(v1Data)
+        if (response?.address) {
           toast.success('Thêm địa chỉ mới thành công')
         }
       }
 
-      if (response?.status === 'success') {
+      if (response?.status === 'success' || response?.address) {
         handleCloseDialog()
         fetchAddresses()
       } else {
@@ -376,95 +354,24 @@ const AddressPage = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth='md' fullWidth>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <DialogTitle>{editingAddress ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ mới'}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <Controller
-                name='recipient_name'
-                control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <TextField {...field} label='Tên người nhận' fullWidth error={!!error} helperText={error?.message} />
-                )}
-              />
-
-              <Controller
-                name='phone_number'
-                control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <TextField {...field} label='Số điện thoại' fullWidth error={!!error} helperText={error?.message} />
-                )}
-              />
-
-              <Controller
-                name='street'
-                control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <TextField
-                    {...field}
-                    label='Địa chỉ (số nhà, tên đường)'
-                    fullWidth
-                    error={!!error}
-                    helperText={error?.message}
-                  />
-                )}
-              />
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <Controller
-                    name='ward'
-                    control={control}
-                    render={({ field, fieldState: { error } }) => (
-                      <TextField {...field} label='Phường/Xã' fullWidth error={!!error} helperText={error?.message} />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Controller
-                    name='district'
-                    control={control}
-                    render={({ field, fieldState: { error } }) => (
-                      <TextField {...field} label='Quận/Huyện' fullWidth error={!!error} helperText={error?.message} />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Controller
-                    name='city'
-                    control={control}
-                    render={({ field, fieldState: { error } }) => (
-                      <TextField
-                        {...field}
-                        label='Tỉnh/Thành phố'
-                        fullWidth
-                        error={!!error}
-                        helperText={error?.message}
-                      />
-                    )}
-                  />
-                </Grid>
-              </Grid>
-
-              <Controller
-                name='is_default'
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={<Checkbox checked={field.value} onChange={field.onChange} />}
-                    label='Đặt làm địa chỉ mặc định'
-                  />
-                )}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Hủy</Button>
-            <Button type='submit' variant='contained'>
-              {editingAddress ? 'Cập nhật' : 'Thêm mới'}
-            </Button>
-          </DialogActions>
-        </form>
+        <DialogTitle>{editingAddress ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ mới'}</DialogTitle>
+        <DialogContent>
+          <AddressForm
+            defaultValues={editingAddress ? {
+              recipient_name: editingAddress.recipient_name,
+              phone_number: editingAddress.phone_number,
+              street: editingAddress.street,
+              ward: editingAddress.ward,
+              district: editingAddress.district,
+              city: editingAddress.city,
+              is_default: editingAddress.is_default
+            } : undefined}
+            onSubmit={onSubmit}
+            onCancel={handleCloseDialog}
+            submitButtonText={editingAddress ? 'Cập nhật' : 'Thêm mới'}
+            loading={false}
+          />
+        </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}

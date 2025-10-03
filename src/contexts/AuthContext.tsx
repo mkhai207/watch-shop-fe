@@ -15,6 +15,9 @@ import { loginAuth } from 'src/services/auth'
 import { CONFIG_API } from 'src/configs/api'
 import { clearLocalUserData, setLocalUserData } from 'src/helpers/storage'
 import instanceAxios from 'src/helpers/axios'
+import { useDispatch } from 'react-redux'
+import { AppDispatch } from 'src/stores'
+import { getCartItemsAsync } from 'src/stores/apps/cart/action'
 
 // ** Defaults
 const defaultProvider: AuthValuesType = {
@@ -39,6 +42,7 @@ const AuthProvider = ({ children }: Props) => {
 
   // ** Hooks
   const router = useRouter()
+  const dispatch: AppDispatch = useDispatch()
 
   useEffect(() => {
     const initAuth = async (): Promise<void> => {
@@ -50,14 +54,14 @@ const AuthProvider = ({ children }: Props) => {
           .then(async response => {
             setLoading(false)
             setUser({ ...response.data.data })
+            // Load cart immediately when authenticated on app init
+            dispatch(getCartItemsAsync())
           })
           .catch(() => {
+            // Silent logout without forced redirect to login
             clearLocalUserData()
             setUser(null)
             setLoading(false)
-            if (!router.pathname.includes('login')) {
-              router.replace('/login')
-            }
           })
       } else {
         setLoading(false)
@@ -79,6 +83,9 @@ const AuthProvider = ({ children }: Props) => {
         params.rememberMe ? window.localStorage.setItem('userData', JSON.stringify(response.user)) : null
 
         const redirectURL = returnUrl && returnUrl !== '/' ? returnUrl : '/'
+
+        // Load cart right after successful login
+        dispatch(getCartItemsAsync())
 
         router.replace(redirectURL as string)
       })

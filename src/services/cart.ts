@@ -30,7 +30,10 @@ export const getCartItems = async () => {
 
 export const updateCartItem = async (id: string, data: TUpdateCartItem) => {
   try {
-    const res = await instanceAxios.put(`${CONFIG_API.CART.INDEX}/update/${id}`, data)
+    // PUT /v1/cart-items/:id { quantity }
+    const res = await instanceAxios.put(`${CONFIG_API.CART_ITEM.INDEX}/${id}`, data, {
+      headers: { 'Content-Type': 'application/json' }
+    })
 
     return res.data
   } catch (error) {
@@ -40,7 +43,8 @@ export const updateCartItem = async (id: string, data: TUpdateCartItem) => {
 
 export const deleteCartItem = async (id: string) => {
   try {
-    const res = await instanceAxios.delete(`${CONFIG_API.CART.INDEX}/delete/${id}`)
+    // DELETE /v1/cart-items/:id
+    const res = await instanceAxios.delete(`${CONFIG_API.CART_ITEM.INDEX}/${id}`)
 
     return res.data
   } catch (error) {

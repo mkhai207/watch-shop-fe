@@ -18,6 +18,8 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useDispatch, useSelector } from 'react-redux'
 import Spinner from 'src/components/spinner'
+import ConfirmDialog from 'src/components/confirm-dialog/ConfirmDialog'
+import InfoDialog from 'src/components/info-dialog/InfoDialog'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { AppDispatch, RootState } from 'src/stores'
 import {
@@ -36,23 +38,51 @@ const CartPage: NextPage<TProps> = () => {
   const [promoCode, setPromoCode] = useState('')
   const [isPromoApplied, setIsPromoApplied] = useState(false)
   const [localQuantities, setLocalQuantities] = useState<{ [key: string]: number }>({})
+  const [confirmState, setConfirmState] = useState<{ open: boolean; itemId?: string; message?: string }>({
+    open: false
+  })
+  const [infoState, setInfoState] = useState<{ open: boolean; title?: string; message?: string }>({ open: false })
 
   const dispatch: AppDispatch = useDispatch()
   const { items, isLoading, isSuccess, isError, message } = useSelector((state: RootState) => state.cart)
 
   const handleQuantityChange = (itemId: string, change: number) => {
     const item = items.find(i => i.id === itemId)
-    if (item) {
-      const currentQuantity = localQuantities[itemId] || item.quantity || 1
-      const newQuantity = Math.max(1, currentQuantity + change)
-      setLocalQuantities(prev => ({ ...prev, [itemId]: newQuantity }))
-      dispatch(updateCartItemAsync({ itemId, data: { quantity: newQuantity } }))
+    if (!item) return
+
+    const currentQuantity = localQuantities[itemId] || item.quantity || 1
+    const desiredQuantity = currentQuantity + change
+    const maxQuantity = Number((item as any)?.variant?.quantity) || Infinity
+
+    // If decreasing below 1, confirm delete
+    if (desiredQuantity < 1) {
+      setConfirmState({
+        open: true,
+        itemId,
+        message: 'Số lượng không thể nhỏ hơn 1. Bạn có muốn xóa sản phẩm này?'
+      })
+      return
     }
+
+    // Cap at available stock
+    if (desiredQuantity > maxQuantity) {
+      const message = `Số lượng vượt quá hàng tồn (${maxQuantity}).`
+      setInfoState({ open: true, title: 'Không thể cập nhật', message })
+      setLocalQuantities(prev => ({ ...prev, [itemId]: maxQuantity }))
+      dispatch(updateCartItemAsync({ itemId, data: { quantity: maxQuantity } }))
+      return
+    }
+
+    setLocalQuantities(prev => ({ ...prev, [itemId]: desiredQuantity }))
+    dispatch(updateCartItemAsync({ itemId, data: { quantity: desiredQuantity } }))
   }
 
   const handleDeleteCartItem = (itemId: string) => {
-    console.log('itemId', itemId)
-    dispatch(deleteCartItemAsync(itemId))
+    setConfirmState({
+      open: true,
+      itemId,
+      message: 'Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?'
+    })
   }
 
   const handleClearCart = () => {
@@ -61,7 +91,7 @@ const CartPage: NextPage<TProps> = () => {
 
   const getItemPrice = (it: any) => (it?.variant?.product?.price ?? it?.variant?.price ?? 0) as number
   const handleCalculateTotalCart = () =>
-    items.reduce((acc: number, it: any) => acc + getItemPrice(it) * (it?.quantity || 0), 0)
+    items?.reduce((acc: number, it: any) => acc + getItemPrice(it) * (it?.quantity || 0), 0) || 0
   const subtotal = useMemo(() => handleCalculateTotalCart(), [items])
 
   const formatPrice = (price: number) => `${price.toLocaleString('vi-VN')} đ`
@@ -100,11 +130,36 @@ const CartPage: NextPage<TProps> = () => {
   return (
     <>
       {isLoading && <Spinner />}
+      <ConfirmDialog
+        open={confirmState.open}
+        description={confirmState.message}
+        onClose={() => setConfirmState({ open: false })}
+        onConfirm={() => {
+          if (confirmState.itemId) dispatch(deleteCartItemAsync(confirmState.itemId))
+          setConfirmState({ open: false })
+        }}
+      />
+      <InfoDialog
+        open={infoState.open}
+        title={infoState.title}
+        description={infoState.message}
+        onClose={() => setInfoState({ open: false })}
+      />
       <Container maxWidth='lg' sx={{ py: 4, mt: 4, minHeight: '50vh' }}>
         <Grid container spacing={4}>
           {/* Header outside boxes */}
           <Grid item xs={12}>
-            <Typography variant='h5' fontWeight='bold' sx={{ mb: 0.5 }}>
+            <Typography
+              component='div'
+              sx={{
+                fontFamily: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif !important`,
+                fontWeight: 800,
+                lineHeight: 1.15,
+                letterSpacing: '-0.02em',
+                mb: 1,
+                fontSize: { xs: 28, sm: 36, md: 44 }
+              }}
+            >
               Giỏ hàng của bạn
             </Typography>
             <Typography variant='body2' color='text.secondary'>
@@ -250,15 +305,19 @@ const CartPage: NextPage<TProps> = () => {
                               </Typography>
                               <Typography variant='body2' color='text.secondary' gutterBottom>
                                 {(item as any)?.variant?.color?.name}
-                                {((item as any)?.variant?.size?.name && ` / ${(item as any)?.variant?.size?.name}`) || ''}
+                                {((item as any)?.variant?.size?.name && ` / ${(item as any)?.variant?.size?.name}`) ||
+                                  ''}
                               </Typography>
                               <Typography variant='body2' color='text.secondary' gutterBottom>
                                 {(item as any)?.variant?.product?.id || (item as any)?.variant?.watch?.id}
                               </Typography>
                               <Typography variant='h6' color='error' fontWeight='bold'>
                                 {(
-                                  (item as any)?.variant?.product?.price || (item as any)?.variant?.price || 0
-                                ).toLocaleString('vi-VN')}{' '}VNĐ
+                                  (item as any)?.variant?.product?.price ||
+                                  (item as any)?.variant?.price ||
+                                  0
+                                ).toLocaleString('vi-VN')}{' '}
+                                VNĐ
                               </Typography>
                             </Grid>
 
@@ -266,12 +325,15 @@ const CartPage: NextPage<TProps> = () => {
                             <Grid item xs={12} sm={3}>
                               <Box display='flex' flexDirection='column' alignItems='center' gap={2}>
                                 <Box display='flex' alignItems='center' border='1px solid #e0e0e0' borderRadius={1}>
-                                  <IconButton
-                                    size='small'
-                                    onClick={() => handleQuantityChange(item.id, -1)}
-                                    disabled={item.quantity <= 1}
-                                  >
-                                    <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                                  <IconButton size='small' onClick={() => handleQuantityChange(item.id, -1)}>
+                                    <svg
+                                      width='16'
+                                      height='16'
+                                      viewBox='0 0 24 24'
+                                      fill='none'
+                                      stroke='currentColor'
+                                      strokeWidth='2'
+                                    >
                                       <line x1='5' y1='12' x2='19' y2='12' />
                                     </svg>
                                   </IconButton>
@@ -285,8 +347,19 @@ const CartPage: NextPage<TProps> = () => {
                                     }}
                                     inputProps={{ readOnly: true }}
                                   />
-                                  <IconButton size='small' onClick={() => handleQuantityChange(item.id, 1)}>
-                                    <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                                  <IconButton
+                                    size='small'
+                                    onClick={() => handleQuantityChange(item.id, 1)}
+                                    disabled={item.quantity >= ((item as any)?.variant?.quantity || Infinity)}
+                                  >
+                                    <svg
+                                      width='16'
+                                      height='16'
+                                      viewBox='0 0 24 24'
+                                      fill='none'
+                                      stroke='currentColor'
+                                      strokeWidth='2'
+                                    >
                                       <line x1='12' y1='5' x2='12' y2='19' />
                                       <line x1='5' y1='12' x2='19' y2='12' />
                                     </svg>
@@ -296,14 +369,23 @@ const CartPage: NextPage<TProps> = () => {
                                 <Button
                                   variant='text'
                                   size='small'
-                                  sx={{ textDecoration: 'underline', color: 'text.secondary', textTransform: 'none', '&:hover': { color: 'error.main' } }}
+                                  sx={{
+                                    textDecoration: 'underline',
+                                    color: 'text.secondary',
+                                    textTransform: 'none',
+                                    '&:hover': { color: 'error.main' }
+                                  }}
                                   onClick={() => handleDeleteCartItem(item.id)}
                                 >
                                   Xóa
                                 </Button>
 
                                 <Typography variant='h6' color='error' fontWeight='bold'>
-                                  {(((item as any)?.variant?.product?.price || (item as any)?.variant?.price || 0) * item.quantity).toLocaleString('vi-VN')}{' '}VNĐ
+                                  {(
+                                    ((item as any)?.variant?.product?.price || (item as any)?.variant?.price || 0) *
+                                    item.quantity
+                                  ).toLocaleString('vi-VN')}{' '}
+                                  VNĐ
                                 </Typography>
                               </Box>
                             </Grid>

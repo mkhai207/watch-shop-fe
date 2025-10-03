@@ -1,5 +1,5 @@
 import CheckIcon from '@mui/icons-material/Check'
-import { Avatar, Box, Button, Paper, Typography } from '@mui/material'
+import { Avatar, Box, Button, Paper, Typography, Stack } from '@mui/material'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'react-i18next'
 import { ROUTE_CONFIG } from 'src/configs/route'
@@ -9,7 +9,7 @@ const OrderSuccessPage = () => {
   const router = useRouter()
 
   const handleNavigateOrders = () => {
-    router.push(`/${ROUTE_CONFIG.ORDER_HISTORY}`)
+    router.push(ROUTE_CONFIG.ORDER_HISTORY)
   }
 
   return (
@@ -68,19 +68,19 @@ const OrderSuccessPage = () => {
           {t('order-delivery-info')}
         </Typography>
 
-        <Button
-          variant='contained'
-          color='primary'
-          onClick={handleNavigateOrders}
-          sx={{
-            textTransform: 'none',
-            padding: '8px 24px',
-            borderRadius: 2,
-            marginTop: 5
-          }}
-        >
-          {t('view-orders')}
-        </Button>
+        <Stack direction='row' spacing={2} justifyContent='center' sx={{ mt: 5 }}>
+          <Button
+            variant='outlined'
+            color='primary'
+            onClick={() => router.push(ROUTE_CONFIG.HOME)}
+            sx={{ textTransform: 'none' }}
+          >
+            Về trang chủ
+          </Button>
+          <Button variant='contained' color='primary' onClick={handleNavigateOrders} sx={{ textTransform: 'none' }}>
+            {t('view-orders')}
+          </Button>
+        </Stack>
       </Paper>
     </Box>
   )

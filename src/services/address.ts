@@ -11,6 +11,27 @@ export const createAddress = async (data: any) => {
   }
 }
 
+// v1 endpoints (POST /v1/addresses)
+export const createAddressV1 = async (data: any) => {
+  try {
+    const res = await instanceAxios.post(`${CONFIG_API.ADDRESS.INDEX}`, data)
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
+
+export const listAddressesV1 = async () => {
+  try {
+    const res = await instanceAxios.get(`${CONFIG_API.ADDRESS.INDEX}`)
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
+
 export const getAddressesByUserId = async () => {
   try {
     const res = await instanceAxios.get(`${CONFIG_API.ADDRESS.INDEX}/get-addresses-user`)

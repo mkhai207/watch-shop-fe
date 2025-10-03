@@ -75,7 +75,7 @@ const AccountLayout: NextPage<TProps> = ({ children }) => {
   }, [router.pathname])
 
   return (
-    <Box sx={{ display: 'flex', gap: 3, minHeight: '70vh' }}>
+    <Box sx={{ display: 'flex', gap: 3, minHeight: '70vh', pt: 6 }}>
       {/* Sidebar */}
       <Box
         sx={{

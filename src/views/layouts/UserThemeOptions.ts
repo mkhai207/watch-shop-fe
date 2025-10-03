@@ -92,7 +92,7 @@ const UserThemeOptions = (): ThemeOptions => {
       borderRadius: 10
     },
     typography: {
-      fontFamily: '"Myriad Pro", sans-serif'
+      fontFamily: '"Be Vietnam Pro", Inter, "Public Sans", Roboto, "Helvetica Neue", Arial, "Segoe UI", sans-serif'
     },
     zIndex: {
       appBar: 1200,

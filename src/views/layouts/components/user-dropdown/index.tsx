@@ -94,6 +94,7 @@ const UserDropdown = () => {
             alignItems: 'center',
             gap: 2,
             p: 3,
+            pt: 4,
             background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
             borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`
           }}
@@ -291,6 +292,40 @@ const UserDropdown = () => {
             </Typography>
             <Typography variant='caption' color='text.secondary'>
               Sản phẩm đã lưu
+            </Typography>
+          </Box>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => handleNavigate(`/${ROUTE_CONFIG.ADDRESSES}`)}
+          sx={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            margin: '4px 8px',
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              transform: 'translateX(4px)'
+            }
+          }}
+        >
+          <Avatar
+            sx={{
+              backgroundColor: alpha(theme.palette.success.main, 0.1),
+              color: theme.palette.success.main,
+              width: 36,
+              height: 36,
+              mr: 2
+            }}
+          >
+            <span>📍</span>
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant='body2' fontWeight={500}>
+              Địa chỉ
+            </Typography>
+            <Typography variant='caption' color='text.secondary'>
+              Quản lý địa chỉ giao hàng
             </Typography>
           </Box>
         </MenuItem>

@@ -20,6 +20,9 @@ export const CONFIG_API = {
   CART: {
     INDEX: `${BASE_URL}/carts`
   },
+  CART_ITEM: {
+    INDEX: `${BASE_URL}/cart-items`
+  },
   ORDER: {
     INDEX: `${BASE_URL}/orders`,
     GET_ORDERS: `${BASE_URL}/orders/get-orders`
@@ -77,6 +80,9 @@ export const CONFIG_API = {
   },
   DASHBOARD: {
     INDEX: `${BASE_URL}/dashboard`
+  },
+  ORDER_STATUS: {
+    INDEX: `${BASE_URL}/order-status`
   },
   AI_RECOMMEND: {
     INDEX: `${AI_URL}/recommendations`,
