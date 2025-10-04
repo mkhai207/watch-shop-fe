@@ -53,7 +53,8 @@ const AuthProvider = ({ children }: Props) => {
           .get(CONFIG_API.AUTH.AUTH_ME)
           .then(async response => {
             setLoading(false)
-            setUser({ ...response.data.data })
+            setUser({ ...response.data.user })
+
             // Load cart immediately when authenticated on app init
             dispatch(getCartItemsAsync())
           })

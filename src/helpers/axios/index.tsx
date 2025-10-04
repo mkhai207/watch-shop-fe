@@ -58,27 +58,23 @@ const requestInterceptor = instanceAxios.interceptors.request.use(async config =
             if (newAccessToken) {
               config.headers['Authorization'] = `Bearer ${newAccessToken}`
             } else {
-              // token refresh failed -> clear but don't force redirect
-              globalSetUser && globalSetUser(null)
-              clearLocalUserData()
+              handleRedirectLogin()
             }
           } catch (e) {
             console.log('error:', e)
-            globalSetUser && globalSetUser(null)
-            clearLocalUserData()
+            handleRedirectLogin()
           }
         } else {
-          globalSetUser && globalSetUser(null)
-          clearLocalUserData()
+          handleRedirectLogin()
         }
       } else {
-        globalSetUser && globalSetUser(null)
-        clearLocalUserData()
+        handleRedirectLogin()
       }
     }
   } else {
-    // No token: allow public requests without redirect
-    return config
+    handleRedirectLogin()
+
+    return Promise.reject(new axios.Cancel('No access token'))
   }
 
   return config
