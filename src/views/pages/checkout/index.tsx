@@ -37,6 +37,14 @@ import { createOrder } from 'src/services/checkout'
 import { getDiscountByCode, getDiscounts } from 'src/services/discount'
 import { createUserInteraction } from 'src/services/userInteraction'
 import { getAddressesByUserId, createAddressV1, listAddressesV1 } from 'src/services/address'
+import {
+  getProvinces,
+  getDistrictsByProvince,
+  getWardsByDistrict,
+  Province,
+  District,
+  Ward
+} from 'src/services/addressApi'
 import { RootState } from 'src/stores'
 import { TDiscount } from 'src/types/discount'
 import { TCreateOrder, TCreateOrderForm } from 'src/types/order'
@@ -99,6 +107,14 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [addrWard, setAddrWard] = useState('')
   const [addrDistrict, setAddrDistrict] = useState('')
   const [addrCity, setAddrCity] = useState('')
+
+  // Address API states
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [districts, setDistricts] = useState<District[]>([])
+  const [wards, setWards] = useState<Ward[]>([])
+  const [loadingProvinces, setLoadingProvinces] = useState(false)
+  const [loadingDistricts, setLoadingDistricts] = useState(false)
+  const [loadingWards, setLoadingWards] = useState(false)
 
   const schema = yup.object({
     paymentMethod: yup.string().required(t('payment-method-required')),
@@ -247,6 +263,9 @@ const CheckoutPage: NextPage<TProps> = () => {
       setAddrWard('')
       setAddrDistrict('')
       setAddrCity('')
+      // Reset cascading dropdowns
+      setDistricts([])
+      setWards([])
       setAddressDialogOpen(true)
       return
     } else if (addressId) {
@@ -524,6 +543,81 @@ const CheckoutPage: NextPage<TProps> = () => {
       }
     }
   }, [orderSuccess, isBuyNowMode])
+
+  // Load provinces on component mount
+  useEffect(() => {
+    loadProvinces()
+  }, [])
+
+  // Load provinces
+  const loadProvinces = async () => {
+    setLoadingProvinces(true)
+    try {
+      const provincesData = await getProvinces()
+      setProvinces(provincesData)
+    } catch (error) {
+      console.error('Error loading provinces:', error)
+    } finally {
+      setLoadingProvinces(false)
+    }
+  }
+
+  // Load districts by province code
+  const loadDistricts = async (provinceCode: string) => {
+    setLoadingDistricts(true)
+    setDistricts([])
+    setWards([])
+    try {
+      const districtsData = await getDistrictsByProvince(provinceCode)
+      setDistricts(districtsData)
+    } catch (error) {
+      console.error('Error loading districts:', error)
+    } finally {
+      setLoadingDistricts(false)
+    }
+  }
+
+  // Load wards by district code
+  const loadWards = async (districtCode: string) => {
+    setLoadingWards(true)
+    setWards([])
+    try {
+      const wardsData = await getWardsByDistrict(districtCode)
+      setWards(wardsData)
+    } catch (error) {
+      console.error('Error loading wards:', error)
+    } finally {
+      setLoadingWards(false)
+    }
+  }
+
+  // Handle province change
+  const handleProvinceChange = (provinceName: string) => {
+    const selectedProvince = provinces.find(p => p.name === provinceName)
+    if (selectedProvince) {
+      setAddrCity(provinceName)
+      loadDistricts(selectedProvince.code)
+      // Reset district and ward when province changes
+      setAddrDistrict('')
+      setAddrWard('')
+    }
+  }
+
+  // Handle district change
+  const handleDistrictChange = (districtName: string) => {
+    const selectedDistrict = districts.find(d => d.name === districtName)
+    if (selectedDistrict) {
+      setAddrDistrict(districtName)
+      loadWards(selectedDistrict.code)
+      // Reset ward when district changes
+      setAddrWard('')
+    }
+  }
+
+  // Handle ward change
+  const handleWardChange = (wardName: string) => {
+    setAddrWard(wardName)
+  }
 
   if (!isBuyNowMode && items.length === 0) {
     return (
@@ -1043,7 +1137,7 @@ const CheckoutPage: NextPage<TProps> = () => {
           </Grid>
         </Card>
         {/* New Address Dialog */}
-        <Dialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} fullWidth maxWidth='sm'>
+        <Dialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} fullWidth maxWidth='md'>
           <DialogTitle>Tạo thông tin người nhận</DialogTitle>
           <DialogContent sx={{ pt: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1070,19 +1164,64 @@ const CheckoutPage: NextPage<TProps> = () => {
                 onChange={e => setAddrStreet(e.target.value)}
                 fullWidth
               />
-              <TextField label='Phường/Xã' value={addrWard} onChange={e => setAddrWard(e.target.value)} fullWidth />
-              <TextField
-                label='Quận/Huyện'
-                value={addrDistrict}
-                onChange={e => setAddrDistrict(e.target.value)}
-                fullWidth
-              />
-              <TextField
-                label='Tỉnh/Thành phố'
-                value={addrCity}
-                onChange={e => setAddrCity(e.target.value)}
-                fullWidth
-              />
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Tỉnh/Thành phố</InputLabel>
+                    <Select
+                      label='Tỉnh/Thành phố'
+                      disabled={loadingProvinces}
+                      value={addrCity || ''}
+                      onChange={e => handleProvinceChange(e.target.value)}
+                    >
+                      {provinces.length > 0 ? (
+                        provinces.map(province => (
+                          <MenuItem key={province.code} value={province.name}>
+                            {province.name_with_type}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>Đang tải...</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Quận/Huyện</InputLabel>
+                    <Select
+                      label='Quận/Huyện'
+                      disabled={loadingDistricts || districts.length === 0}
+                      value={addrDistrict || ''}
+                      onChange={e => handleDistrictChange(e.target.value)}
+                    >
+                      {districts.map(district => (
+                        <MenuItem key={district.code} value={district.name}>
+                          {district.name_with_type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Phường/Xã</InputLabel>
+                    <Select
+                      label='Phường/Xã'
+                      disabled={loadingWards || wards.length === 0}
+                      value={addrWard || ''}
+                      onChange={e => handleWardChange(e.target.value)}
+                    >
+                      {wards.map(ward => (
+                        <MenuItem key={ward.code} value={ward.name}>
+                          {ward.name_with_type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
             </Box>
           </DialogContent>
           <DialogActions>

@@ -25,11 +25,20 @@ export const getListOrders = async (data: { params: TParams; paramsSerializer?: 
     const rows = raw?.orders?.rows || []
     const count = raw?.orders?.count ?? rows.length
 
-    // Normalize items for UI expectations
+    // Normalize items for UI expectations with more complete data
     const normalized = rows.map((item: any) => ({
       id: item.id,
+      code: item.code,
       name: item.guess_name || item.name || '',
+      email: item.guess_email || '',
+      phone: item.guess_phone || '',
       shipping_address: item.shipping_address,
+      total_amount: item.total_amount,
+      discount_code: item.discount_code,
+      discount_amount: item.discount_amount,
+      final_amount: item.final_amount,
+      shipping_fee: item.shipping_fee,
+      note: item.note,
       created_at: item.created_at,
       status: item.status || item.current_status_id || 'PENDING'
     }))
@@ -70,7 +79,7 @@ export const retryPayOrder = async (id: string) => {
 
 export const getOrderDetail = async (id: string) => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/get-orders/${id}`)
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/${id}`)
 
     return res.data
   } catch (error) {
@@ -81,6 +90,16 @@ export const getOrderDetail = async (id: string) => {
 export const updateOrderStatus = async (id: string, data: { status: string }) => {
   try {
     const res = await instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/update/${id}`, data)
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
+
+export const getOrderStatuses = async () => {
+  try {
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS.INDEX}`)
 
     return res.data
   } catch (error) {

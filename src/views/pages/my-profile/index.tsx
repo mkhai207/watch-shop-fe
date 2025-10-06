@@ -1,428 +1,402 @@
-import { yupResolver } from '@hookform/resolvers/yup'
 import {
   Avatar,
   Box,
   Button,
-  FormControl,
+  Card,
+  CardContent,
+  Chip,
   Grid,
-  InputLabel,
-  MenuItem,
-  Select,
+  IconButton,
+  Paper,
+  Typography,
   useTheme,
-  Typography
+  Divider,
+  Stack
 } from '@mui/material'
 import { NextPage } from 'next'
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
-import { useDispatch, useSelector } from 'react-redux'
+import { useAuth } from 'src/hooks/useAuth'
 import IconifyIcon from 'src/components/Icon'
 import Spinner from 'src/components/spinner'
-import CustomTextField from 'src/components/text-field'
-import WrapperFileUpload from 'src/components/wrapper-file-upload'
 import { CONFIG_API } from 'src/configs/api'
-import { EMAIL_REG } from 'src/configs/regex'
 import instanceAxios from 'src/helpers/axios'
-import { useFileUpload } from 'src/hooks/useFileUpload'
-import { AppDispatch, RootState } from 'src/stores'
-import { resetInitialState } from 'src/stores/apps/auth'
-import { updateMeAuthAsync } from 'src/stores/apps/auth/action'
-import { toDate } from 'src/utils/date'
-import * as yup from 'yup'
+import { formatCompactVN } from 'src/utils/date'
 
 type TProps = {}
 
-type TDefaultValues = {
-  fullname: string
+interface UserData {
+  id: string
+  code: string | null
+  username: string
   email: string
-  phone?: string
-  avatar?: File | string
-  birthday?: string
-  gender?: string
+  phone_number: string | null
+  first_name: string
+  last_name: string
+  gender: string | null
+  date_of_birth: string | null
+  address: string | null
+  status: string
+  created_at: string
+  role_id: number
+  role: {
+    id: string
+    name: string
+    code: string
+  }
+}
+
+interface AddressData {
+  id: string
+  city: string
+  district: string
+  ward: string
+  street: string
+  recipient_name: string
+  phone_number: string
+  is_default: string
+  created_at: string
+  user_id: string
 }
 
 const MyProfilePage: NextPage<TProps> = () => {
   const theme = useTheme()
   const { t } = useTranslation()
+  const { user: authUser } = useAuth()
 
-  const [loading, setLoading] = useState(false)
-  const [avatar, setAvatar] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const dispatch: AppDispatch = useDispatch()
-  const { uploadFile, isUploading, error: uploadError } = useFileUpload()
-  const { isLoading, isErrorUpdateMe, messageUpdateMe, isSuccessUpdateMe } = useSelector(
-    (state: RootState) => state.auth
-  )
+  const [loading, setLoading] = useState(true)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [defaultAddress, setDefaultAddress] = useState<AddressData | null>(null)
 
-  const schema = yup.object({
-    fullname: yup.string().required(t('Full name is required')),
-    email: yup.string().required(t('Email is required')).matches(EMAIL_REG, t('invalid_email_format')),
-    phone: yup.string().optional().min(10, t('phone_number_invalid')),
-    avatar: yup.mixed().optional(),
-    birthday: yup.string().optional(),
-    gender: yup.string().optional()
-  })
-
-  const defaultValues: TDefaultValues = {
-    fullname: '',
-    email: '',
-    phone: '',
-    avatar: '',
-    birthday: '',
-    gender: ''
-  }
-
-  const {
-    handleSubmit,
-    control,
-    reset,
-    setValue,
-    formState: { errors }
-  } = useForm({
-    defaultValues,
-    mode: 'onBlur',
-    resolver: yupResolver(schema)
-  })
-
-  const onSubmit = async (data: any) => {
+  const fetchUserData = async () => {
     try {
-      let avatarUrl = null
-
-      if (selectedFile) {
-        const uploadResponse = await uploadFile(selectedFile)
-        if (uploadResponse?.data?.url) {
-          avatarUrl = uploadResponse.data.url
-        } else {
-          toast.error('Không thể upload ảnh. Vui lòng thử lại')
-
-          return
-        }
+      setLoading(true)
+      const response = await instanceAxios.get(CONFIG_API.AUTH.AUTH_ME)
+      if (response?.data?.user) {
+        setUserData(response.data.user)
       }
-
-      const updateData: any = {
-        fullname: data.fullname,
-        email: data.email
-      }
-
-      if (data.phone) updateData.phone = data.phone
-      if (data.birthday) updateData.birthday = data.birthday
-      if (data.gender) updateData.gender = data.gender
-      if (avatarUrl) updateData.avatar = avatarUrl
-
-      dispatch(updateMeAuthAsync(updateData))
     } catch (error) {
-      console.error('Error updating profile:', error)
-      toast.error('Có lỗi xảy ra khi cập nhật thông tin')
+      console.error('Error fetching user data:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleUploadAvatar = (file: File) => {
-    if (file) {
-      // Kiểm tra kích thước file (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File quá lớn. Vui lòng chọn file nhỏ hơn 5MB')
-
-        return
+  const fetchDefaultAddress = async () => {
+    try {
+      const response = await instanceAxios.get(CONFIG_API.ADDRESS.INDEX)
+      if (response?.data?.addresses?.rows) {
+        const defaultAddr = response.data.addresses.rows.find((addr: AddressData) => addr.is_default === '1')
+        setDefaultAddress(defaultAddr || null)
       }
-
-      // Kiểm tra định dạng file
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
-      if (!allowedTypes.includes(file.type)) {
-        toast.error('Chỉ chấp nhận file JPG, JPEG hoặc PNG')
-
-        return
-      }
-
-      setSelectedFile(file)
-      const url = URL.createObjectURL(file)
-      setAvatar(url)
-
-      // Cập nhật form value
-      setValue('avatar', file)
-
-      toast.success('Ảnh đã được tải lên thành công')
+    } catch (error) {
+      console.error('Error fetching default address:', error)
     }
-  }
-
-  const fetchGetAuthMe = async () => {
-    await instanceAxios
-      .get(CONFIG_API.AUTH.AUTH_ME)
-      .then(async response => {
-        setLoading(false)
-        const data = response?.data?.data
-        if (data) {
-          data.avatar ? setAvatar(data.avatar) : setAvatar(null)
-          reset({
-            fullname: data?.fullName || '',
-            email: data?.email || '',
-            phone: data?.phone || '',
-            birthday: toDate(data?.birthday) || '',
-            gender: data?.gender || ''
-          })
-        }
-      })
-      .catch(() => {
-        setLoading(false)
-      })
   }
 
   useEffect(() => {
-    fetchGetAuthMe()
+    fetchUserData()
+    fetchDefaultAddress()
   }, [])
 
-  useEffect(() => {
-    if (messageUpdateMe) {
-      console.log('message: ', messageUpdateMe)
-      if (isErrorUpdateMe) {
-        toast.error(messageUpdateMe)
-      } else {
-        toast.success(messageUpdateMe)
-        fetchGetAuthMe()
-
-        // Reset selected file sau khi update thành công
-        setSelectedFile(null)
-      }
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case '0':
+        return 'success'
+      case '1':
+        return 'warning'
+      default:
+        return 'default'
     }
-    dispatch(resetInitialState())
-  }, [isLoading, isErrorUpdateMe, isSuccessUpdateMe, messageUpdateMe])
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case '0':
+        return 'Hoạt động'
+      case '1':
+        return 'Tạm khóa'
+      default:
+        return 'Không xác định'
+    }
+  }
+
+  const getGenderText = (gender: string | null) => {
+    switch (gender) {
+      case 'MALE':
+        return 'Nam'
+      case 'FEMALE':
+        return 'Nữ'
+      case 'OTHER':
+        return 'Khác'
+      default:
+        return 'Chưa cập nhật'
+    }
+  }
+
+  if (loading) {
+    return <Spinner />
+  }
+
+  if (!userData) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <Typography variant='h6' color='text.secondary'>
+          Không thể tải thông tin người dùng
+        </Typography>
+      </Box>
+    )
+  }
 
   return (
-    <>
-      {(isLoading || loading || isUploading) && <Spinner />}
-      <Box
+    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, mx: 'auto' }}>
+      {/* Header Section */}
+      <Paper
+        elevation={0}
         sx={{
-          minHeight: '50vh',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          p: 2
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+          borderRadius: 3,
+          p: 4,
+          mb: 4,
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
-        <form onSubmit={handleSubmit(onSubmit)} autoComplete='off' noValidate>
           <Box
             sx={{
-              backgroundColor: theme.palette.background.paper,
-              borderRadius: '16px',
-              py: { xs: 4, sm: 5 },
-              px: { xs: 3, sm: 4, md: 5 },
-              width: { xs: '100%', sm: 480, md: 520, lg: 560 },
-              maxWidth: '100%',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-            }}
-          >
-            <Grid container spacing={3} direction='column' alignItems='center'>
-              <Grid item xs={12}>
-                <Box
+            position: 'absolute',
+            top: -50,
+            right: -50,
+            width: 200,
+            height: 200,
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.1)',
+            zIndex: 0
+          }}
+        />
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+          <Grid container spacing={3} alignItems='center'>
+            <Grid item xs={12} sm='auto'>
+              <Avatar
+                sx={{
+                  width: 120,
+                  height: 120,
+                  border: '4px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: '3rem',
+                  bgcolor: 'rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                <IconifyIcon icon='mdi:account' fontSize={60} />
+              </Avatar>
+            </Grid>
+            <Grid item xs={12} sm>
+              <Typography variant='h4' fontWeight='bold' gutterBottom>
+                {userData.first_name} {userData.last_name}
+              </Typography>
+              <Typography variant='h6' sx={{ opacity: 0.9, mb: 1 }}>
+                @{userData.username}
+              </Typography>
+              <Typography variant='body1' sx={{ opacity: 0.8, mb: 2 }}>
+                {userData.email}
+              </Typography>
+              <Stack direction='row' spacing={2} flexWrap='wrap'>
+                <Chip
+                  label={userData.role.name}
                   sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 2,
-                    mb: 1
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    fontWeight: 'bold'
                   }}
+                />
+                <Chip
+                  label={getStatusText(userData.status)}
+                  color={getStatusColor(userData.status) as any}
+                  sx={{ color: 'white' }}
+                />
+              </Stack>
+            </Grid>
+            <Grid item xs={12} sm='auto'>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Button
+                  variant='outlined'
+                  sx={{
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    color: 'white',
+                    '&:hover': {
+                      borderColor: 'white',
+                      bgcolor: 'rgba(255, 255, 255, 0.1)'
+                    }
+                  }}
+                  startIcon={<IconifyIcon icon='mdi:pencil' />}
                 >
-                  {avatar ? (
-                    <Avatar
-                      src={avatar}
-                      sx={{
-                        width: 100,
-                        height: 100,
-                        border: '3px solid',
-                        borderColor: 'primary.main'
-                      }}
-                    >
-                      <IconifyIcon icon='ph:user-thin' fontSize={70} />
-                    </Avatar>
-                  ) : (
-                    <Avatar sx={{ width: 100, height: 100 }}>
-                      <IconifyIcon icon='ph:user-thin' fontSize={70} />
-                    </Avatar>
-                  )}
-
-                  <WrapperFileUpload
-                    uploadFunc={handleUploadAvatar}
-                    objectAcceptFile={{
-                      'image/jpeg': ['.jpg', '.jpeg'],
-                      'image/png': ['.png']
-                    }}
-                  >
+                  Chỉnh sửa
+                </Button>
                     <Button
                       variant='outlined'
-                      disabled={isUploading}
                       sx={{
-                        width: 'auto',
-                        borderRadius: '8px',
-                        px: 3
-                      }}
-                    >
-                      <IconifyIcon icon='mdi:camera' fontSize={18} />
-                      <Box sx={{ ml: 1 }}>{isUploading ? 'Đang upload...' : t('Upload Avatar')}</Box>
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    color: 'white',
+                    '&:hover': {
+                      borderColor: 'white',
+                      bgcolor: 'rgba(255, 255, 255, 0.1)'
+                    }
+                  }}
+                  startIcon={<IconifyIcon icon='mdi:lock' />}
+                >
+                  Đổi mật khẩu
                     </Button>
-                  </WrapperFileUpload>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Box>
+      </Paper>
 
-                  {uploadError && (
-                    <Typography variant='caption' color='error'>
-                      {uploadError}
+      {/* Profile Information Cards */}
+      <Grid container spacing={3}>
+        {/* Personal Information */}
+        <Grid item xs={12} md={6}>
+          <Card elevation={2} sx={{ height: '100%' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <IconifyIcon icon='mdi:account-details' fontSize={24} color={theme.palette.primary.main} />
+                <Typography variant='h6' fontWeight='bold' sx={{ ml: 1 }}>
+                  Thông tin cá nhân
+                </Typography>
+              </Box>
+
+              <Stack spacing={3}>
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Họ và tên
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    {userData.first_name} {userData.last_name}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Tên đăng nhập
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    @{userData.username}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Email
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    {userData.email}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Số điện thoại
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    {userData.phone_number || 'Chưa cập nhật'}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Giới tính
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    {getGenderText(userData.gender)}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Ngày sinh
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    {userData.date_of_birth ? formatCompactVN(userData.date_of_birth) : 'Chưa cập nhật'}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Account Information */}
+        <Grid item xs={12} md={6}>
+          <Card elevation={2} sx={{ height: '100%' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <IconifyIcon icon='mdi:shield-account' fontSize={24} color={theme.palette.primary.main} />
+                <Typography variant='h6' fontWeight='bold' sx={{ ml: 1 }}>
+                  Thông tin tài khoản
+                </Typography>
+              </Box>
+
+              <Stack spacing={3}>
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    ID người dùng
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium' sx={{ fontFamily: 'monospace' }}>
+                    #{userData.id}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Vai trò
+                  </Typography>
+                  <Chip label={userData.role.name} color='primary' variant='outlined' sx={{ fontWeight: 'bold' }} />
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Trạng thái tài khoản
+                  </Typography>
+                  <Chip
+                    label={getStatusText(userData.status)}
+                    color={getStatusColor(userData.status) as any}
+                    variant='filled'
+                  />
+                </Box>
+
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Ngày tạo tài khoản
+                  </Typography>
+                  <Typography variant='body1' fontWeight='medium'>
+                    {formatCompactVN(userData.created_at)}
                     </Typography>
-                  )}
+                </Box>
 
-                  {selectedFile && (
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant='caption' color='success.main'>
-                        File đã chọn: {selectedFile.name}
+                <Box>
+                  <Typography variant='body2' color='text.secondary' gutterBottom>
+                    Địa chỉ mặc định
+                  </Typography>
+                  {defaultAddress ? (
+                    <Box>
+                      <Typography variant='body1' fontWeight='medium' gutterBottom>
+                        {defaultAddress.recipient_name} - {defaultAddress.phone_number}
+                      </Typography>
+                      <Typography variant='body2' color='text.secondary'>
+                        {defaultAddress.street}, {defaultAddress.ward}, {defaultAddress.district}, {defaultAddress.city}
                       </Typography>
                     </Box>
+                  ) : (
+                    <Typography variant='body1' fontWeight='medium'>
+                      Chưa có địa chỉ mặc định
+                    </Typography>
                   )}
                 </Box>
-              </Grid>
-
-              <Grid item xs={12} sx={{ width: '100%' }}>
-                <Controller
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <CustomTextField
-                      required
-                      autoFocus
-                      fullWidth
-                      label={t('Full Name')}
-                      onChange={onChange}
-                      onBlur={onBlur}
-                      value={value}
-                      placeholder={t('enter_your_fullname')}
-                      error={Boolean(errors?.fullname)}
-                      helperText={errors?.fullname?.message}
-                    />
-                  )}
-                  name='fullname'
-                />
-              </Grid>
-
-              <Grid item xs={12} sx={{ width: '100%' }}>
-                <Controller
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <CustomTextField
-                      disabled
-                      required
-                      fullWidth
-                      label={t('Email')}
-                      onChange={onChange}
-                      onBlur={onBlur}
-                      value={value}
-                      placeholder={t('enter_your_email')}
-                      error={Boolean(errors?.email)}
-                      helperText={errors?.email?.message}
-                    />
-                  )}
-                  name='email'
-                />
-              </Grid>
-
-              <Grid item xs={12} sx={{ width: '100%' }}>
-                <Controller
-                  control={control}
-                  rules={{ required: false }}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <CustomTextField
-                      fullWidth
-                      label={t('Phone')}
-                      onChange={e => {
-                        const numValue = e.target.value.replace(/[^0-9]/g, '')
-                        onChange(numValue)
-                      }}
-                      inputProps={{
-                        inputMode: 'numeric',
-                        pattern: '[0-9]*',
-                        maxLength: 10
-                      }}
-                      onBlur={onBlur}
-                      value={value}
-                      placeholder={t('enter_your_phone')}
-                      error={Boolean(errors?.phone)}
-                      helperText={errors?.phone?.message}
-                    />
-                  )}
-                  name='phone'
-                />
-              </Grid>
-
-              {/* Row layout cho BirthDay và Gender */}
-              <Grid item xs={12} sx={{ width: '100%' }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Controller
-                      control={control}
-                      rules={{ required: false }}
-                      render={({ field: { onChange, onBlur, value } }) => (
-                        <CustomTextField
-                          fullWidth
-                          label={t('Birth Day')}
-                          type='date'
-                          onChange={onChange}
-                          onBlur={onBlur}
-                          value={value}
-                          placeholder={t('enter_your_birthday')}
-                          error={Boolean(errors?.birthday)}
-                          helperText={errors?.birthday?.message}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      )}
-                      name='birthday'
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Controller
-                      control={control}
-                      rules={{ required: true }}
-                      render={({ field: { onChange, onBlur, value } }) => (
-                        <FormControl fullWidth error={Boolean(errors?.gender)}>
-                          <InputLabel id='gender-label'>{t('Gender')}</InputLabel>
-                          <Select
-                            labelId='gender-label'
-                            id='gender'
-                            value={value || ''}
-                            onChange={onChange}
-                            onBlur={onBlur}
-                            label={t('Gender')}
-                          >
-                            <MenuItem value='MALE'>{t('Male')}</MenuItem>
-                            <MenuItem value='FEMALE'>{t('Female')}</MenuItem>
-                            <MenuItem value='OTHER'>{t('Other')}</MenuItem>
-                          </Select>
-                        </FormControl>
-                      )}
-                      name='gender'
-                    />
-                  </Grid>
-                </Grid>
-              </Grid>
-
-              <Grid item xs={12} sx={{ width: '100%' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Button
-                    type='submit'
-                    variant='contained'
-                    disabled={isLoading}
-                    sx={{
-                      px: 4,
-                      py: 1.2,
-                      borderRadius: '8px',
-                      fontSize: '1rem'
-                    }}
-                  >
-                    {isLoading ? 'Đang cập nhật...' : t('Change')}
-                  </Button>
-                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
               </Grid>
             </Grid>
           </Box>
-        </form>
-      </Box>
-    </>
   )
 }
 

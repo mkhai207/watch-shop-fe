@@ -33,11 +33,12 @@ export const CONFIG_API = {
     CREATE_DISCOUNT: `${BASE_URL}/discounts/create-discount`
   },
   CATEGORY: {
-    INDEX: `${BASE_URL}/categories`,
-    GET_CATEGORIES: `${BASE_URL}/categories/get-categories`,
-    CREATE_CATEGORY: `${BASE_URL}/categories/create-category`,
-    UPDATE_CATEGORY: `${BASE_URL}/categories/update`,
-    DELETE_CATEGORY: `${BASE_URL}/categories/delete`
+    INDEX: `${BASE_URL}/categorys`,
+    GET_CATEGORIES: `${BASE_URL}/categorys`,
+    GET_CATEGORY_BY_ID: `${BASE_URL}/categorys`,
+    CREATE_CATEGORY: `${BASE_URL}/categorys`,
+    UPDATE_CATEGORY: `${BASE_URL}/categorys`,
+    DELETE_CATEGORY: `${BASE_URL}/categorys`
   },
   CATEGORY_V1: {
     INDEX: `${BASE_URL}/categorys`

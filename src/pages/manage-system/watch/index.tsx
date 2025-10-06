@@ -46,7 +46,7 @@ import type {
   GetWatchResponse
 } from 'src/types/watch'
 import { getBrands } from 'src/services/brand'
-import { getCategorys } from 'src/services/categoryManage'
+import { getCategories } from 'src/services/category'
 import { getMovementTypes } from 'src/services/movementType'
 import { getColors } from 'src/services/color'
 import { getStrapMaterials } from 'src/services/strapMaterial'
@@ -115,7 +115,7 @@ const WatchPage: NextPage = () => {
     try {
       const [b, c, m, cl, sm] = await Promise.all([
         getBrands(),
-        getCategorys(),
+        getCategories(),
         getMovementTypes(),
         getColors(),
         getStrapMaterials()

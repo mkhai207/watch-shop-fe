@@ -5,10 +5,9 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
-import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
-import { getAllProductsPublic, getProductRecommend } from 'src/services/product'
+import { getProductRecommend } from 'src/services/product'
 import { getWatches } from 'src/services/watch'
 import { getBrands } from 'src/services/brand'
 import { TBrand } from 'src/types/brand'
@@ -25,9 +24,6 @@ const HomePage: NextPage<TProps> = () => {
   const router = useRouter()
   const { user } = useAuth()
 
-  const [currentSlide, setCurrentSlide] = useState(0)
-  const totalPages = 5
-  const productsPerPage = 4
   const [isLoaded, setIsLoaded] = useState(false)
 
   const [productFavourite, setProductFavourite] = useState<{
@@ -46,16 +42,6 @@ const HomePage: NextPage<TProps> = () => {
     router.push(`${ROUTE_CONFIG.PRODUCT}`)
   }
 
-  const nextSlide = () => {
-    setCurrentSlide(prev => (prev + 1) % totalPages)
-  }
-
-  const prevSlide = () => {
-    setCurrentSlide(prev => (prev - 1 + totalPages) % totalPages)
-  }
-
-  const [loading, setLoading] = useState(false)
-  const [newProducts, setNewProducts] = useState<TProduct[]>([])
   const [brands, setBrands] = useState<TBrand[]>([])
   const [brandSlide, setBrandSlide] = useState(0)
   const [dragStartX, setDragStartX] = useState<number | null>(null)
@@ -68,35 +54,6 @@ const HomePage: NextPage<TProps> = () => {
   const [isWatchDragging, setIsWatchDragging] = useState(false)
   const [isWatchTransitioning, setIsWatchTransitioning] = useState(true)
   const [watchAutoPausedUntil, setWatchAutoPausedUntil] = useState(0)
-
-  const formatFiltersForAPI = (customLimit?: number, customSort?: string) => {
-    const params: Record<string, any> = {
-      page: 1,
-      limit: customLimit || 20,
-      sort: customSort || 'created_at:DESC'
-    }
-
-    return params
-  }
-
-  const handleGetListNewProducts = async () => {
-    try {
-      setLoading(true)
-      const queryParams = formatFiltersForAPI(20, 'sold:DESC')
-      const response = await getAllProductsPublic({ params: queryParams })
-
-      if (response.status === 'success') {
-        setNewProducts(response?.data || [])
-        toast.success(t('load_new_products_success'))
-      } else {
-        toast.error(response.message || t('load_products_error'))
-      }
-    } catch (error: any) {
-      toast.error(error?.message || t('load_products_error'))
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleGetBrands = async () => {
     try {
@@ -122,10 +79,7 @@ const HomePage: NextPage<TProps> = () => {
 
   const handleGetProductRecommend = async () => {
     try {
-      setLoading(true)
-
       const response = await getProductRecommend(user?.id.toString() || '')
-      console.log('response', response)
 
       if (response.status === 'success') {
         setProductFavourite({
@@ -134,28 +88,23 @@ const HomePage: NextPage<TProps> = () => {
           totalPages: response.data.totalPages || 0,
           currentPage: response.data.currentPage || 1
         })
-        console.log(productFavourite)
-      } else {
-        toast.error(response.message || t('load_products_error'))
       }
     } catch (error: any) {
-      console.error('Error fetching products:', error)
-      toast.error(error?.message || t('load_products_error'))
-    } finally {
-      setLoading(false)
+      // Silent fail for recommendation API
     }
   }
 
   useEffect(() => {
     setIsLoaded(true)
-    handleGetListNewProducts()
     handleGetBrands()
     handleGetWatches()
   }, [])
 
   useEffect(() => {
-    handleGetProductRecommend()
-  }, [])
+    if (user?.id) {
+      handleGetProductRecommend()
+    }
+  }, [user?.id])
 
   // Auto-advance brands carousel by 1, loop infinitely (smooth)
   useEffect(() => {
@@ -216,8 +165,6 @@ const HomePage: NextPage<TProps> = () => {
     setIsDragging(false)
   }
 
-  const displayedProducts = newProducts.slice(currentSlide * productsPerPage, (currentSlide + 1) * productsPerPage)
-
   const handleWatchDragStart = (clientX: number) => {
     setWatchDragStartX(clientX)
     setIsWatchDragging(true)
@@ -252,7 +199,6 @@ const HomePage: NextPage<TProps> = () => {
 
   return (
     <>
-      {loading && <Spinner />}
       <Box
         sx={{
           backgroundColor: 'background.default',

@@ -61,3 +61,46 @@ export const deleteAddressById = async (id: number) => {
     return error
   }
 }
+
+// Update address default status using v1 endpoint
+export const updateAddressDefaultStatus = async (id: number, isDefault: boolean) => {
+  try {
+    const res = await instanceAxios.put(`${CONFIG_API.ADDRESS.INDEX}/${id}`, {
+      is_default: isDefault ? '1' : '0'
+    })
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
+
+// Delete address using v1 endpoint
+export const deleteAddressV1 = async (id: number) => {
+  try {
+    const res = await instanceAxios.delete(`${CONFIG_API.ADDRESS.INDEX}/${id}`)
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
+
+// Update address using v1 endpoint
+export const updateAddressV1 = async (id: number, data: any) => {
+  try {
+    const res = await instanceAxios.put(`${CONFIG_API.ADDRESS.INDEX}/${id}`, {
+      city: data.city,
+      district: data.district,
+      ward: data.ward,
+      street: data.street,
+      recipient_name: data.recipient_name,
+      phone_number: data.phone_number,
+      is_default: data.is_default ? '1' : '0'
+    })
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
