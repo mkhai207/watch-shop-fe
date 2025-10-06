@@ -32,7 +32,7 @@ import { useSelector } from 'react-redux'
 import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
-import { deleteCartItems } from 'src/services/cart'
+import { deleteCartItems, deleteCartItemsByIds } from 'src/services/cart'
 import { createOrder } from 'src/services/checkout'
 import { getDiscountByCode, getDiscounts } from 'src/services/discount'
 import { createUserInteraction } from 'src/services/userInteraction'
@@ -69,6 +69,7 @@ interface BuyNowItem {
 const CheckoutPage: NextPage<TProps> = () => {
   const { user } = useAuth()
   const { items } = useSelector((state: RootState) => state.cart)
+  const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[]>([])
   const { t } = useTranslation()
   const router = useRouter()
 
@@ -141,6 +142,7 @@ const CheckoutPage: NextPage<TProps> = () => {
 
   useEffect(() => {
     const buyNowData = localStorage.getItem('buyNowItems')
+    const selectedIds = localStorage.getItem('selectedCartItemIds')
     if (buyNowData) {
       try {
         const parsedData = JSON.parse(buyNowData) as BuyNowItem[]
@@ -152,6 +154,15 @@ const CheckoutPage: NextPage<TProps> = () => {
       } catch (error) {
         console.error('Error parsing buyNowItems:', error)
       }
+    }
+    if (selectedIds) {
+      try {
+        const parsedIds = JSON.parse(selectedIds) as string[]
+        if (Array.isArray(parsedIds) && parsedIds.length > 0) {
+          setSelectedCartItemIds(parsedIds)
+        }
+      } catch {}
+      // Do not remove here; allow checkout refresh to keep selection
     }
   }, [])
 
@@ -294,11 +305,11 @@ const CheckoutPage: NextPage<TProps> = () => {
       return buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
     }
 
+    const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
     return (
-      items?.reduce((total, item) => {
+      list?.reduce((total, item) => {
         const price = item?.variant?.product?.price ?? item?.variant?.price ?? 0
         const qty = item?.quantity ?? 0
-
         return total + price * qty
       }, 0) || 0
     )
@@ -339,6 +350,18 @@ const CheckoutPage: NextPage<TProps> = () => {
       const vnpUrl = response?.data?.vnpayUrl || response?.order?.vnpayUrl
       if (response) {
         await handleCreateUserInteraction(data)
+
+        // If not buy now, delete selected items before redirect
+        if (!isBuyNowMode) {
+          try {
+            const ids = selectedCartItemIds.length > 0 ? selectedCartItemIds : items.map(i => i.id)
+            if (ids.length > 0) {
+              await deleteCartItemsByIds(ids.map(id => (typeof id === 'string' ? parseInt(id, 10) : id)))
+            }
+          } catch (e) {
+            // ignore deletion error to not block payment redirect
+          }
+        }
 
         setLoading(false)
         if (vnpUrl) {
@@ -494,9 +517,15 @@ const CheckoutPage: NextPage<TProps> = () => {
     const [street = '', ward = '', district = '', city = ''] = addressParts
 
     // Map FE form to BE payload
+    const sourceItems = isBuyNowMode
+      ? buyNowItems
+      : selectedCartItemIds.length > 0
+        ? items.filter(it => selectedCartItemIds.includes(it.id))
+        : items
+
     const variants = isBuyNowMode
-      ? buyNowItems.map(item => ({ variant_id: parseInt(item.product_variant_id, 10), quantity: item.quantity }))
-      : items.map(item => ({ variant_id: parseInt(item.variant.id, 10), quantity: item.quantity }))
+      ? sourceItems.map(item => ({ variant_id: parseInt(item.product_variant_id, 10), quantity: item.quantity }))
+      : sourceItems.map(item => ({ variant_id: parseInt(item.variant.id, 10), quantity: item.quantity }))
 
     const payload = {
       shipping_address: data.shipping_address,

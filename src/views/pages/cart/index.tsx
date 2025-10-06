@@ -3,8 +3,10 @@ import {
   Button,
   Card,
   CardMedia,
+  Checkbox,
   Container,
   Divider,
+  FormControlLabel,
   Grid,
   IconButton,
   Paper,
@@ -42,6 +44,7 @@ const CartPage: NextPage<TProps> = () => {
     open: false
   })
   const [infoState, setInfoState] = useState<{ open: boolean; title?: string; message?: string }>({ open: false })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const dispatch: AppDispatch = useDispatch()
   const { items, isLoading, isSuccess, isError, message } = useSelector((state: RootState) => state.cart)
@@ -92,7 +95,13 @@ const CartPage: NextPage<TProps> = () => {
   const getItemPrice = (it: any) => (it?.variant?.product?.price ?? it?.variant?.price ?? 0) as number
   const handleCalculateTotalCart = () =>
     items?.reduce((acc: number, it: any) => acc + getItemPrice(it) * (it?.quantity || 0), 0) || 0
+  const handleCalculateSelectedTotal = () =>
+    items?.reduce(
+      (acc: number, it: any) => (selectedIds.has(it.id) ? acc + getItemPrice(it) * (it?.quantity || 0) : acc),
+      0
+    ) || 0
   const subtotal = useMemo(() => handleCalculateTotalCart(), [items])
+  const selectedSubtotal = useMemo(() => handleCalculateSelectedTotal(), [items, selectedIds])
 
   const formatPrice = (price: number) => `${price.toLocaleString('vi-VN')} đ`
   const shipping = 0
@@ -103,7 +112,32 @@ const CartPage: NextPage<TProps> = () => {
   }
 
   const handleNavigateCheckout = () => {
+    try {
+      const ids = Array.from(selectedIds)
+      if (ids.length === 0) {
+        toast.error('Vui lòng chọn ít nhất 1 sản phẩm để thanh toán')
+        return
+      }
+      localStorage.setItem('selectedCartItemIds', JSON.stringify(ids))
+    } catch {}
     router.push(ROUTE_CONFIG.CHECKOUT)
+  }
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(items.map(i => i.id)))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const toggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
   }
 
   const fetchGetMyCart = () => {
@@ -203,10 +237,10 @@ const CartPage: NextPage<TProps> = () => {
 
               <Divider sx={{ my: 2 }} />
 
-              {/* Breakdown */}
+              {/* Breakdown (the amounts below reflect only selected items) */}
               <Box display='flex' justifyContent='space-between' sx={{ mb: 1 }}>
                 <Typography>Tạm tính:</Typography>
-                <Typography>{formatPrice(subtotal)}</Typography>
+                <Typography>{formatPrice(selectedSubtotal)}</Typography>
               </Box>
               <Box display='flex' justifyContent='space-between' sx={{ mb: 1 }}>
                 <Typography>Phí vận chuyển:</Typography>
@@ -219,9 +253,14 @@ const CartPage: NextPage<TProps> = () => {
                 <Typography variant='subtitle1' fontWeight='bold'>
                   Tổng cộng:
                 </Typography>
-                <Typography variant='h5' color='error' fontWeight='bold'>
-                  {formatPrice(total)}
-                </Typography>
+                <Box textAlign='right'>
+                  <Typography variant='caption' color='text.secondary' display='block'>
+                    Đã chọn
+                  </Typography>
+                  <Typography variant='h5' color='error' fontWeight='bold'>
+                    {formatPrice(selectedSubtotal + shipping)}
+                  </Typography>
+                </Box>
               </Box>
 
               {/* Checkout Button */}
@@ -239,6 +278,7 @@ const CartPage: NextPage<TProps> = () => {
                   mb: 2,
                   '&:hover': { opacity: 0.9 }
                 }}
+                disabled={selectedIds.size === 0}
                 onClick={handleNavigateCheckout}
               >
                 Tiến hành thanh toán
@@ -260,7 +300,7 @@ const CartPage: NextPage<TProps> = () => {
             </Paper>
           </Grid>
 
-          {/* Right Column - Shopping Cart list in hidden-scroll box */}
+          {/* Right Column - Shopping Cart list with selection */}
           <Grid item xs={12} md={8} sx={{ order: { xs: 1, md: 1 } }}>
             <Paper
               variant='outlined'
@@ -273,14 +313,41 @@ const CartPage: NextPage<TProps> = () => {
                 scrollbarWidth: 'none'
               }}
             >
+              <Box display='flex' alignItems='center' justifyContent='space-between' sx={{ mb: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={selectedIds.size > 0 && selectedIds.size === items.length}
+                      indeterminate={selectedIds.size > 0 && selectedIds.size < items.length}
+                      onChange={e => toggleSelectAll(e.target.checked)}
+                    />
+                  }
+                  label={`Chọn tất cả (${items.length})`}
+                />
+                <Typography variant='body2' color='text.secondary'>
+                  Đã chọn {selectedIds.size} / {items.length}
+                </Typography>
+              </Box>
               {items && items.length > 0
                 ? items.map(item => (
                     <>
                       <Card variant='outlined' sx={{ mb: 3 }}>
                         <Box sx={{ p: 3 }}>
                           <Grid container spacing={3} alignItems='center'>
+                            {/* Select checkbox */}
+                            <Grid
+                              item
+                              xs={12}
+                              sm={1}
+                              sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' } }}
+                            >
+                              <Checkbox
+                                checked={selectedIds.has(item.id)}
+                                onChange={e => toggleSelectOne(item.id, e.target.checked)}
+                              />
+                            </Grid>
                             {/* Product Image */}
-                            <Grid item xs={12} sm={3}>
+                            <Grid item xs={12} sm={2}>
                               <CardMedia
                                 component='img'
                                 height={120}

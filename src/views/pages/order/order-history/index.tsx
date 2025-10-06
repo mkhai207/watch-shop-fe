@@ -42,7 +42,14 @@ import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { ROUTE_CONFIG } from 'src/configs/route'
-import { getListOrders, retryPayOrder, getOrderDetail, getOrderStatuses } from 'src/services/order'
+import {
+  getListOrders,
+  retryPayOrder,
+  getOrderDetail,
+  getOrderStatuses,
+  getOrderStatusHistories,
+  OrderStatusHistoryItem
+} from 'src/services/order'
 import { getStatusColor, getStatusText } from 'src/utils/status-style'
 
 const OrderHistoryPage = () => {
@@ -68,6 +75,7 @@ const OrderHistoryPage = () => {
   const [orderDetails, setOrderDetails] = useState<any>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [orderStatuses, setOrderStatuses] = useState<any[]>([])
+  const [statusHistories, setStatusHistories] = useState<OrderStatusHistoryItem[]>([])
 
   const handleOnchangePagination = (page: number, pageSize: number) => {
     setPage(page)
@@ -121,10 +129,9 @@ const OrderHistoryPage = () => {
     setLoadingDetails(true)
 
     try {
-      const response = await getOrderDetail(order.id)
-      if (response?.order) {
-        setOrderDetails(response.order)
-      }
+      const [response, historyRes] = await Promise.all([getOrderDetail(order.id), getOrderStatusHistories(order.id)])
+      if (response?.order) setOrderDetails(response.order)
+      if ((historyRes as any)?.orderStatusHistorys) setStatusHistories((historyRes as any).orderStatusHistorys)
     } catch (error) {
       toast.error('Có lỗi khi tải chi tiết đơn hàng')
     } finally {
@@ -492,6 +499,53 @@ const OrderHistoryPage = () => {
                       {orderDetails.final_amount?.toLocaleString('vi-VN')} VNĐ
                     </Typography>
                   </Box>
+                </Paper>
+
+                {/* Status Histories */}
+                <Paper sx={{ p: 2, mt: 3 }}>
+                  <Typography variant='subtitle1' sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Lịch sử trạng thái
+                  </Typography>
+                  {statusHistories && statusHistories.length > 0 ? (
+                    <List>
+                      {statusHistories.map((h, idx) => (
+                        <>
+                          <ListItem key={h.id} sx={{ px: 0 }}>
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: 'primary.main' }}>
+                                <TimeIcon />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Chip
+                                    label={h.status?.name || h.status?.code || 'Trạng thái'}
+                                    color={getStatusColor(h.status?.code || '')}
+                                    sx={{ fontWeight: 'bold' }}
+                                  />
+                                  <Typography variant='body2' color='text.secondary'>
+                                    {h.status?.description}
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Typography variant='body2' color='text.secondary'>
+                                  {h.note || ''}{' '}
+                                  {dayjs(h.created_at, ['YYYYMMDDHHmmss', 'YYYY-MM-DDTHH:mm:ssZ']).format(
+                                    'DD/MM/YYYY HH:mm'
+                                  )}
+                                </Typography>
+                              }
+                            />
+                          </ListItem>
+                          {idx < statusHistories.length - 1 && <Divider sx={{ my: 1 }} />}
+                        </>
+                      ))}
+                    </List>
+                  ) : (
+                    <Alert severity='info'>Không có lịch sử trạng thái.</Alert>
+                  )}
                 </Paper>
               </Box>
             ) : (

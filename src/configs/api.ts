@@ -85,6 +85,9 @@ export const CONFIG_API = {
   ORDER_STATUS: {
     INDEX: `${BASE_URL}/order-status`
   },
+  ORDER_STATUS_HISTORY: {
+    INDEX: `${BASE_URL}/order-status-histories`
+  },
   AI_RECOMMEND: {
     INDEX: `${AI_URL}/recommendations`,
     GET_SIMILAR_PRODUCTS: `${AI_URL}/recommendations_by_product`

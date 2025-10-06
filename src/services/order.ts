@@ -106,3 +106,34 @@ export const getOrderStatuses = async () => {
     return error
   }
 }
+
+export interface OrderStatusHistoryItem {
+  id: string
+  order_id: string
+  status_id: string
+  note: string | null
+  created_at: string
+  created_by: string
+  updated_at: string | null
+  updated_by: string | null
+  del_flag: string
+  status?: {
+    id: string
+    name: string
+    code: string
+    description: string
+  }
+}
+
+export interface OrderStatusHistoriesResponse {
+  orderStatusHistorys: OrderStatusHistoryItem[]
+}
+
+export const getOrderStatusHistories = async (orderId: string) => {
+  try {
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS_HISTORY.INDEX}/${orderId}`)
+    return res.data as OrderStatusHistoriesResponse
+  } catch (error) {
+    return error
+  }
+}
