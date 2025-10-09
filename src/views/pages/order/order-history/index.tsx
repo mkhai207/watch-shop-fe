@@ -51,6 +51,8 @@ import {
   OrderStatusHistoryItem
 } from 'src/services/order'
 import { getStatusColor, getStatusText } from 'src/utils/status-style'
+import ReviewModal from '../components/ReviewModal'
+import StarIcon from '@mui/icons-material/Star'
 
 const OrderHistoryPage = () => {
   const router = useRouter()
@@ -76,6 +78,7 @@ const OrderHistoryPage = () => {
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [orderStatuses, setOrderStatuses] = useState<any[]>([])
   const [statusHistories, setStatusHistories] = useState<OrderStatusHistoryItem[]>([])
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
 
   const handleOnchangePagination = (page: number, pageSize: number) => {
     setPage(page)
@@ -121,6 +124,26 @@ const OrderHistoryPage = () => {
 
   const handleViewOrder = (orderId: string) => {
     router.push(`${ROUTE_CONFIG.ORDER}/${orderId}`)
+  }
+
+  const handleOpenReview = async (order: any) => {
+    try {
+      setSelectedOrder(order)
+      // Ensure details loaded
+      if (!orderDetails || orderDetails.id !== order.id) {
+        setLoadingDetails(true)
+        try {
+          const response = await getOrderDetail(order.id)
+          if ((response as any)?.order) setOrderDetails((response as any).order)
+          else if ((response as any)?.data) setOrderDetails((response as any).data)
+        } finally {
+          setLoadingDetails(false)
+        }
+      }
+      setReviewModalOpen(true)
+    } catch (e) {
+      toast.error('Không thể mở cửa sổ đánh giá')
+    }
   }
 
   const handleViewDetails = async (order: any) => {
@@ -205,6 +228,15 @@ const OrderHistoryPage = () => {
   const getStatusText = (statusId: string) => {
     const status = getStatusInfo(statusId)
     return status.name
+  }
+
+  const canReviewOrder = (order: any) => {
+    const statusId = order?.status || order?.current_status_id
+    const status = getStatusInfo(statusId)
+    const isCompleted = status?.code === 'COMPLETED'
+    const notReviewedYet = String(order?.review_flag ?? '') === '0'
+
+    return isCompleted && notReviewedYet
   }
 
   useEffect(() => {
@@ -323,6 +355,22 @@ const OrderHistoryPage = () => {
                       >
                         Xem chi tiết
                       </Button>
+                      {canReviewOrder(order) && (
+                        <Button
+                          variant='contained'
+                          startIcon={<StarIcon />}
+                          onClick={() => handleOpenReview(order)}
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            px: 3,
+                            backgroundColor: '#FF9800',
+                            '&:hover': { backgroundColor: '#F57C00' }
+                          }}
+                        >
+                          Đánh giá
+                        </Button>
+                      )}
                       {getStatusInfo(order.status).code === 'PENDINGPAYMENT' && (
                         <Button
                           variant='contained'
@@ -558,6 +606,28 @@ const OrderHistoryPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Review Modal */}
+        {selectedOrder && orderDetails && (
+          <ReviewModal
+            open={reviewModalOpen}
+            onClose={() => setReviewModalOpen(false)}
+            orderId={selectedOrder.id}
+            productIds={(orderDetails.details || orderDetails.orderDetails || [])
+              .map((d: any) => d.variant?.watch?.id || d.variant?.product?.id)
+              .join(',')}
+            productNames={(orderDetails.details || orderDetails.orderDetails || [])
+              .map((d: any) => d.variant?.watch?.name || d.variant?.product?.name)
+              .join(', ')}
+            onSuccess={() => {
+              // Optimistically update the order in list to set review_flag to '1'
+              setOrders(prev => ({
+                ...prev,
+                data: prev.data.map(o => (o.id === selectedOrder.id ? { ...o, review_flag: '1' } : o))
+              }))
+            }}
+          />
+        )}
       </Container>
     </>
   )

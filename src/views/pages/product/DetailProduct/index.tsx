@@ -3,6 +3,8 @@ import {
   Button,
   CardMedia,
   Container,
+  Dialog,
+  DialogContent,
   Divider,
   Grid,
   IconButton,
@@ -30,7 +32,7 @@ import { useAuth } from 'src/hooks/useAuth'
 import { getDetailsProductPublic, getSimilarProducts } from 'src/services/product'
 import { getWatchById } from 'src/services/watch'
 import type { TWatch } from 'src/types/watch'
-import { fetchReviewsByProductId } from 'src/services/review'
+import { fetchReviewsByProductId, getReviewsByWatchIdV1 } from 'src/services/review'
 import { AppDispatch, RootState } from 'src/stores'
 import { resetCart } from 'src/stores/apps/cart'
 import { addToCartAsync } from 'src/stores/apps/cart/action'
@@ -48,6 +50,8 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [quantity, setQuantity] = useState(1)
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [productDetail, setProductDetail] = useState<TProductDetail | null>(null)
   const [watchDetail, setWatchDetail] = useState<TWatch | null>(null)
@@ -286,15 +290,25 @@ const DetailProductPage: NextPage<TProps> = () => {
     try {
       setReviewsLoading(true)
 
+      // If viewing Watch detail, use v1 reviews by watch_id
+      if (isWatch && watchDetail?.id) {
+        const res = await getReviewsByWatchIdV1(watchDetail.id, { page, limit: pageSize })
+        if (res?.reviews) {
+          setReviews({
+            data: res.reviews.items || [],
+            total: res.reviews.totalItems || 0,
+            totalPages: res.reviews.totalPages || 0,
+            currentPage: res.reviews.page || 1
+          })
+          return
+        }
+      }
+
+      // Fallback to legacy product reviews API
       const queryParams = formatFiltersForAPI()
       queryParams.product_id = productId
-
-      const response = await fetchReviewsByProductId({
-        params: queryParams
-      })
-
+      const response = await fetchReviewsByProductId({ params: queryParams })
       if (response.status === 'success') {
-        setReviewsLoading(false)
         setReviews({
           data: response.data || [],
           total: response.meta?.totalItems || 0,
@@ -427,11 +441,12 @@ const DetailProductPage: NextPage<TProps> = () => {
   }, [isSuccess, isError, message])
 
   useEffect(() => {
-    if (productDetail?.id) {
+    if (productDetail?.id || watchDetail?.id) {
       fetchGetSimilarProduct()
-      fetchReviews(productDetail.id)
+      fetchReviews(String(productDetail?.id || watchDetail?.id))
     }
-  }, [productDetail])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productDetail, watchDetail, page, pageSize])
 
   const isWatch = !!watchDetail
   const mainImages = parseSlider((isWatch ? watchDetail?.slider : (productDetail as any)?.slider) || '')
@@ -1019,11 +1034,16 @@ const DetailProductPage: NextPage<TProps> = () => {
                                 mr: 2
                               }}
                             >
-                              {review.user.full_name.charAt(0).toUpperCase()}
+                              {(
+                                (review?.user?.full_name ||
+                                  review?.user?.name ||
+                                  review?.user?.email ||
+                                  'Ẩn danh')[0] || '?'
+                              ).toUpperCase()}
                             </Box>
                             <Box>
                               <Typography variant='subtitle1' fontWeight='bold' color='text.primary'>
-                                {review.user.full_name}
+                                {review?.user?.full_name || review?.user?.name || review?.user?.email || 'Ẩn danh'}
                               </Typography>
                               <Typography variant='body2' color='text.secondary'>
                                 {new Date(review.created_at).toLocaleDateString('vi-VN')}
@@ -1055,17 +1075,24 @@ const DetailProductPage: NextPage<TProps> = () => {
                           {review.comment}
                         </Typography>
 
-                        {review.images && (
+                        {(review?.images || review?.image_url) && (
                           <Box mt={2}>
                             <Typography variant='body2' color='text.secondary' mb={1}>
                               Hình ảnh đánh giá:
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                              {review.images.split(',').map((image: any, imgIndex: number) => (
+                              {(Array.isArray(review?.images)
+                                ? review.images
+                                : Array.isArray(review?.image_url)
+                                  ? review.image_url
+                                  : String(review?.images || review?.image_url)
+                                      .split(',')
+                                      .filter(Boolean)
+                              ).map((image: any, imgIndex: number) => (
                                 <Box
                                   key={imgIndex}
                                   component='img'
-                                  src={image.trim()}
+                                  src={(typeof image === 'string' ? image : String(image)).trim()}
                                   alt={`Review image ${imgIndex + 1}`}
                                   sx={{
                                     width: 80,
@@ -1073,7 +1100,13 @@ const DetailProductPage: NextPage<TProps> = () => {
                                     borderRadius: 1,
                                     objectFit: 'cover',
                                     border: '1px solid',
-                                    borderColor: 'grey.300'
+                                    borderColor: 'grey.300',
+                                    cursor: 'zoom-in'
+                                  }}
+                                  onClick={() => {
+                                    const url = (typeof image === 'string' ? image : String(image)).trim()
+                                    setPreviewImage(url)
+                                    setIsImagePreviewOpen(true)
                                   }}
                                 />
                               ))}
@@ -1144,6 +1177,23 @@ const DetailProductPage: NextPage<TProps> = () => {
           </Container>
         )}
       </Container>
+
+      {/* Image preview dialog */}
+      <Dialog open={isImagePreviewOpen} onClose={() => setIsImagePreviewOpen(false)} fullWidth maxWidth='md'>
+        <DialogContent sx={{ p: 0, backgroundColor: 'black' }}>
+          {previewImage && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Box
+                component='img'
+                src={previewImage}
+                alt='Preview'
+                sx={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+                onClick={() => setIsImagePreviewOpen(false)}
+              />
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

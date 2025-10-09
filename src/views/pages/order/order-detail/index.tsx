@@ -35,7 +35,8 @@ import toast from 'react-hot-toast'
 import IconifyIcon from 'src/components/Icon'
 import Spinner from 'src/components/spinner'
 import { getOrderDetail, getOrderStatusHistories, OrderStatusHistoryItem } from 'src/services/order'
-import { getReviewsByProductId } from 'src/services/review'
+import { createReviewV1 } from 'src/services/review'
+import { useAuth } from 'src/hooks/useAuth'
 import { getStatusColor, getStatusText } from 'src/utils/status-style'
 import ReviewModal from '../components/ReviewModal'
 import { TReview } from 'src/types/review'
@@ -43,6 +44,7 @@ import { TReview } from 'src/types/review'
 const OrderDetailPage = () => {
   const theme = useTheme()
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [orderDetail, setOrderDetail] = useState<any>(null)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)

@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next'
 import IconifyIcon from 'src/components/Icon'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { TProduct } from 'src/types/product'
-import BuyNowModal from './BuyNowModal'
-import { useState } from 'react'
 import { createUserInteraction } from 'src/services/userInteraction'
 import { useAuth } from 'src/hooks/useAuth'
 
@@ -33,7 +31,6 @@ const CardProduct = (props: TCardProduct) => {
   const theme = useTheme()
   const router = useRouter()
   const { user } = useAuth()
-  const [buyNowModalOpen, setBuyNowModalOpen] = useState(false)
 
   const handleNavigateDetailProduct = (id: string) => {
     if (user && user.id) {
@@ -54,16 +51,10 @@ const CardProduct = (props: TCardProduct) => {
     }
   }
 
-  const handleBuyNow = () => {
-    setBuyNowModalOpen(true)
-  }
-
-  const handleCloseBuyNowModal = () => {
-    setBuyNowModalOpen(false)
-  }
+  // Removed Buy Now modal; direct navigation is used instead
 
   return (
-    <StyledCard>
+    <StyledCard onClick={() => handleNavigateDetailProduct(item?.id)} sx={{ cursor: 'pointer' }}>
       <CardMedia
         component='img'
         height='200'
@@ -88,9 +79,6 @@ const CardProduct = (props: TCardProduct) => {
       >
         <Box>
           <Typography
-            onClick={() => {
-              handleNavigateDetailProduct(item?.id)
-            }}
             variant='h6'
             sx={{
               color: theme.palette.text.primary,
@@ -103,7 +91,7 @@ const CardProduct = (props: TCardProduct) => {
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               minHeight: '2.4em',
-              cursor: 'pointer'
+              cursor: 'inherit'
             }}
           >
             {item?.name || 'Tên sản phẩm'}
@@ -192,7 +180,7 @@ const CardProduct = (props: TCardProduct) => {
             <Button
               fullWidth
               variant='contained'
-              onClick={handleBuyNow}
+              onClick={() => handleNavigateDetailProduct(item?.id)}
               sx={{
                 height: 36,
                 display: 'flex',
@@ -208,22 +196,12 @@ const CardProduct = (props: TCardProduct) => {
                 transition: 'all 0.3s ease-in-out'
               }}
             >
-              <IconifyIcon icon='icon-park-outline:buy' fontSize={18} />
-              {t('buy-now')}
+              <IconifyIcon icon='mdi:eye-outline' fontSize={18} />
+              Xem chi tiết
             </Button>
           </Box>
         </Box>
       </CardContent>
-
-      {/* Buy Now Modal */}
-      <BuyNowModal
-        open={buyNowModalOpen}
-        onClose={handleCloseBuyNowModal}
-        productId={item?.id || ''}
-        productName={item?.name || ''}
-        productPrice={item?.price || 0}
-        productThumbnail={item?.thumbnail || ''}
-      />
     </StyledCard>
   )
 }
