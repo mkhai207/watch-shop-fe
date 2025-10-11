@@ -421,8 +421,72 @@ const CheckoutPage: NextPage<TProps> = () => {
 
         setLoading(false)
         if (vnpUrl) {
+          // Lưu thông tin đơn hàng vào localStorage trước khi redirect
+          const orderData = {
+            code: response?.data?.code || response?.order?.code || 'ORD' + Date.now(),
+            name: data.name,
+            phone: data.phone,
+            shipping_address: data.shipping_address,
+            paymentMethod: data.paymentMethod,
+            items: isBuyNowMode
+              ? buyNowItems.map(item => ({
+                  name: item.product_name,
+                  thumbnail: item.product_thumbnail,
+                  color: item.color_name,
+                  strapMaterial: item.strap_material_name || 'Không xác định',
+                  quantity: item.quantity,
+                  price: item.product_price
+                }))
+              : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
+                  item => ({
+                    name: item?.variant?.product?.name || item?.variant?.watch?.name,
+                    thumbnail: item?.variant?.product?.thumbnail || item?.variant?.watch?.thumbnail,
+                    color: item?.variant?.color?.name || 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
+                    quantity: item.quantity,
+                    price: item?.variant?.product?.price ?? item?.variant?.price ?? 0
+                  })
+                ),
+            subtotal: orderTotal,
+            shippingFee: shippingFee,
+            discountAmount: discountAmount,
+            total: finalTotal
+          }
+          localStorage.setItem('lastOrderData', JSON.stringify(orderData))
           window.location.href = vnpUrl
         } else {
+          // Lưu thông tin đơn hàng vào localStorage trước khi redirect
+          const orderData = {
+            code: response?.data?.code || response?.order?.code || 'ORD' + Date.now(),
+            name: data.name,
+            phone: data.phone,
+            shipping_address: data.shipping_address,
+            paymentMethod: data.paymentMethod,
+            items: isBuyNowMode
+              ? buyNowItems.map(item => ({
+                  name: item.product_name,
+                  thumbnail: item.product_thumbnail,
+                  color: item.color_name,
+                  strapMaterial: item.strap_material_name || 'Không xác định',
+                  quantity: item.quantity,
+                  price: item.product_price
+                }))
+              : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
+                  item => ({
+                    name: item?.variant?.product?.name || item?.variant?.watch?.name,
+                    thumbnail: item?.variant?.product?.thumbnail || item?.variant?.watch?.thumbnail,
+                    color: item?.variant?.color?.name || 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
+                    quantity: item.quantity,
+                    price: item?.variant?.product?.price ?? item?.variant?.price ?? 0
+                  })
+                ),
+            subtotal: orderTotal,
+            shippingFee: shippingFee,
+            discountAmount: discountAmount,
+            total: finalTotal
+          }
+          localStorage.setItem('lastOrderData', JSON.stringify(orderData))
           router.push(ROUTE_CONFIG.ORDER_SUCCESS)
         }
       }
@@ -793,7 +857,7 @@ const CheckoutPage: NextPage<TProps> = () => {
               <StepLabel>Thanh toán</StepLabel>
             </Step>
             <Step key='payment'>
-              <StepLabel>Thanh toán/Phiếu thu</StepLabel>
+              <StepLabel>Xác nhận đơn hàng</StepLabel>
             </Step>
           </Stepper>
         </Box>
@@ -979,7 +1043,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                       <Box sx={{ ml: 2, flex: 1 }}>
                         <Typography variant='subtitle2'>{item.product_name}</Typography>
                         <Typography variant='body2' color='text.secondary'>
-                          {item.color_name} / {item.size_name}
+                          {item.color_name} / Dây: {item.strap_material_name || 'Không xác định'}
                         </Typography>
                         <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>
                           Mã biến thể: {item.product_variant_id}
@@ -1043,7 +1107,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                         <Box sx={{ ml: 2, flex: 1 }}>
                           <Typography variant='subtitle2'>{name}</Typography>
                           <Typography variant='body2' color='text.secondary'>
-                            {colorName} / {sizeName}
+                            {colorName} / Dây: {item?.variant?.strapMaterial?.name || 'Không xác định'}
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
                             {!!code && (

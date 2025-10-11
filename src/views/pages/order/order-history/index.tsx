@@ -109,16 +109,35 @@ const OrderHistoryPage = () => {
       setLoading(true)
       const response = await retryPayOrder(orderId)
 
+      console.log('Retry payment response:', response)
+
+      // Kiểm tra cả 2 format response
+      let url = null
+
       if (response?.status === 'success' && response?.data) {
-        setLoading(false)
-        const url = response?.data?.vnpayUrl
-        console.log('url', url)
-        if (url) {
-          window.location.href = url
-        }
+        // Format có wrapper
+        url = response?.data?.rePaymentUrl || response?.data?.vnpayUrl
+      } else if (response?.rePaymentUrl) {
+        // Format trực tiếp
+        url = response.rePaymentUrl
+      } else if (response?.vnpayUrl) {
+        // Format cũ
+        url = response.vnpayUrl
       }
-    } catch (error) {
+
       setLoading(false)
+      console.log('Payment URL:', url)
+
+      if (url) {
+        window.location.href = url
+      } else {
+        toast.error('Không thể tạo liên kết thanh toán')
+        console.error('No payment URL found in response:', response)
+      }
+    } catch (error: any) {
+      setLoading(false)
+      console.error('Payment retry error:', error)
+      toast.error(error?.message || 'Có lỗi xảy ra khi thực hiện thanh toán')
     }
   }
 
@@ -237,6 +256,18 @@ const OrderHistoryPage = () => {
     const notReviewedYet = String(order?.review_flag ?? '') === '0'
 
     return isCompleted && notReviewedYet
+  }
+
+  const canRetryPayment = (order: any) => {
+    // Check if payment method is online (payment_method = '1')
+    const isOnlinePayment = order?.payment_method === '1'
+
+    // Check if status sort_order <= 2 (PENDINGPAYMENT, UNPAID, etc.)
+    const statusId = order?.status || order?.current_status_id
+    const status = getStatusInfo(statusId)
+    const statusSortOrder = status?.sort_order || 0
+
+    return isOnlinePayment && statusSortOrder <= 2
   }
 
   useEffect(() => {
@@ -371,7 +402,7 @@ const OrderHistoryPage = () => {
                           Đánh giá
                         </Button>
                       )}
-                      {getStatusInfo(order.status).code === 'PENDINGPAYMENT' && (
+                      {canRetryPayment(order) && (
                         <Button
                           variant='contained'
                           startIcon={<PaymentIcon />}
@@ -386,7 +417,7 @@ const OrderHistoryPage = () => {
                             }
                           }}
                         >
-                          Thanh toán
+                          Thanh toán lại
                         </Button>
                       )}
                     </Box>

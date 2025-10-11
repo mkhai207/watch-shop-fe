@@ -41,7 +41,8 @@ export const getListOrders = async (data: { params: TParams; paramsSerializer?: 
       note: item.note,
       created_at: item.created_at,
       status: item.status || item.current_status_id || 'PENDING',
-      review_flag: item.review_flag
+      review_flag: item.review_flag,
+      payment_method: item.payment_method || item.paymentMethod || '0'
     }))
 
     return {
@@ -70,7 +71,7 @@ export const createOrderSystem = async (orderData: TCreateOrderSystem): Promise<
 
 export const retryPayOrder = async (id: string) => {
   try {
-    const res = await instanceAxios.post(`${CONFIG_API.ORDER.INDEX}/${id}/retry-payment`)
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/${id}/retry-payment`)
 
     return res.data
   } catch (error) {

@@ -492,8 +492,9 @@ const CartPage: NextPage<TProps> = () => {
                                 {(item as any)?.variant?.product?.name || (item as any)?.variant?.watch?.name}
                               </Typography>
                               <Typography variant='body2' color='text.secondary' gutterBottom>
-                                {(item as any)?.variant?.color?.name}
-                                {((item as any)?.variant?.size?.name && ` / ${(item as any)?.variant?.size?.name}`) ||
+                                {(item as any)?.variant?.color?.name || 'Màu không xác định'}
+                                {((item as any)?.variant?.strapMaterial?.name &&
+                                  ` / Dây: ${(item as any)?.variant?.strapMaterial?.name}`) ||
                                   ''}
                               </Typography>
                               <Typography variant='body2' color='text.secondary' gutterBottom>
