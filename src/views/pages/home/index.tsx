@@ -14,7 +14,6 @@ import { TBrand } from 'src/types/brand'
 import { TProduct } from 'src/types/product'
 import { TWatch } from 'src/types/watch'
 import CardProduct from '../../../components/card-product/CardProduct'
-import ChatBot from 'src/views/layouts/components/chatBot/ChatBot'
 
 type TProps = {}
 
