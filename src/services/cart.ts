@@ -61,3 +61,16 @@ export const deleteCartItems = async () => {
     return error
   }
 }
+
+export const deleteCartItemsByIds = async (cartItemIds: (string | number)[]) => {
+  try {
+    // DELETE /v1/carts with body { cartItemIds: [...] }
+    const res = await instanceAxios.delete(`${CONFIG_API.CART.INDEX}`, {
+      data: { cartItemIds }
+    })
+
+    return res.data
+  } catch (error) {
+    return error as any
+  }
+}

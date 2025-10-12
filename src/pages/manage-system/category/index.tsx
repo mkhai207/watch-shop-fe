@@ -32,13 +32,7 @@ import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import {
-  getCategorys,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getCategoryById
-} from 'src/services/categoryManage'
+import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryById } from 'src/services/category'
 import type {
   TCategory,
   TCreateCategory,
@@ -72,7 +66,7 @@ const CategoryPage: NextPage = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await getCategorys()
+      const res = await getCategories()
       const data = res as GetCategorysResponse
       setCategories(data?.categorys?.rows || [])
     } catch (err: any) {

@@ -103,3 +103,40 @@ export const fetchReviewsByProductId = async (query: any) => {
     return error
   }
 }
+
+// New V1 endpoints per latest backend
+export const createReviewV1 = async (data: {
+  rating: number
+  comment: string
+  image_url?: string
+  user_id: number | string
+  order_id: number | string
+}) => {
+  try {
+    const res = await instanceAxios.post(`${CONFIG_API.REVIEW.INDEX}`, data)
+
+    return res.data
+  } catch (error) {
+    return error as any
+  }
+}
+
+export const getReviewsByWatchIdV1 = async (watchId: string | number, params?: { page?: number; limit?: number }) => {
+  try {
+    const res = await instanceAxios.get(`${CONFIG_API.REVIEW.INDEX}/${watchId}`, { params })
+
+    return res.data
+  } catch (error) {
+    return error as any
+  }
+}
+
+export const deleteReviewV1 = async (reviewId: string | number) => {
+  try {
+    const res = await instanceAxios.delete(`${CONFIG_API.REVIEW.INDEX}/${reviewId}`)
+
+    return res.data
+  } catch (error) {
+    return error as any
+  }
+}

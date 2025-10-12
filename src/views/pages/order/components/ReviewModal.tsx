@@ -16,7 +16,8 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import IconifyIcon from 'src/components/Icon'
 import WrapperFileUpload from 'src/components/wrapper-file-upload'
-import { createReview } from 'src/services/review'
+import { createReviewV1 } from 'src/services/review'
+import { useAuth } from 'src/hooks/useAuth'
 import { useFileUpload } from 'src/hooks/useFileUpload'
 
 interface ReviewModalProps {
@@ -25,15 +26,16 @@ interface ReviewModalProps {
   orderId: string
   productIds: string
   productNames: string
+  onSuccess?: () => void
 }
 
-const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: ReviewModalProps) => {
+const ReviewModal = ({ open, onClose, orderId, productIds, productNames, onSuccess }: ReviewModalProps) => {
+  const { user } = useAuth()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
-  const [images, setImages] = useState<string[]>([])
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [imageUrl, setImageUrl] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const { uploadMultipleFiles, isUploading: uploadLoading, error: uploadError } = useFileUpload()
+  const { uploadFile, isUploading: uploadLoading, error: uploadError, reset } = useFileUpload()
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -50,41 +52,20 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: Revie
 
     setLoading(true)
     try {
-      let imageUrls = ''
-
-      // Upload images if any
-      if (selectedFiles.length > 0) {
-        try {
-          const uploadResponse = await uploadMultipleFiles(selectedFiles)
-          if (uploadResponse.status === 'success') {
-            imageUrls = uploadResponse.data.urls.join(',')
-          } else {
-            toast.error('Có lỗi xảy ra khi upload ảnh')
-
-            return
-          }
-        } catch (uploadError) {
-          toast.error('Có lỗi xảy ra khi upload ảnh')
-
-          return
-        }
-      }
-
-      const reviewData = {
-        product_id: productIds,
-        rating: rating,
+      const response = await createReviewV1({
+        rating,
         comment: comment.trim(),
-        images: imageUrls,
-        order_id: orderId
-      }
+        image_url: imageUrl || undefined,
+        user_id: Number(user?.id),
+        order_id: Number(orderId)
+      })
 
-      const response = await createReview(reviewData)
-
-      if (response.status === 'success') {
+      if (response?.review) {
         toast.success('Đánh giá thành công')
+        if (onSuccess) onSuccess()
         handleClose()
       } else {
-        toast.error(response.message || 'Có lỗi xảy ra khi gửi đánh giá')
+        toast.error(response?.message || 'Có lỗi xảy ra khi gửi đánh giá')
       }
     } catch (error) {
       console.error('Error submitting review:', error)
@@ -97,38 +78,40 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: Revie
   const handleClose = () => {
     setRating(0)
     setComment('')
-    setImages([])
-    setSelectedFiles([])
+    setImageUrl('')
+    reset()
     onClose()
   }
 
-  const handleImageUpload = (file: File) => {
-    if (file) {
-      // Kiểm tra kích thước file (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File quá lớn. Vui lòng chọn file nhỏ hơn 5MB')
-
-        return
+  const handleImageUpload = async (file: File) => {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File quá lớn. Vui lòng chọn file nhỏ hơn 5MB')
+      return
+    }
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Chỉ chấp nhận file JPG, JPEG hoặc PNG')
+      return
+    }
+    try {
+      setImageUrl('')
+      const res = await uploadFile(file)
+      const url = (res as any)?.uploadedImage?.url || (res as any)?.url
+      if (url) {
+        setImageUrl(url)
+        toast.success('Tải ảnh thành công')
+      } else {
+        toast.error('Upload ảnh thất bại')
       }
-
-      // Kiểm tra định dạng file
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
-      if (!allowedTypes.includes(file.type)) {
-        toast.error('Chỉ chấp nhận file JPG, JPEG hoặc PNG')
-
-        return
-      }
-
-      const url = URL.createObjectURL(file)
-      setImages(prev => [...prev, url])
-      setSelectedFiles(prev => [...prev, file])
-      toast.success('Ảnh đã được thêm')
+    } catch (e) {
+      // handled via hook error
     }
   }
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index))
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+  const removeImage = () => {
+    setImageUrl('')
+    reset()
   }
 
   return (
@@ -187,7 +170,7 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: Revie
               fullWidth
               multiline
               rows={4}
-              label='Bình luận *'
+              label='Bình luận ( tối thiểu 10 kí tự ) *'
               value={comment}
               onChange={e => setComment(e.target.value)}
               placeholder='Chia sẻ cảm nhận của bạn về các sản phẩm trong đơn hàng...'
@@ -200,7 +183,7 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: Revie
           <Grid item xs={12}>
             <Box>
               <Typography variant='subtitle1' fontWeight='medium' mb={1}>
-                Thêm ảnh (tùy chọn)
+                Ảnh
               </Typography>
               <WrapperFileUpload
                 uploadFunc={handleImageUpload}
@@ -209,8 +192,13 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: Revie
                   'image/png': ['.png']
                 }}
               >
-                <Button variant='outlined' startIcon={<IconifyIcon icon='mdi:camera' />} sx={{ mb: 2 }}>
-                  Thêm ảnh
+                <Button
+                  variant='outlined'
+                  startIcon={<IconifyIcon icon='mdi:camera' />}
+                  sx={{ mb: 2 }}
+                  disabled={uploadLoading}
+                >
+                  {uploadLoading ? 'Đang upload...' : imageUrl ? 'Đổi ảnh' : 'Chọn ảnh'}
                 </Button>
               </WrapperFileUpload>
 
@@ -221,54 +209,43 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames }: Revie
                 </Typography>
               )}
 
-              {/* Display uploaded images */}
-              {images.length > 0 && (
+              {/* Display uploaded image */}
+              {imageUrl && (
                 <Box mt={2}>
-                  <Typography variant='body2' color='text.secondary' mb={1}>
-                    Ảnh đã chọn ({images.length}/5):
-                  </Typography>
                   <Grid container spacing={1}>
-                    {images.map((image, index) => (
-                      <Grid item key={index}>
-                        <Box
+                    <Grid item>
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          width: 100,
+                          height: 100,
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          border: '1px solid',
+                          borderColor: 'grey.300'
+                        }}
+                      >
+                        <img
+                          src={imageUrl}
+                          alt='Review image'
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        <IconButton
+                          size='small'
+                          onClick={removeImage}
                           sx={{
-                            position: 'relative',
-                            width: 80,
-                            height: 80,
-                            borderRadius: 1,
-                            overflow: 'hidden',
-                            border: '1px solid',
-                            borderColor: 'grey.300'
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            color: 'white',
+                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.7)' }
                           }}
                         >
-                          <img
-                            src={image}
-                            alt={`Review image ${index + 1}`}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover'
-                            }}
-                          />
-                          <IconButton
-                            size='small'
-                            onClick={() => removeImage(index)}
-                            sx={{
-                              position: 'absolute',
-                              top: 4,
-                              right: 4,
-                              backgroundColor: 'rgba(0,0,0,0.5)',
-                              color: 'white',
-                              '&:hover': {
-                                backgroundColor: 'rgba(0,0,0,0.7)'
-                              }
-                            }}
-                          >
-                            <CloseIcon fontSize='small' />
-                          </IconButton>
-                        </Box>
-                      </Grid>
-                    ))}
+                          <CloseIcon fontSize='small' />
+                        </IconButton>
+                      </Box>
+                    </Grid>
                   </Grid>
                 </Box>
               )}

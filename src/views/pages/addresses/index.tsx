@@ -26,7 +26,10 @@ import {
   getAddressesByUserId,
   updateAddressById,
   listAddressesV1,
-  createAddressV1
+  createAddressV1,
+  updateAddressDefaultStatus,
+  deleteAddressV1,
+  updateAddressV1
 } from 'src/services/address'
 import { TAddress } from 'src/types/address'
 
@@ -53,7 +56,6 @@ const AddressPage = () => {
   const [addressToDelete, setAddressToDelete] = useState<TAddress | null>(null)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedContact, setSelectedContact] = useState<string | null>(null)
-
 
   // Load addresses on component mount
   useEffect(() => {
@@ -96,9 +98,20 @@ const AddressPage = () => {
   const onSubmit = async (data: AddressFormData) => {
     try {
       let response
+
+      // If setting as default, first remove default status from all other addresses
+      if (data.is_default) {
+        const updatePromises = addresses
+          .filter(addr => addr.is_default === '1' && addr.id !== editingAddress?.id)
+          .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
+
+        // Wait for all updates to complete
+        await Promise.all(updatePromises)
+      }
+
       if (editingAddress) {
-        response = await updateAddressById(parseInt(editingAddress.id), data)
-        if (response?.status === 'success') {
+        response = await updateAddressV1(parseInt(editingAddress.id), data)
+        if (response?.address) {
           toast.success('Cập nhật địa chỉ thành công')
         }
       } else {
@@ -118,7 +131,7 @@ const AddressPage = () => {
         }
       }
 
-      if (response?.status === 'success' || response?.address) {
+      if (response?.address) {
         handleCloseDialog()
         fetchAddresses()
       } else {
@@ -134,8 +147,8 @@ const AddressPage = () => {
     if (!addressToDelete) return
 
     try {
-      const response = await deleteAddressById(parseInt(addressToDelete.id))
-      if (response?.status === 'success') {
+      const response = await deleteAddressV1(parseInt(addressToDelete.id))
+      if (response?.success) {
         toast.success('Xóa địa chỉ thành công')
         fetchAddresses()
       } else {
@@ -169,11 +182,18 @@ const AddressPage = () => {
     const address = addresses.find(addr => addr.id === selectedContact)
     if (address) {
       try {
-        const response = await updateAddressById(parseInt(address.id), {
-          ...address,
-          is_default: true
-        })
-        if (response?.status === 'success') {
+        // First, remove default status from all other addresses
+        const updatePromises = addresses
+          .filter(addr => addr.is_default === '1' && addr.id !== address.id)
+          .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
+
+        // Wait for all updates to complete
+        await Promise.all(updatePromises)
+
+        // Then set the selected address as default
+        const response = await updateAddressDefaultStatus(parseInt(address.id), true)
+
+        if (response) {
           toast.success('Đã thiết lập làm địa chỉ mặc định')
           fetchAddresses()
         }
@@ -270,7 +290,7 @@ const AddressPage = () => {
                     {/* Tags and Actions */}
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        {address.is_default && (
+                        {address.is_default === '1' && (
                           <Chip
                             label='Mặc định'
                             size='small'
@@ -292,7 +312,7 @@ const AddressPage = () => {
                         >
                           Cập nhật
                         </Typography>
-                        {!address.is_default && (
+                        {address.is_default !== '1' && (
                           <Typography
                             variant='caption'
                             sx={{ color: '#f44336', cursor: 'pointer' }}
@@ -301,7 +321,7 @@ const AddressPage = () => {
                             Xóa
                           </Typography>
                         )}
-                        {!address.is_default && (
+                        {address.is_default !== '1' && (
                           <Button
                             variant='outlined'
                             size='small'
@@ -357,15 +377,19 @@ const AddressPage = () => {
         <DialogTitle>{editingAddress ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ mới'}</DialogTitle>
         <DialogContent>
           <AddressForm
-            defaultValues={editingAddress ? {
-              recipient_name: editingAddress.recipient_name,
-              phone_number: editingAddress.phone_number,
-              street: editingAddress.street,
-              ward: editingAddress.ward,
-              district: editingAddress.district,
-              city: editingAddress.city,
-              is_default: editingAddress.is_default
-            } : undefined}
+            defaultValues={
+              editingAddress
+                ? {
+                    recipient_name: editingAddress.recipient_name,
+                    phone_number: editingAddress.phone_number,
+                    street: editingAddress.street,
+                    ward: editingAddress.ward,
+                    district: editingAddress.district,
+                    city: editingAddress.city,
+                    is_default: editingAddress.is_default
+                  }
+                : undefined
+            }
             onSubmit={onSubmit}
             onCancel={handleCloseDialog}
             submitButtonText={editingAddress ? 'Cập nhật' : 'Thêm mới'}

@@ -24,6 +24,8 @@ import { FavoriteBorder, ShoppingCartOutlined, GridView, ViewList, Star } from '
 import { NextPage } from 'next'
 import Link from 'next/link'
 import { useMemo, useState, useEffect } from 'react'
+import CardProduct from 'src/components/card-product/CardProduct'
+import { TProduct } from 'src/types/product'
 
 type TProps = {}
 
@@ -615,156 +617,40 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
           {viewMode === 'grid' ? (
             <Grid container spacing={2}>
-              {filtered.map(w => (
-                <Grid key={w.id} item xs={12} sm={6} md={4}>
-                  <Card sx={{ '&:hover': { boxShadow: 6 }, transition: 'all .2s', position: 'relative' }}>
-                    <CardMedia component='img' image={w.image || '/next.svg'} alt={w.name} sx={{ height: 240 }} />
-                    <CardContent>
-                      <Box display='flex' alignItems='center' gap={1} mb={1}>
-                        <Typography variant='caption' color='text.secondary'>
-                          {w.brand}
-                        </Typography>
-                        <Box display='flex' alignItems='center' gap={0.5}>
-                          <Star fontSize='inherit' sx={{ color: '#facc15' }} />
-                          <Typography variant='caption' color='text.secondary'>
-                            {w.rating} ({w.reviews})
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography fontWeight={600} mb={1}>
-                        {w.name}
-                      </Typography>
-                      <Box display='flex' alignItems='center' gap={1} mb={1}>
-                        <Typography color='primary' fontWeight={700}>
-                          {formatPrice(w.price)}
-                        </Typography>
-                        {w.originalPrice > w.price && (
-                          <Typography variant='body2' color='text.disabled' sx={{ textDecoration: 'line-through' }}>
-                            {formatPrice(w.originalPrice)}
-                          </Typography>
-                        )}
-                      </Box>
-                      <Box display='flex' flexWrap='wrap' gap={0.5} mb={1}>
-                        {w.colors.slice(0, 3).map(c => (
-                          <Chip key={c} size='small' label={c} variant='outlined' />
-                        ))}
-                      </Box>
-                      <Button
-                        fullWidth
-                        variant='contained'
-                        startIcon={<ShoppingCartOutlined />}
-                        component={Link}
-                        href={`/product/${w.id}`}
-                      >
-                        Xem chi tiết
-                      </Button>
-                    </CardContent>
-                    <Box position='absolute' top={8} right={8}>
-                      <IconButton color='default' size='small'>
-                        <FavoriteBorder fontSize='small' />
-                      </IconButton>
-                    </Box>
-                    <Box position='absolute' top={8} left={8} display='flex' flexDirection='column' gap={0.5}>
-                      {w.isNew && <Chip size='small' color='primary' label='Mới' />}
-                      {w.isBestseller && <Chip size='small' variant='outlined' label='Bán chạy' />}
-                    </Box>
-                  </Card>
-                </Grid>
-              ))}
+              {filtered.map(w => {
+                const item: TProduct = {
+                  id: String(w.id),
+                  name: w.name,
+                  price: Number(w.price) || 0,
+                  thumbnail: w.image || '/placeholder-product.jpg',
+                  sold: (w as any).sold || 0,
+                  rating: Number(w.rating) || 0
+                } as any
+                return (
+                  <Grid key={w.id} item xs={12} sm={6} md={4}>
+                    <CardProduct item={item} />
+                  </Grid>
+                )
+              })}
             </Grid>
           ) : (
-            <Box display='flex' flexDirection='column' gap={2}>
-              {filtered.map(w => (
-                <Card key={w.id} sx={{ '&:hover': { boxShadow: 6 }, transition: 'all .2s' }}>
-                  <CardContent>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={3}>
-                        <CardMedia
-                          component='img'
-                          image={w.image || '/next.svg'}
-                          alt={w.name}
-                          sx={{ height: 180, borderRadius: 1 }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={9}>
-                        <Box display='flex' justifyContent='space-between' alignItems='start' mb={1}>
-                          <Box>
-                            <Box display='flex' alignItems='center' gap={1} mb={0.5}>
-                              <Typography variant='caption' color='text.secondary'>
-                                {w.brand}
-                              </Typography>
-                              <Box display='flex' alignItems='center' gap={0.5}>
-                                <Star fontSize='inherit' sx={{ color: '#facc15' }} />
-                                <Typography variant='caption' color='text.secondary'>
-                                  {w.rating} ({w.reviews} đánh giá)
-                                </Typography>
-                              </Box>
-                            </Box>
-                            <Typography variant='h6' fontWeight={700}>
-                              {w.name}
-                            </Typography>
-                          </Box>
-                          <IconButton size='small'>
-                            <FavoriteBorder fontSize='small' />
-                          </IconButton>
-                        </Box>
-                        <Grid container spacing={2} mb={1}>
-                          <Grid item xs={6} md={3}>
-                            <Typography variant='caption' color='text.secondary'>
-                              Vỏ
-                            </Typography>
-                            <Typography fontWeight={600}>{w.caseMaterial}</Typography>
-                          </Grid>
-                          <Grid item xs={6} md={3}>
-                            <Typography variant='caption' color='text.secondary'>
-                              Dây
-                            </Typography>
-                            <Typography fontWeight={600}>{w.strapMaterial}</Typography>
-                          </Grid>
-                          <Grid item xs={6} md={3}>
-                            <Typography variant='caption' color='text.secondary'>
-                              Bộ máy
-                            </Typography>
-                            <Typography fontWeight={600}>{w.movement}</Typography>
-                          </Grid>
-                          <Grid item xs={6} md={3}>
-                            <Typography variant='caption' color='text.secondary'>
-                              Chống nước
-                            </Typography>
-                            <Typography fontWeight={600}>{w.waterResistance}</Typography>
-                          </Grid>
-                        </Grid>
-                        <Box display='flex' flexWrap='wrap' gap={0.5} mb={2}>
-                          {w.colors.map(c => (
-                            <Chip key={c} size='small' label={c} variant='outlined' />
-                          ))}
-                        </Box>
-                        <Box display='flex' alignItems='center' justifyContent='space-between'>
-                          <Box display='flex' alignItems='center' gap={1}>
-                            <Typography variant='h6' color='primary' fontWeight={700}>
-                              {formatPrice(w.price)}
-                            </Typography>
-                            {w.originalPrice > w.price && (
-                              <Typography variant='body2' color='text.disabled' sx={{ textDecoration: 'line-through' }}>
-                                {formatPrice(w.originalPrice)}
-                              </Typography>
-                            )}
-                          </Box>
-                          <Button
-                            variant='contained'
-                            startIcon={<ShoppingCartOutlined />}
-                            component={Link}
-                            href={`/product/${w.id}`}
-                          >
-                            Xem chi tiết
-                          </Button>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
+            <Grid container spacing={2}>
+              {filtered.map(w => {
+                const item: TProduct = {
+                  id: String(w.id),
+                  name: w.name,
+                  price: Number(w.price) || 0,
+                  thumbnail: w.image || '/placeholder-product.jpg',
+                  sold: (w as any).sold || 0,
+                  rating: Number(w.rating) || 0
+                } as any
+                return (
+                  <Grid key={w.id} item xs={12}>
+                    <CardProduct item={item} />
+                  </Grid>
+                )
+              })}
+            </Grid>
           )}
 
           {/* Pagination when data from API */}

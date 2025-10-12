@@ -34,8 +34,9 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import IconifyIcon from 'src/components/Icon'
 import Spinner from 'src/components/spinner'
-import { getOrderDetail } from 'src/services/order'
-import { getReviewsByProductId } from 'src/services/review'
+import { getOrderDetail, getOrderStatusHistories, OrderStatusHistoryItem } from 'src/services/order'
+import { createReviewV1 } from 'src/services/review'
+import { useAuth } from 'src/hooks/useAuth'
 import { getStatusColor, getStatusText } from 'src/utils/status-style'
 import ReviewModal from '../components/ReviewModal'
 import { TReview } from 'src/types/review'
@@ -43,19 +44,25 @@ import { TReview } from 'src/types/review'
 const OrderDetailPage = () => {
   const theme = useTheme()
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [orderDetail, setOrderDetail] = useState<any>(null)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [statusHistories, setStatusHistories] = useState<OrderStatusHistoryItem[]>([])
 
   const fetchGetDetailOrder = async () => {
     try {
       setLoading(true)
 
       const response = await getOrderDetail(router?.query?.orderId as string)
+      const historiesRes = await getOrderStatusHistories(router?.query?.orderId as string)
 
       if (response.status === 'success') {
         console.log('data', response?.data)
         setOrderDetail(response?.data)
+        if ((historiesRes as any)?.orderStatusHistorys) {
+          setStatusHistories((historiesRes as any).orderStatusHistorys)
+        }
 
         toast.success('Tải chi tiết đơn hàng thành công!')
       } else {
@@ -477,6 +484,71 @@ const OrderDetailPage = () => {
                     {index < orderDetail?.orderDetails.length - 1 && <Divider sx={{ my: 3 }} />}
                   </Box>
                 ))}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Lịch sử trạng thái đơn hàng */}
+          <Grid item xs={12}>
+            <Card
+              elevation={4}
+              sx={{
+                background: theme.palette.background.paper,
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 8
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box display='flex' alignItems='center' mb={4}>
+                  <IconifyIcon
+                    icon='material-symbols:timeline'
+                    style={{ fontSize: 28, marginRight: 16, color: '#1976d2' }}
+                  />
+                  <Typography variant='h5' fontWeight='bold' color='primary'>
+                    Lịch sử trạng thái
+                  </Typography>
+                </Box>
+
+                {statusHistories && statusHistories.length > 0 ? (
+                  <List>
+                    {statusHistories.map((h, idx) => (
+                      <>
+                        <ListItem key={h.id} alignItems='flex-start' sx={{ px: 0 }}>
+                          <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: 'primary.main' }}>
+                              <IconifyIcon icon='material-symbols:flag' />
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Stack direction='row' spacing={2} alignItems='center'>
+                                <Chip
+                                  label={h.status?.name || h.status?.code || 'Trạng thái'}
+                                  color={getStatusColor(h.status?.code || orderDetail?.status)}
+                                  sx={{ fontWeight: 'bold' }}
+                                />
+                                <Typography variant='body2' color='text.secondary'>
+                                  {h.status?.description}
+                                </Typography>
+                              </Stack>
+                            }
+                            secondary={
+                              <Typography variant='body2' color='text.secondary'>
+                                {h.note || ''} {formatDate(h.created_at)}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                        {idx < statusHistories.length - 1 && <Divider sx={{ my: 2 }} />}
+                      </>
+                    ))}
+                  </List>
+                ) : (
+                  <Typography color='text.secondary'>Không có lịch sử trạng thái.</Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>

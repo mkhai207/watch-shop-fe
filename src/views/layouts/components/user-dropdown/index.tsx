@@ -402,7 +402,10 @@ const UserDropdown = () => {
 
         {/* Logout */}
         <MenuItem
-          onClick={logout}
+          onClick={() => {
+            handleClose()
+            logout()
+          }}
           sx={{
             padding: '12px 16px',
             borderRadius: '8px',

@@ -20,7 +20,14 @@ import {
   InputLabel,
   Paper,
   ClickAwayListener,
-  Portal
+  Portal,
+  Stepper,
+  Step,
+  StepLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Checkbox
 } from '@mui/material'
 import { NextPage } from 'next'
 import { ArrowBack, ShoppingCartOutlined } from '@mui/icons-material'
@@ -32,11 +39,19 @@ import { useSelector } from 'react-redux'
 import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
-import { deleteCartItems } from 'src/services/cart'
+import { deleteCartItems, deleteCartItemsByIds } from 'src/services/cart'
 import { createOrder } from 'src/services/checkout'
-import { getDiscountByCode, getDiscounts } from 'src/services/discount'
+import { getDiscountByCode, v1GetDiscounts } from 'src/services/discount'
 import { createUserInteraction } from 'src/services/userInteraction'
 import { getAddressesByUserId, createAddressV1, listAddressesV1 } from 'src/services/address'
+import {
+  getProvinces,
+  getDistrictsByProvince,
+  getWardsByDistrict,
+  Province,
+  District,
+  Ward
+} from 'src/services/addressApi'
 import { RootState } from 'src/stores'
 import { TDiscount } from 'src/types/discount'
 import { TCreateOrder, TCreateOrderForm } from 'src/types/order'
@@ -61,6 +76,7 @@ interface BuyNowItem {
 const CheckoutPage: NextPage<TProps> = () => {
   const { user } = useAuth()
   const { items } = useSelector((state: RootState) => state.cart)
+  const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[]>([])
   const { t } = useTranslation()
   const router = useRouter()
 
@@ -87,6 +103,7 @@ const CheckoutPage: NextPage<TProps> = () => {
   // Voucher dropdown states
   const [availableVouchers, setAvailableVouchers] = useState<TDiscount[]>([])
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false)
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
   const [loadingVouchers, setLoadingVouchers] = useState(false)
   const [inputElement, setInputElement] = useState<HTMLElement | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
@@ -99,6 +116,19 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [addrWard, setAddrWard] = useState('')
   const [addrDistrict, setAddrDistrict] = useState('')
   const [addrCity, setAddrCity] = useState('')
+
+  // Modern checkout additions
+  const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard')
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [orderNote, setOrderNote] = useState('')
+
+  // Address API states
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [districts, setDistricts] = useState<District[]>([])
+  const [wards, setWards] = useState<Ward[]>([])
+  const [loadingProvinces, setLoadingProvinces] = useState(false)
+  const [loadingDistricts, setLoadingDistricts] = useState(false)
+  const [loadingWards, setLoadingWards] = useState(false)
 
   const schema = yup.object({
     paymentMethod: yup.string().required(t('payment-method-required')),
@@ -125,6 +155,7 @@ const CheckoutPage: NextPage<TProps> = () => {
 
   useEffect(() => {
     const buyNowData = localStorage.getItem('buyNowItems')
+    const selectedIds = localStorage.getItem('selectedCartItemIds')
     if (buyNowData) {
       try {
         const parsedData = JSON.parse(buyNowData) as BuyNowItem[]
@@ -136,6 +167,15 @@ const CheckoutPage: NextPage<TProps> = () => {
       } catch (error) {
         console.error('Error parsing buyNowItems:', error)
       }
+    }
+    if (selectedIds) {
+      try {
+        const parsedIds = JSON.parse(selectedIds) as string[]
+        if (Array.isArray(parsedIds) && parsedIds.length > 0) {
+          setSelectedCartItemIds(parsedIds)
+        }
+      } catch {}
+      // Do not remove here; allow checkout refresh to keep selection
     }
   }, [])
 
@@ -194,16 +234,9 @@ const CheckoutPage: NextPage<TProps> = () => {
     const fetchVouchers = async () => {
       setLoadingVouchers(true)
       try {
-        const response = await getDiscounts()
-        if (response?.status == 'success' && response?.data) {
-          const validVouchers = response.data.filter((voucher: TDiscount) => {
-            const now = new Date()
-            const validUntil = new Date(voucher.valid_until)
-
-            return now <= validUntil
-          })
-          setAvailableVouchers(validVouchers)
-        }
+        const res = await v1GetDiscounts({ page: 1, limit: 50 })
+        const items = res?.discounts?.items || []
+        setAvailableVouchers(items as any)
       } catch (error) {
         console.error('Error fetching vouchers:', error)
       } finally {
@@ -213,6 +246,63 @@ const CheckoutPage: NextPage<TProps> = () => {
 
     fetchVouchers()
   }, [])
+
+  // Auto read selected code from Cart and apply when data ready
+  useEffect(() => {
+    try {
+      const code = localStorage.getItem('selectedDiscountCode')
+      if (code) setDiscountCode(code)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    const tryAutoApply = async () => {
+      if (!discountCode || appliedDiscount) return
+      // Try from loaded vouchers first
+      let found: any = availableVouchers.find(v => String(v.code || '').toLowerCase() === discountCode.toLowerCase())
+      if (!found) {
+        try {
+          const res = await v1GetDiscounts({ page: 1, limit: 100 })
+          const list: any[] = res?.discounts?.items || []
+          found = list.find(d => String(d.code || '').toLowerCase() === discountCode.toLowerCase())
+        } catch {}
+      }
+      if (found) {
+        // Validate min and dates
+        const now = new Date()
+        const start = new Date(
+          found.effective_date.slice(0, 4) +
+            '-' +
+            found.effective_date.slice(4, 6) +
+            '-' +
+            found.effective_date.slice(6, 8)
+        )
+        const end = new Date(
+          found.valid_until.slice(0, 4) + '-' + found.valid_until.slice(4, 6) + '-' + found.valid_until.slice(6, 8)
+        )
+        if (now >= start && now <= end && orderTotal >= Number(found.min_order_value || 0)) {
+          const type = String(found.discount_type)
+          const value = Number(found.discount_value || 0)
+          let amount = 0
+          if (type === '1') {
+            amount = Math.floor((orderTotal * value) / 100)
+            const cap = found.max_discount_amount != null ? Number(found.max_discount_amount) : null
+            if (cap && cap > 0) amount = Math.min(amount, cap)
+          } else {
+            amount = value
+          }
+          setAppliedDiscount({
+            code: found.code,
+            discountAmount: amount,
+            discountType: type === '1' ? 'percentage' : 'fixed'
+          })
+          setDiscountError('')
+        }
+      }
+    }
+    tryAutoApply()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableVouchers, discountCode])
 
   useEffect(() => {
     const updatePosition = () => {
@@ -247,6 +337,9 @@ const CheckoutPage: NextPage<TProps> = () => {
       setAddrWard('')
       setAddrDistrict('')
       setAddrCity('')
+      // Reset cascading dropdowns
+      setDistricts([])
+      setWards([])
       setAddressDialogOpen(true)
       return
     } else if (addressId) {
@@ -275,11 +368,11 @@ const CheckoutPage: NextPage<TProps> = () => {
       return buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
     }
 
+    const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
     return (
-      items?.reduce((total, item) => {
+      list?.reduce((total, item) => {
         const price = item?.variant?.product?.price ?? item?.variant?.price ?? 0
         const qty = item?.quantity ?? 0
-
         return total + price * qty
       }, 0) || 0
     )
@@ -287,24 +380,17 @@ const CheckoutPage: NextPage<TProps> = () => {
 
   const orderTotal = getOrderTotal()
   // Align shipping fee with Cart page (currently 0)
-  const shippingFee = 0
+  const shippingFee = shippingMethod === 'express' ? 30000 : 0
 
   // Cart meta for UX buttons
   const cartItemCount = isBuyNowMode
     ? buyNowItems.reduce((acc, it) => acc + (it?.quantity || 0), 0)
     : items.reduce((acc, it) => acc + (it?.quantity || 0), 0)
 
-  // Tính toán discount
+  // Tính toán discount (appliedDiscount.discountAmount is absolute after validation)
   const getDiscountAmount = () => {
-    if (!appliedDiscount) {
-      return 0
-    }
-
-    if (appliedDiscount.discountType === 'percentage') {
-      return (orderTotal * appliedDiscount.discountAmount) / 100
-    } else {
-      return appliedDiscount.discountAmount
-    }
+    if (!appliedDiscount) return 0
+    return Math.max(0, Math.min(orderTotal, appliedDiscount.discountAmount))
   }
 
   const discountAmount = getDiscountAmount()
@@ -321,10 +407,86 @@ const CheckoutPage: NextPage<TProps> = () => {
       if (response) {
         await handleCreateUserInteraction(data)
 
+        // If not buy now, delete selected items before redirect
+        if (!isBuyNowMode) {
+          try {
+            const ids = selectedCartItemIds.length > 0 ? selectedCartItemIds : items.map(i => i.id)
+            if (ids.length > 0) {
+              await deleteCartItemsByIds(ids.map(id => (typeof id === 'string' ? parseInt(id, 10) : id)))
+            }
+          } catch (e) {
+            // ignore deletion error to not block payment redirect
+          }
+        }
+
         setLoading(false)
         if (vnpUrl) {
+          // Lưu thông tin đơn hàng vào localStorage trước khi redirect
+          const orderData = {
+            code: response?.data?.code || response?.order?.code || 'ORD' + Date.now(),
+            name: data.name,
+            phone: data.phone,
+            shipping_address: data.shipping_address,
+            paymentMethod: data.paymentMethod,
+            items: isBuyNowMode
+              ? buyNowItems.map(item => ({
+                  name: item.product_name,
+                  thumbnail: item.product_thumbnail,
+                  color: item.color_name,
+                  strapMaterial: item.strap_material_name || 'Không xác định',
+                  quantity: item.quantity,
+                  price: item.product_price
+                }))
+              : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
+                  item => ({
+                    name: item?.variant?.product?.name || item?.variant?.watch?.name,
+                    thumbnail: item?.variant?.product?.thumbnail || item?.variant?.watch?.thumbnail,
+                    color: item?.variant?.color?.name || 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
+                    quantity: item.quantity,
+                    price: item?.variant?.product?.price ?? item?.variant?.price ?? 0
+                  })
+                ),
+            subtotal: orderTotal,
+            shippingFee: shippingFee,
+            discountAmount: discountAmount,
+            total: finalTotal
+          }
+          localStorage.setItem('lastOrderData', JSON.stringify(orderData))
           window.location.href = vnpUrl
         } else {
+          // Lưu thông tin đơn hàng vào localStorage trước khi redirect
+          const orderData = {
+            code: response?.data?.code || response?.order?.code || 'ORD' + Date.now(),
+            name: data.name,
+            phone: data.phone,
+            shipping_address: data.shipping_address,
+            paymentMethod: data.paymentMethod,
+            items: isBuyNowMode
+              ? buyNowItems.map(item => ({
+                  name: item.product_name,
+                  thumbnail: item.product_thumbnail,
+                  color: item.color_name,
+                  strapMaterial: item.strap_material_name || 'Không xác định',
+                  quantity: item.quantity,
+                  price: item.product_price
+                }))
+              : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
+                  item => ({
+                    name: item?.variant?.product?.name || item?.variant?.watch?.name,
+                    thumbnail: item?.variant?.product?.thumbnail || item?.variant?.watch?.thumbnail,
+                    color: item?.variant?.color?.name || 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
+                    quantity: item.quantity,
+                    price: item?.variant?.product?.price ?? item?.variant?.price ?? 0
+                  })
+                ),
+            subtotal: orderTotal,
+            shippingFee: shippingFee,
+            discountAmount: discountAmount,
+            total: finalTotal
+          }
+          localStorage.setItem('lastOrderData', JSON.stringify(orderData))
           router.push(ROUTE_CONFIG.ORDER_SUCCESS)
         }
       }
@@ -387,48 +549,59 @@ const CheckoutPage: NextPage<TProps> = () => {
     setDiscountError('')
 
     try {
-      const response = await getDiscountByCode(discountCode.trim())
-
-      if (response?.status === 'success' && response?.data) {
-        const discount: TDiscount = response.data
-
-        const now = new Date()
-        const validFrom = new Date(discount.valid_from)
-        const validUntil = new Date(discount.valid_until)
-
-        if (now < validFrom || now > validUntil) {
-          setDiscountError('Mã giảm giá đã hết hạn hoặc chưa thể sử dụng')
-
-          return
-        }
-
-        if (discount.minimum_order_value > orderTotal) {
-          setDiscountError(`Đơn hàng phải có giá trị tối thiểu ${discount.minimum_order_value.toLocaleString()}VNĐ`)
-
-          return
-        }
-
-        let discountAmount = 0
-        if (discount.discount_type === 'PERCENTAGE') {
-          discountAmount = (orderTotal * parseFloat(discount.discount_value)) / 100
-
-          if (discount.max_discount_amount && discountAmount > discount.max_discount_amount) {
-            discountAmount = discount.max_discount_amount
-          }
-        } else {
-          discountAmount = parseFloat(discount.discount_value)
-        }
-
-        setAppliedDiscount({
-          code: discount.code,
-          discountAmount: discountAmount,
-          discountType: discount.discount_type === 'PERCENTAGE' ? 'percentage' : 'fixed'
-        })
-
-        setDiscountCode('')
-      } else {
+      // Prefer v1 list to validate and compute like Cart
+      const res = await v1GetDiscounts({ page: 1, limit: 100 })
+      const list: any[] = res?.discounts?.items || []
+      const found = list.find(d => String(d.code || '').toLowerCase() === discountCode.trim().toLowerCase())
+      if (!found) {
         setDiscountError('Mã giảm giá không hợp lệ')
+        return
       }
+
+      // Validate date window
+      const now = new Date()
+      const start = new Date(
+        found.effective_date.slice(0, 4) +
+          '-' +
+          found.effective_date.slice(4, 6) +
+          '-' +
+          found.effective_date.slice(6, 8)
+      )
+      const end = new Date(
+        found.valid_until.slice(0, 4) + '-' + found.valid_until.slice(4, 6) + '-' + found.valid_until.slice(6, 8)
+      )
+      if (!(now >= start && now <= end)) {
+        setDiscountError('Mã giảm giá chưa hiệu lực hoặc đã hết hạn')
+        return
+      }
+
+      // Validate min order
+      if (orderTotal < Number(found.min_order_value || 0)) {
+        setDiscountError(`Đơn tối thiểu ${Number(found.min_order_value || 0).toLocaleString()}VNĐ`)
+        return
+      }
+
+      // Compute amount
+      const type = String(found.discount_type)
+      const value = Number(found.discount_value || 0)
+      let amount = 0
+      if (type === '1') {
+        amount = Math.floor((orderTotal * value) / 100)
+        const cap = found.max_discount_amount != null ? Number(found.max_discount_amount) : null
+        if (cap && cap > 0) amount = Math.min(amount, cap)
+      } else {
+        amount = value
+      }
+
+      setAppliedDiscount({
+        code: found.code,
+        discountAmount: amount,
+        discountType: type === '1' ? 'percentage' : 'fixed'
+      })
+      try {
+        localStorage.setItem('selectedDiscountCode', found.code)
+      } catch {}
+      setDiscountError('')
     } catch (error) {
       console.error('Error applying discount:', error)
       setDiscountError('Có lỗi xảy ra khi áp dụng mã giảm giá')
@@ -475,9 +648,15 @@ const CheckoutPage: NextPage<TProps> = () => {
     const [street = '', ward = '', district = '', city = ''] = addressParts
 
     // Map FE form to BE payload
+    const sourceItems = isBuyNowMode
+      ? buyNowItems
+      : selectedCartItemIds.length > 0
+        ? items.filter(it => selectedCartItemIds.includes(it.id))
+        : items
+
     const variants = isBuyNowMode
-      ? buyNowItems.map(item => ({ variant_id: parseInt(item.product_variant_id, 10), quantity: item.quantity }))
-      : items.map(item => ({ variant_id: parseInt(item.variant.id, 10), quantity: item.quantity }))
+      ? sourceItems.map(item => ({ variant_id: parseInt(item.product_variant_id, 10), quantity: item.quantity }))
+      : sourceItems.map(item => ({ variant_id: parseInt(item.variant.id, 10), quantity: item.quantity }))
 
     const payload = {
       shipping_address: data.shipping_address,
@@ -524,6 +703,81 @@ const CheckoutPage: NextPage<TProps> = () => {
       }
     }
   }, [orderSuccess, isBuyNowMode])
+
+  // Load provinces on component mount
+  useEffect(() => {
+    loadProvinces()
+  }, [])
+
+  // Load provinces
+  const loadProvinces = async () => {
+    setLoadingProvinces(true)
+    try {
+      const provincesData = await getProvinces()
+      setProvinces(provincesData)
+    } catch (error) {
+      console.error('Error loading provinces:', error)
+    } finally {
+      setLoadingProvinces(false)
+    }
+  }
+
+  // Load districts by province code
+  const loadDistricts = async (provinceCode: string) => {
+    setLoadingDistricts(true)
+    setDistricts([])
+    setWards([])
+    try {
+      const districtsData = await getDistrictsByProvince(provinceCode)
+      setDistricts(districtsData)
+    } catch (error) {
+      console.error('Error loading districts:', error)
+    } finally {
+      setLoadingDistricts(false)
+    }
+  }
+
+  // Load wards by district code
+  const loadWards = async (districtCode: string) => {
+    setLoadingWards(true)
+    setWards([])
+    try {
+      const wardsData = await getWardsByDistrict(districtCode)
+      setWards(wardsData)
+    } catch (error) {
+      console.error('Error loading wards:', error)
+    } finally {
+      setLoadingWards(false)
+    }
+  }
+
+  // Handle province change
+  const handleProvinceChange = (provinceName: string) => {
+    const selectedProvince = provinces.find(p => p.name === provinceName)
+    if (selectedProvince) {
+      setAddrCity(provinceName)
+      loadDistricts(selectedProvince.code)
+      // Reset district and ward when province changes
+      setAddrDistrict('')
+      setAddrWard('')
+    }
+  }
+
+  // Handle district change
+  const handleDistrictChange = (districtName: string) => {
+    const selectedDistrict = districts.find(d => d.name === districtName)
+    if (selectedDistrict) {
+      setAddrDistrict(districtName)
+      loadWards(selectedDistrict.code)
+      // Reset ward when district changes
+      setAddrWard('')
+    }
+  }
+
+  // Handle ward change
+  const handleWardChange = (wardName: string) => {
+    setAddrWard(wardName)
+  }
 
   if (!isBuyNowMode && items.length === 0) {
     return (
@@ -581,6 +835,7 @@ const CheckoutPage: NextPage<TProps> = () => {
           </Alert>
         )}
 
+        {/* Step indicator */}
         <Box sx={{ pt: 4, px: 1, mb: 2 }}>
           <Typography
             component='div'
@@ -594,6 +849,17 @@ const CheckoutPage: NextPage<TProps> = () => {
           >
             Thông tin đơn hàng
           </Typography>
+          <Stepper activeStep={1} alternativeLabel sx={{ mt: 2 }}>
+            <Step key='cart'>
+              <StepLabel>Giỏ hàng</StepLabel>
+            </Step>
+            <Step key='checkout'>
+              <StepLabel>Thanh toán</StepLabel>
+            </Step>
+            <Step key='payment'>
+              <StepLabel>Xác nhận đơn hàng</StepLabel>
+            </Step>
+          </Stepper>
         </Box>
 
         <Card sx={{ p: 3, bgcolor: 'transparent', boxShadow: 'none' }} elevation={0}>
@@ -661,7 +927,32 @@ const CheckoutPage: NextPage<TProps> = () => {
                       )}
                     />
 
-                    {/* Removed manual address input; handled via address dialog */}
+                    {/* Shipping method */}
+                    <Box>
+                      <Typography variant='subtitle1' sx={{ mb: 1 }}>
+                        Phương thức vận chuyển
+                      </Typography>
+                      <FormControl component='fieldset'>
+                        <RadioGroup
+                          row
+                          value={shippingMethod}
+                          onChange={e => setShippingMethod(e.target.value as 'standard' | 'express')}
+                        >
+                          <FormControlLabel value='standard' control={<Radio />} label='Tiêu chuẩn (Miễn phí)' />
+                          <FormControlLabel value='express' control={<Radio />} label='Nhanh (30.000đ)' />
+                        </RadioGroup>
+                      </FormControl>
+                    </Box>
+
+                    {/* Order note */}
+                    <TextField
+                      label='Ghi chú cho đơn hàng (tùy chọn)'
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      value={orderNote}
+                      onChange={e => setOrderNote(e.target.value)}
+                    />
 
                     <Controller
                       name='paymentMethod'
@@ -690,7 +981,16 @@ const CheckoutPage: NextPage<TProps> = () => {
                       )}
                     />
 
-                    <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {/* Terms */}
+                    <FormControlLabel
+                      control={<Checkbox checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} />}
+                      label={
+                        <Typography variant='body2'>Tôi đồng ý với điều khoản sử dụng và chính sách bảo mật</Typography>
+                      }
+                      sx={{ mt: 1 }}
+                    />
+
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Button
                         variant='text'
                         color='primary'
@@ -700,7 +1000,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                       >
                         {isBuyNowMode ? 'Quay lại sản phẩm' : 'Trở lại giỏ hàng'}
                       </Button>
-                      <Button type='submit' variant='contained' color='primary'>
+                      <Button type='submit' variant='contained' color='primary' disabled={!agreeTerms}>
                         Đặt hàng
                       </Button>
                     </Box>
@@ -743,7 +1043,10 @@ const CheckoutPage: NextPage<TProps> = () => {
                       <Box sx={{ ml: 2, flex: 1 }}>
                         <Typography variant='subtitle2'>{item.product_name}</Typography>
                         <Typography variant='body2' color='text.secondary'>
-                          {item.color_name} / {item.size_name}
+                          {item.color_name} / Dây: {item.strap_material_name || 'Không xác định'}
+                        </Typography>
+                        <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>
+                          Mã biến thể: {item.product_variant_id}
                         </Typography>
                       </Box>
                       <Typography variant='subtitle1'>
@@ -757,12 +1060,20 @@ const CheckoutPage: NextPage<TProps> = () => {
                     const colorName = item?.variant?.color?.name || '-'
                     const sizeName = item?.variant?.size?.name || '-'
                     const quantity = item?.quantity || 0
-                    const thumbnail = product?.thumbnail || '/luxury-watch-hero.jpg'
-                    const name = product?.name || 'Sản phẩm'
+                    const thumbnail =
+                      product?.thumbnail || (item as any)?.variant?.watch?.thumbnail || '/luxury-watch-hero.jpg'
+                    const name = product?.name || (item as any)?.variant?.watch?.name || 'Sản phẩm'
                     const price = product?.price ?? (item as any)?.variant?.price ?? 0
+                    const basePrice = (item as any)?.variant?.watch?.base_price || 0
+                    const code = (item as any)?.variant?.watch?.code
+                    const model = (item as any)?.variant?.watch?.model
+                    const caseMaterial = (item as any)?.variant?.watch?.case_material
+                    const caseSize = (item as any)?.variant?.watch?.case_size
+                    const strapSize = (item as any)?.variant?.watch?.strap_size
+                    const waterRes = (item as any)?.variant?.watch?.water_resistance
+                    const gender = (item as any)?.variant?.watch?.gender
 
-                    if (!product) {
-                      // Skip rendering items missing product to avoid runtime errors
+                    if (!product && !(item as any)?.variant?.watch) {
                       return null
                     }
 
@@ -796,10 +1107,60 @@ const CheckoutPage: NextPage<TProps> = () => {
                         <Box sx={{ ml: 2, flex: 1 }}>
                           <Typography variant='subtitle2'>{name}</Typography>
                           <Typography variant='body2' color='text.secondary'>
-                            {colorName} / {sizeName}
+                            {colorName} / Dây: {item?.variant?.strapMaterial?.name || 'Không xác định'}
                           </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                            {!!code && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Mã: <b>{code}</b>
+                              </Typography>
+                            )}
+                            {!!model && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Model: <b>{model}</b>
+                              </Typography>
+                            )}
+                            {!!caseMaterial && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Vỏ: <b>{caseMaterial}</b>
+                              </Typography>
+                            )}
+                            {!!caseSize && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Size vỏ: <b>{caseSize}mm</b>
+                              </Typography>
+                            )}
+                            {!!strapSize && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Dây: <b>{strapSize}mm</b>
+                              </Typography>
+                            )}
+                            {!!waterRes && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Chống nước: <b>{waterRes}</b>
+                              </Typography>
+                            )}
+                            {['0', '1', '2'].includes(String(gender)) && (
+                              <Typography variant='caption' color='text.secondary'>
+                                Giới tính: <b>{gender === '1' ? 'Nam' : gender === '2' ? 'Nữ' : 'Unisex'}</b>
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
-                        <Typography variant='subtitle1'>{(price * quantity).toLocaleString()}VNĐ</Typography>
+                        <Box>
+                          <Typography variant='subtitle1' fontWeight={700} color='error.main'>
+                            {(price * quantity).toLocaleString()}VNĐ
+                          </Typography>
+                          {basePrice && basePrice !== price && (
+                            <Typography
+                              variant='caption'
+                              color='text.secondary'
+                              sx={{ textDecoration: 'line-through' }}
+                            >
+                              {(basePrice * quantity).toLocaleString()}VNĐ
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
                     )
                   })
@@ -807,100 +1168,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                   <Typography variant='body2'>Không có sản phẩm trong giỏ hàng</Typography>
                 )}
 
-                {/* Order Details Section */}
-                <Divider sx={{ my: 2 }} />
-                <Typography variant='subtitle1' sx={{ mb: 1 }}>
-                  Chi tiết đơn hàng
-                </Typography>
-
-                <Box
-                  sx={{
-                    display: 'flex',
-                    px: 1,
-                    py: 1,
-                    color: 'text.secondary',
-                    bgcolor: 'background.default',
-                    borderRadius: 1,
-                    fontSize: 13,
-                    fontWeight: 600
-                  }}
-                >
-                  <Box sx={{ flex: 1 }}>Sản phẩm</Box>
-                  <Box sx={{ width: { xs: 96, sm: 110 }, textAlign: 'right' }}>Đơn giá</Box>
-                  <Box sx={{ width: 70, textAlign: 'center' }}>Số lượng</Box>
-                  <Box sx={{ width: { xs: 110, sm: 130 }, textAlign: 'right' }}>Tạm tính</Box>
-                </Box>
-                <Divider />
-
-                {isBuyNowMode
-                  ? buyNowItems.map((item, index) => {
-                      const unitPrice = item.product_price || 0
-                      const quantity = item.quantity || 0
-                      const lineTotal = unitPrice * quantity
-                      return (
-                        <Box
-                          key={`detail-buynow-${index}`}
-                          sx={{ display: 'flex', px: 1, py: 1.25, alignItems: 'center' }}
-                        >
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant='body2' noWrap title={item.product_name} fontWeight={600}>
-                              {item.product_name}
-                            </Typography>
-                            <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>
-                              Màu: {item.color_name || '-'} · Kích thước: {item.size_name || '-'} · Mã biến thể:{' '}
-                              {item.product_variant_id}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ width: 110, textAlign: 'right' }}>
-                            <Typography variant='body2'>{unitPrice.toLocaleString('vi-VN')} VNĐ</Typography>
-                          </Box>
-                          <Box sx={{ width: 70, textAlign: 'center' }}>
-                            <Typography variant='body2'>× {quantity}</Typography>
-                          </Box>
-                          <Box sx={{ width: 130, textAlign: 'right' }}>
-                            <Typography variant='body2' fontWeight={700}>
-                              {lineTotal.toLocaleString('vi-VN')} VNĐ
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )
-                    })
-                  : items.map(item => {
-                      const product = item?.variant?.product
-                      const name = product?.name || 'Sản phẩm'
-                      const unitPrice = (product?.price ?? (item as any)?.variant?.price ?? 0) as number
-                      const quantity = item?.quantity || 0
-                      const lineTotal = unitPrice * quantity
-                      const colorName = (item as any)?.variant?.color?.name || '-'
-                      const sizeName = (item as any)?.variant?.size?.name || '-'
-                      const productId = product?.id || (item as any)?.variant?.product?.id || '-'
-                      return (
-                        <Box
-                          key={`detail-cart-${item.id}`}
-                          sx={{ display: 'flex', px: 1, py: 1.25, alignItems: 'center' }}
-                        >
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant='body2' noWrap title={name} fontWeight={600}>
-                              {name}
-                            </Typography>
-                            <Typography variant='caption' color='text.secondary' sx={{ display: 'block' }}>
-                              Màu: {colorName} · Kích thước: {sizeName} · Mã SP: {productId}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ width: 110, textAlign: 'right' }}>
-                            <Typography variant='body2'>{unitPrice.toLocaleString('vi-VN')} VNĐ</Typography>
-                          </Box>
-                          <Box sx={{ width: 70, textAlign: 'center' }}>
-                            <Typography variant='body2'>× {quantity}</Typography>
-                          </Box>
-                          <Box sx={{ width: 130, textAlign: 'right' }}>
-                            <Typography variant='body2' fontWeight={700}>
-                              {lineTotal.toLocaleString('vi-VN')} VNĐ
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )
-                    })}
+                {/* Removed duplicate order-details breakdown; compact list above is sufficient */}
 
                 {/* Discount Code Section */}
                 <Box sx={{ mb: 3 }}>
@@ -928,14 +1196,16 @@ const CheckoutPage: NextPage<TProps> = () => {
                             size='small'
                             disabled={discountLoading}
                             placeholder='Nhập mã hoặc chọn từ danh sách'
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleApplyDiscount()
+                            }}
                           />
                           <Button
-                            variant='contained'
-                            onClick={handleApplyDiscount}
-                            disabled={discountLoading || !discountCode.trim()}
-                            sx={{ minWidth: 'auto', px: 2 }}
+                            variant='outlined'
+                            onClick={() => setDiscountDialogOpen(true)}
+                            sx={{ textTransform: 'none' }}
                           >
-                            {discountLoading ? 'Đang áp dụng...' : 'Áp dụng'}
+                            Chọn mã giảm giá
                           </Button>
                         </Box>
 
@@ -1016,7 +1286,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                     <Typography>{orderTotal.toLocaleString()}VNĐ</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography>Phí vận chuyển</Typography>
+                    <Typography>Phí vận chuyển ({shippingMethod === 'express' ? 'Nhanh' : 'Tiêu chuẩn'})</Typography>
                     <Typography>{shippingFee.toLocaleString()}VNĐ</Typography>
                   </Box>
                   {appliedDiscount && (
@@ -1036,14 +1306,95 @@ const CheckoutPage: NextPage<TProps> = () => {
                       VND{' '}
                     </Typography>
                     <Typography variant='h6'>{finalTotal.toLocaleString()}VNĐ</Typography>
+                    {discountAmount > 0 && (
+                      <Typography variant='caption' color='success.main' display='block'>
+                        Tiết kiệm: {discountAmount.toLocaleString()}VNĐ
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               </Card>
             </Grid>
           </Grid>
         </Card>
+        {/* Discount selection dialog */}
+        <Dialog open={discountDialogOpen} onClose={() => setDiscountDialogOpen(false)} maxWidth='sm' fullWidth>
+          <DialogTitle>Mã giảm giá khả dụng</DialogTitle>
+          <DialogContent dividers>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {availableVouchers.map((d: any) => {
+                const now = new Date()
+                const start = new Date(
+                  d.effective_date?.slice?.(0, 4) +
+                    '-' +
+                    d.effective_date?.slice?.(4, 6) +
+                    '-' +
+                    d.effective_date?.slice?.(6, 8)
+                )
+                const end = new Date(
+                  d.valid_until?.slice?.(0, 4) + '-' + d.valid_until?.slice?.(4, 6) + '-' + d.valid_until?.slice?.(6, 8)
+                )
+                const inDate = d.effective_date && d.valid_until ? now >= start && now <= end : true
+                const eligible = orderTotal >= Number(d.min_order_value || 0)
+                const type = String(d.discount_type)
+                const value = Number(d.discount_value || 0)
+                let amount = 0
+                if (type === '1') {
+                  amount = Math.floor((orderTotal * value) / 100)
+                  const cap = d.max_discount_amount != null ? Number(d.max_discount_amount) : null
+                  if (cap && cap > 0) amount = Math.min(amount, cap)
+                } else {
+                  amount = value
+                }
+                return (
+                  <Paper key={d.id} variant='outlined' sx={{ p: 1.5, opacity: inDate && eligible ? 1 : 0.6 }}>
+                    <Box display='flex' justifyContent='space-between' alignItems='center'>
+                      <Box>
+                        <Typography fontWeight={700}>{d.code}</Typography>
+                        <Typography variant='caption' color='text.secondary' display='block'>
+                          {d.name}
+                        </Typography>
+                        <Typography variant='caption' color='text.secondary' display='block'>
+                          ĐH tối thiểu: {Number(d.min_order_value || 0).toLocaleString()}VNĐ
+                        </Typography>
+                      </Box>
+                      <Box textAlign='right'>
+                        <Typography variant='body2' color={inDate && eligible ? 'success.main' : 'text.secondary'}>
+                          {inDate && eligible ? `Giảm: ${amount.toLocaleString()}VNĐ` : 'Chưa đủ điều kiện'}
+                        </Typography>
+                        <Button
+                          size='small'
+                          variant='contained'
+                          sx={{ mt: 1, textTransform: 'none' }}
+                          disabled={!(inDate && eligible)}
+                          onClick={() => {
+                            setDiscountCode(d.code)
+                            setAppliedDiscount({
+                              code: d.code,
+                              discountAmount: amount,
+                              discountType: String(d.discount_type) === '1' ? 'percentage' : 'fixed'
+                            })
+                            try {
+                              localStorage.setItem('selectedDiscountCode', d.code)
+                            } catch {}
+                            setDiscountDialogOpen(false)
+                          }}
+                        >
+                          Áp dụng
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Paper>
+                )
+              })}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDiscountDialogOpen(false)}>Đóng</Button>
+          </DialogActions>
+        </Dialog>
         {/* New Address Dialog */}
-        <Dialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} fullWidth maxWidth='sm'>
+        <Dialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} fullWidth maxWidth='md'>
           <DialogTitle>Tạo thông tin người nhận</DialogTitle>
           <DialogContent sx={{ pt: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1070,19 +1421,64 @@ const CheckoutPage: NextPage<TProps> = () => {
                 onChange={e => setAddrStreet(e.target.value)}
                 fullWidth
               />
-              <TextField label='Phường/Xã' value={addrWard} onChange={e => setAddrWard(e.target.value)} fullWidth />
-              <TextField
-                label='Quận/Huyện'
-                value={addrDistrict}
-                onChange={e => setAddrDistrict(e.target.value)}
-                fullWidth
-              />
-              <TextField
-                label='Tỉnh/Thành phố'
-                value={addrCity}
-                onChange={e => setAddrCity(e.target.value)}
-                fullWidth
-              />
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Tỉnh/Thành phố</InputLabel>
+                    <Select
+                      label='Tỉnh/Thành phố'
+                      disabled={loadingProvinces}
+                      value={addrCity || ''}
+                      onChange={e => handleProvinceChange(e.target.value)}
+                    >
+                      {provinces.length > 0 ? (
+                        provinces.map(province => (
+                          <MenuItem key={province.code} value={province.name}>
+                            {province.name_with_type}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>Đang tải...</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Quận/Huyện</InputLabel>
+                    <Select
+                      label='Quận/Huyện'
+                      disabled={loadingDistricts || districts.length === 0}
+                      value={addrDistrict || ''}
+                      onChange={e => handleDistrictChange(e.target.value)}
+                    >
+                      {districts.map(district => (
+                        <MenuItem key={district.code} value={district.name}>
+                          {district.name_with_type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Phường/Xã</InputLabel>
+                    <Select
+                      label='Phường/Xã'
+                      disabled={loadingWards || wards.length === 0}
+                      value={addrWard || ''}
+                      onChange={e => handleWardChange(e.target.value)}
+                    >
+                      {wards.map(ward => (
+                        <MenuItem key={ward.code} value={ward.name}>
+                          {ward.name_with_type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
             </Box>
           </DialogContent>
           <DialogActions>

@@ -25,13 +25,24 @@ export const getListOrders = async (data: { params: TParams; paramsSerializer?: 
     const rows = raw?.orders?.rows || []
     const count = raw?.orders?.count ?? rows.length
 
-    // Normalize items for UI expectations
+    // Normalize items for UI expectations with more complete data
     const normalized = rows.map((item: any) => ({
       id: item.id,
+      code: item.code,
       name: item.guess_name || item.name || '',
+      email: item.guess_email || '',
+      phone: item.guess_phone || '',
       shipping_address: item.shipping_address,
+      total_amount: item.total_amount,
+      discount_code: item.discount_code,
+      discount_amount: item.discount_amount,
+      final_amount: item.final_amount,
+      shipping_fee: item.shipping_fee,
+      note: item.note,
       created_at: item.created_at,
-      status: item.status || item.current_status_id || 'PENDING'
+      status: item.status || item.current_status_id || 'PENDING',
+      review_flag: item.review_flag,
+      payment_method: item.payment_method || item.paymentMethod || '0'
     }))
 
     return {
@@ -60,7 +71,7 @@ export const createOrderSystem = async (orderData: TCreateOrderSystem): Promise<
 
 export const retryPayOrder = async (id: string) => {
   try {
-    const res = await instanceAxios.post(`${CONFIG_API.ORDER.INDEX}/${id}/retry-payment`)
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/${id}/retry-payment`)
 
     return res.data
   } catch (error) {
@@ -70,7 +81,7 @@ export const retryPayOrder = async (id: string) => {
 
 export const getOrderDetail = async (id: string) => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/get-orders/${id}`)
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/${id}`)
 
     return res.data
   } catch (error) {
@@ -83,6 +94,47 @@ export const updateOrderStatus = async (id: string, data: { status: string }) =>
     const res = await instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/update/${id}`, data)
 
     return res.data
+  } catch (error) {
+    return error
+  }
+}
+
+export const getOrderStatuses = async () => {
+  try {
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS.INDEX}`)
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}
+
+export interface OrderStatusHistoryItem {
+  id: string
+  order_id: string
+  status_id: string
+  note: string | null
+  created_at: string
+  created_by: string
+  updated_at: string | null
+  updated_by: string | null
+  del_flag: string
+  status?: {
+    id: string
+    name: string
+    code: string
+    description: string
+  }
+}
+
+export interface OrderStatusHistoriesResponse {
+  orderStatusHistorys: OrderStatusHistoryItem[]
+}
+
+export const getOrderStatusHistories = async (orderId: string) => {
+  try {
+    const res = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS_HISTORY.INDEX}/${orderId}`)
+    return res.data as OrderStatusHistoriesResponse
   } catch (error) {
     return error
   }

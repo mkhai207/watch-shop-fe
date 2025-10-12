@@ -40,7 +40,7 @@ import Image from 'next/image'
 const LuxuryHeader: React.FC = () => {
   const theme = useTheme()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const { filters, updateSearch } = useFilter()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
@@ -85,8 +85,8 @@ const LuxuryHeader: React.FC = () => {
   }
 
   const handleLogout = () => {
-    // Add logout logic here
     handleUserMenuClose()
+    logout()
   }
 
   return (
@@ -297,7 +297,7 @@ const LuxuryHeader: React.FC = () => {
                   <MenuItem
                     onClick={e => {
                       e.preventDefault()
-                      router.push('/order-history')
+                      router.push(ROUTE_CONFIG.ORDER_HISTORY)
                       handleUserMenuClose()
                     }}
                     sx={{ py: 1.5 }}

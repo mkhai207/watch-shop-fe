@@ -9,6 +9,7 @@ import { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import * as React from 'react'
 import { useState } from 'react'
+import { useAuth } from 'src/hooks/useAuth'
 
 const SIDEBAR_WIDTH = 280
 
@@ -45,6 +46,7 @@ type TProps = {
 
 const AccountLayout: NextPage<TProps> = ({ children }) => {
   const router = useRouter()
+  const { logout } = useAuth()
   const [activeTab, setActiveTab] = useState(() => {
     // Xác định tab active dựa trên route hiện tại
     const currentPath = router.pathname
@@ -55,9 +57,7 @@ const AccountLayout: NextPage<TProps> = ({ children }) => {
 
   const handleMenuClick = (itemId: string, path: string) => {
     if (itemId === 'logout') {
-      // Handle logout logic here
-      console.log('Logout clicked')
-
+      logout()
       return
     }
 
