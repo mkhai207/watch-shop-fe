@@ -1,0 +1,1228 @@
+import React, { useState, useEffect } from 'react'
+import { NextPage } from 'next'
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  Grid,
+  IconButton,
+  InputAdornment,
+  Menu,
+  MenuItem,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  Alert,
+  Snackbar,
+  LinearProgress,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider
+} from '@mui/material'
+import IconifyIcon from 'src/components/Icon'
+import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
+import { formatCurrency } from 'src/utils/date'
+import instanceAxios from 'src/helpers/axios'
+import { CONFIG_API } from 'src/configs/api'
+
+// Types
+interface Order {
+  id: string
+  code: string
+  user_id: string
+  total_amount: number
+  discount_code?: string
+  discount_amount: number
+  final_amount: number
+  current_status_id: string
+  payment_method?: string
+  shipping_address: string
+  shipping_fee: number
+  note?: string
+  guess_name: string
+  guess_email: string
+  guess_phone: string
+  review_flag: string
+  created_at: string
+  created_by: string
+  updated_at?: string
+  updated_by?: string
+  del_flag: string
+}
+
+interface OrdersResponse {
+  orders: {
+    count: number
+    rows: Order[]
+  }
+}
+
+interface OrderStatus {
+  id: string
+  code: string
+  name: string
+  description: string
+  hex_code: string
+  color: string
+  sort_order: number
+  created_at: string
+  created_by: string
+  updated_at?: string
+  updated_by?: string
+  del_flag: string
+}
+
+interface OrderStatusesResponse {
+  orderStatuses: {
+    count: number
+    rows: OrderStatus[]
+  }
+}
+
+// Helper function to get MUI color from hex
+const getMuiColor = (
+  hexCode: string
+): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  const colorMap: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+    '#FFC107': 'warning', // Yellow
+    '#FD7E14': 'warning', // Orange
+    '#00FF00': 'success', // Green
+    '#2196F3': 'info', // Blue
+    '#FFC0CB': 'secondary', // Pink
+    '#FF4336': 'error' // Red
+  }
+  return colorMap[hexCode] || 'default'
+}
+
+// Payment method mapping
+const paymentMethodMap: Record<string, string> = {
+  '1': 'Chuyển khoản',
+  '2': 'Thẻ tín dụng',
+  '3': 'COD'
+}
+
+const OrderManagementPage: NextPage = () => {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+  const [bulkAction, setBulkAction] = useState('')
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [isQuickUpdateDialogOpen, setIsQuickUpdateDialogOpen] = useState(false)
+  const [quickUpdateStatus, setQuickUpdateStatus] = useState('')
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [updateProgress, setUpdateProgress] = useState(0)
+  const [updateResults, setUpdateResults] = useState<
+    Array<{
+      orderCode: string
+      success: boolean
+      message?: string
+    }>
+  >([])
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  })
+
+  // Fetch order statuses from API
+  const fetchOrderStatuses = async () => {
+    try {
+      const response = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS.INDEX}`)
+      const data: OrderStatusesResponse = response.data
+      setOrderStatuses(data.orderStatuses.rows || [])
+    } catch (error) {
+      console.error('Error fetching order statuses:', error)
+    }
+  }
+
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true)
+      const response = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/all`)
+      const data: OrdersResponse = response.data
+      setOrders(data.orders.rows || [])
+    } catch (error) {
+      console.error('Error fetching orders:', error)
+      setSnackbar({ open: true, message: 'Lỗi khi tải dữ liệu đơn hàng', severity: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([fetchOrderStatuses(), fetchOrders()])
+    }
+    loadData()
+  }, [])
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch =
+      order.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.guess_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.guess_email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = selectedStatus === 'all' || order.current_status_id === selectedStatus
+    return matchesSearch && matchesStatus
+  })
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(price)
+  }
+
+  const formatDate = (dateString: string) => {
+    // Convert from YYYYMMDDHHMMSS format to readable date
+    const year = dateString.substring(0, 4)
+    const month = dateString.substring(4, 6)
+    const day = dateString.substring(6, 8)
+    const hour = dateString.substring(8, 10)
+    const minute = dateString.substring(10, 12)
+    const second = dateString.substring(12, 14)
+
+    const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`)
+    return date.toLocaleDateString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getStatusChip = (statusId: string) => {
+    const status = orderStatuses.find(s => s.id === statusId)
+    if (!status) {
+      return <Chip label='Không xác định' color='default' size='small' />
+    }
+
+    const muiColor = getMuiColor(status.hex_code)
+    return (
+      <Chip
+        label={status.name}
+        color={muiColor}
+        size='small'
+        sx={{
+          backgroundColor: status.hex_code,
+          color: '#fff',
+          '& .MuiChip-label': {
+            color: '#fff'
+          }
+        }}
+      />
+    )
+  }
+
+  const getPaymentMethodChip = (paymentMethod?: string) => {
+    if (!paymentMethod) return <Chip label='Chưa chọn' color='default' size='small' />
+    const method = paymentMethodMap[paymentMethod] || 'Khác'
+    return <Chip label={method} color='primary' size='small' />
+  }
+
+  // Helper function to get status by code
+  const getStatusByCode = (code: string) => {
+    return orderStatuses.find(status => status.code === code)
+  }
+
+  // Handle individual order selection
+  const handleOrderSelect = (orderId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOrders([...selectedOrders, orderId])
+    } else {
+      setSelectedOrders(selectedOrders.filter(id => id !== orderId))
+    }
+  }
+
+  // Handle select all orders
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrders(filteredOrders.map(order => order.id))
+    } else {
+      setSelectedOrders([])
+    }
+  }
+
+  // Handle bulk actions
+  const handleBulkAction = async () => {
+    if (!bulkAction || selectedOrders.length === 0) return
+
+    try {
+      // Update multiple orders via API
+      const updatePromises = selectedOrders.map(orderId =>
+        instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/${orderId}/change-status`, {
+          order_status_id: parseInt(bulkAction)
+        })
+      )
+
+      await Promise.all(updatePromises)
+
+      // Update local state
+      setOrders(
+        orders.map(order => {
+          if (selectedOrders.includes(order.id)) {
+            return { ...order, current_status_id: bulkAction }
+          }
+          return order
+        })
+      )
+
+      // Không reset selectedOrders để giữ lại selection
+      // setSelectedOrders([])
+      setBulkAction('')
+      setIsBulkDialogOpen(false)
+      setSnackbar({ open: true, message: `Đã cập nhật ${selectedOrders.length} đơn hàng`, severity: 'success' })
+    } catch (error) {
+      console.error('Error updating orders:', error)
+      setSnackbar({ open: true, message: 'Lỗi khi cập nhật đơn hàng', severity: 'error' })
+    }
+  }
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/${orderId}/change-status`, {
+        order_status_id: parseInt(newStatus)
+      })
+
+      setOrders(orders.map(order => (order.id === orderId ? { ...order, current_status_id: newStatus } : order)))
+      setSnackbar({ open: true, message: 'Đã cập nhật trạng thái đơn hàng', severity: 'success' })
+    } catch (error) {
+      console.error('Error updating order status:', error)
+      setSnackbar({ open: true, message: 'Lỗi khi cập nhật trạng thái đơn hàng', severity: 'error' })
+    }
+  }
+
+  // Handle quick action buttons (direct API calls)
+  const handleQuickAction = async (statusId: string) => {
+    if (selectedOrders.length === 0) {
+      setSnackbar({ open: true, message: 'Hãy chọn ít nhất 1 đơn hàng', severity: 'warning' })
+      return
+    }
+
+    try {
+      // Update multiple orders via API
+      const updatePromises = selectedOrders.map(orderId =>
+        instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/${orderId}/change-status`, {
+          order_status_id: parseInt(statusId)
+        })
+      )
+
+      await Promise.all(updatePromises)
+
+      // Update local state
+      setOrders(
+        orders.map(order => {
+          if (selectedOrders.includes(order.id)) {
+            return { ...order, current_status_id: statusId }
+          }
+          return order
+        })
+      )
+
+      // Không reset selectedOrders để giữ lại selection
+      setSnackbar({ open: true, message: `Đã cập nhật ${selectedOrders.length} đơn hàng`, severity: 'success' })
+    } catch (error) {
+      console.error('Error updating orders:', error)
+      setSnackbar({ open: true, message: 'Lỗi khi cập nhật đơn hàng', severity: 'error' })
+    }
+  }
+
+  const viewOrderDetail = (order: Order) => {
+    setSelectedOrder(order)
+    setIsDetailDialogOpen(true)
+  }
+
+  // Handle quick update
+  const handleQuickUpdate = async () => {
+    if (!quickUpdateStatus || selectedOrders.length === 0) return
+
+    setIsUpdating(true)
+    setUpdateProgress(0)
+    setUpdateResults([])
+
+    const results: Array<{ orderCode: string; success: boolean; message?: string }> = []
+    const totalOrders = selectedOrders.length
+
+    for (let i = 0; i < selectedOrders.length; i++) {
+      const orderId = selectedOrders[i]
+      const order = orders.find(o => o.id === orderId)
+
+      if (!order) continue
+
+      try {
+        await instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/${orderId}/change-status`, {
+          order_status_id: parseInt(quickUpdateStatus)
+        })
+
+        results.push({
+          orderCode: order.code,
+          success: true,
+          message: 'Thành công'
+        })
+
+        // Update local state
+        setOrders(prevOrders =>
+          prevOrders.map(o => (o.id === orderId ? { ...o, current_status_id: quickUpdateStatus } : o))
+        )
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || 'Lỗi không xác định'
+        results.push({
+          orderCode: order.code,
+          success: false,
+          message: errorMessage
+        })
+      }
+
+      // Update progress
+      setUpdateProgress(((i + 1) / totalOrders) * 100)
+      setUpdateResults([...results])
+
+      // Small delay to show progress
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+
+    setIsUpdating(false)
+    // Không tự động đóng dialog, để người dùng xem kết quả
+    // setSelectedOrders([])
+    // setQuickUpdateStatus('')
+    // setIsQuickUpdateDialogOpen(false)
+
+    const successCount = results.filter(r => r.success).length
+    const failCount = results.filter(r => !r.success).length
+
+    // Không hiển thị snackbar, để người dùng xem kết quả chi tiết trong dialog
+    // setSnackbar({
+    //   open: true,
+    //   message: `Cập nhật hoàn tất: ${successCount} thành công, ${failCount} thất bại`,
+    //   severity: failCount > 0 ? 'warning' : 'success'
+    // })
+  }
+
+  // Calculate stats
+  const totalOrders = orders.length
+  const totalRevenue = orders.reduce((sum, order) => sum + order.final_amount, 0)
+  const pendingOrders = orders.filter(order => order.current_status_id === '1').length
+  const completedOrders = orders.filter(order => order.current_status_id === '5').length
+
+  return (
+    <>
+      <Typography variant='h5' fontWeight={700} sx={{ mb: 3 }}>
+        Quản lý đơn hàng
+      </Typography>
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    Tổng đơn hàng
+                  </Typography>
+                  <Typography variant='h4' fontWeight={700}>
+                    {totalOrders}
+                  </Typography>
+                </Box>
+                <IconifyIcon icon='mdi:shopping' width={40} height={40} color='primary.main' />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    Tổng doanh thu
+                  </Typography>
+                  <Typography variant='h4' fontWeight={700}>
+                    {formatPrice(totalRevenue)}
+                  </Typography>
+                </Box>
+                <IconifyIcon icon='mdi:currency-usd' width={40} height={40} color='success.main' />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    Chờ xử lý
+                  </Typography>
+                  <Typography variant='h4' fontWeight={700} color='warning.main'>
+                    {pendingOrders}
+                  </Typography>
+                </Box>
+                <IconifyIcon icon='mdi:clock-outline' width={40} height={40} color='warning.main' />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    Hoàn thành
+                  </Typography>
+                  <Typography variant='h4' fontWeight={700} color='success.main'>
+                    {completedOrders}
+                  </Typography>
+                </Box>
+                <IconifyIcon icon='mdi:check-circle' width={40} height={40} color='success.main' />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Filters and Actions */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems='center'>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                placeholder='Tìm kiếm đơn hàng...'
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <IconifyIcon icon='mdi:magnify' />
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Trạng thái</InputLabel>
+                <Select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} label='Trạng thái'>
+                  <MenuItem value='all'>Tất cả</MenuItem>
+                  {orderStatuses.map(status => (
+                    <MenuItem key={status.id} value={status.id}>
+                      {status.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button
+                fullWidth
+                variant='contained'
+                color='primary'
+                onClick={() => {
+                  // Reset dialog state when opening
+                  setUpdateResults([])
+                  setQuickUpdateStatus('')
+                  setIsQuickUpdateDialogOpen(true)
+                }}
+                disabled={selectedOrders.length === 0}
+                startIcon={<IconifyIcon icon='mdi:update' />}
+              >
+                Cập nhật nhanh ({selectedOrders.length})
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                {selectedOrders.length > 0 ? (
+                  <>
+                    <Typography variant='body2' color='text.secondary'>
+                      Đã chọn {selectedOrders.length} đơn hàng
+                    </Typography>
+                    <Button size='small' variant='outlined' onClick={() => setSelectedOrders([])}>
+                      Bỏ chọn
+                    </Button>
+                  </>
+                ) : (
+                  <Typography variant='body2' color='text.secondary'>
+                    Chọn đơn hàng để cập nhật
+                  </Typography>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Quick Action Buttons removed as requested */}
+        </CardContent>
+      </Card>
+
+      {/* Orders Table */}
+      <Card>
+        <CardHeader title='Danh sách đơn hàng' />
+        <CardContent>
+          <TableContainer>
+            <Table sx={{ minWidth: 1100 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell
+                    padding='checkbox'
+                    sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: 'background.paper' }}
+                  >
+                    <Checkbox
+                      checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                      onChange={e => handleSelectAll(e.target.checked)}
+                    />
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      width: 120,
+                      minWidth: 120,
+                      position: 'sticky',
+                      left: 48,
+                      zIndex: 2,
+                      backgroundColor: 'background.paper'
+                    }}
+                  >
+                    Mã đơn hàng
+                  </TableCell>
+                  <TableCell sx={{ width: 250, minWidth: 250 }}>Khách hàng</TableCell>
+                  <TableCell sx={{ width: 140, minWidth: 140 }}>Tổng tiền</TableCell>
+                  <TableCell sx={{ width: 120, minWidth: 120 }}>Thanh toán</TableCell>
+                  <TableCell sx={{ width: 180, minWidth: 180 }}>Ngày đặt</TableCell>
+                  <TableCell
+                    align='right'
+                    sx={{
+                      width: 150,
+                      minWidth: 150,
+                      position: 'sticky',
+                      right: 0,
+                      zIndex: 2,
+                      backgroundColor: 'background.paper'
+                    }}
+                  >
+                    Trạng thái
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <IconifyIcon icon='mdi:loading' className='animate-spin' />
+                        Đang tải dữ liệu...
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
+                      Không có đơn hàng nào
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredOrders.map(order => (
+                    <TableRow key={order.id} hover sx={{ cursor: 'pointer' }} onClick={() => viewOrderDetail(order)}>
+                      <TableCell
+                        padding='checkbox'
+                        onClick={e => e.stopPropagation()}
+                        sx={{ position: 'sticky', left: 0, zIndex: 1, backgroundColor: 'background.paper' }}
+                      >
+                        <Checkbox
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={e => handleOrderSelect(order.id, e.target.checked)}
+                        />
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          width: 120,
+                          minWidth: 120,
+                          maxWidth: 120,
+                          position: 'sticky',
+                          left: 48,
+                          zIndex: 1,
+                          backgroundColor: 'background.paper'
+                        }}
+                      >
+                        <Typography
+                          variant='caption'
+                          fontWeight={600}
+                          sx={{
+                            fontSize: '0.7rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block'
+                          }}
+                        >
+                          {order.code}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ width: 250, minWidth: 250, maxWidth: 250 }}>
+                        <Box>
+                          <Typography
+                            variant='caption'
+                            fontWeight={600}
+                            sx={{
+                              fontSize: '0.7rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'block'
+                            }}
+                          >
+                            {order.guess_name}
+                          </Typography>
+                          <Typography
+                            variant='caption'
+                            color='text.secondary'
+                            sx={{
+                              fontSize: '0.68rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'block'
+                            }}
+                          >
+                            {order.guess_email}
+                          </Typography>
+                          <Typography
+                            variant='caption'
+                            color='text.secondary'
+                            sx={{
+                              fontSize: '0.68rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'block'
+                            }}
+                          >
+                            {order.guess_phone}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ width: 140, minWidth: 140, maxWidth: 140 }}>
+                        <Typography
+                          variant='caption'
+                          fontWeight={600}
+                          sx={{
+                            fontSize: '0.7rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block'
+                          }}
+                        >
+                          {formatPrice(order.final_amount)}
+                        </Typography>
+                        {order.discount_amount > 0 && (
+                          <Typography
+                            variant='caption'
+                            color='success.main'
+                            sx={{
+                              fontSize: '0.68rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'block'
+                            }}
+                          >
+                            Giảm: {formatPrice(order.discount_amount)}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ width: 120, minWidth: 120, maxWidth: 120 }}>
+                        <Chip
+                          label={paymentMethodMap[order.payment_method || ''] || 'Chưa chọn'}
+                          size='small'
+                          sx={{
+                            fontSize: '0.68rem',
+                            height: 20,
+                            maxWidth: '100%',
+                            '& .MuiChip-label': {
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ width: 180, minWidth: 180, maxWidth: 180 }}>
+                        <Typography
+                          variant='caption'
+                          sx={{
+                            fontSize: '0.7rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block'
+                          }}
+                        >
+                          {formatDate(order.created_at)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell
+                        align='right'
+                        onClick={e => e.stopPropagation()}
+                        sx={{
+                          width: 150,
+                          minWidth: 150,
+                          maxWidth: 150,
+                          position: 'sticky',
+                          right: 0,
+                          zIndex: 1,
+                          backgroundColor: 'background.paper'
+                        }}
+                      >
+                        <FormControl size='small' sx={{ minWidth: 130, maxWidth: 130 }}>
+                          <Select
+                            value={order.current_status_id}
+                            onChange={e => updateOrderStatus(order.id, e.target.value)}
+                            disabled={
+                              orderStatuses.filter(status => parseInt(status.id) > parseInt(order.current_status_id))
+                                .length === 0
+                            }
+                            sx={{
+                              fontSize: '0.7rem',
+                              backgroundColor: `${orderStatuses.find(s => s.id === order.current_status_id)?.hex_code || '#eee'}`,
+                              color: '#000',
+                              '& .MuiSvgIcon-root': { color: '#000' },
+                              '& .MuiSelect-select': {
+                                fontSize: '0.7rem',
+                                padding: '4px 8px',
+                                color: '#000',
+                                fontWeight: 700
+                              },
+                              // Keep strong black text even when disabled (terminal status)
+                              '&.Mui-disabled': {
+                                opacity: 1,
+                                color: '#000',
+                                WebkitTextFillColor: '#000',
+                                backgroundColor: `${orderStatuses.find(s => s.id === order.current_status_id)?.hex_code || '#eee'}`
+                              },
+                              '&.Mui-disabled .MuiSelect-select': {
+                                color: '#000',
+                                WebkitTextFillColor: '#000',
+                                fontWeight: 700
+                              },
+                              '&.Mui-disabled .MuiSvgIcon-root': {
+                                color: '#000'
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' }
+                            }}
+                          >
+                            {/* Hiển thị trạng thái hiện tại (display only) */}
+                            <MenuItem value={order.current_status_id} sx={{ fontSize: '0.7rem' }}>
+                              {orderStatuses.find(s => s.id === order.current_status_id)?.name || 'Không xác định'}
+                            </MenuItem>
+                            {/* Hiển thị các trạng thái có thể chọn */}
+                            {orderStatuses
+                              .filter(status => parseInt(status.id) > parseInt(order.current_status_id))
+                              .map(status => (
+                                <MenuItem key={status.id} value={status.id} sx={{ fontSize: '0.7rem' }}>
+                                  {status.name}
+                                </MenuItem>
+                              ))}
+                          </Select>
+                        </FormControl>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onClose={() => setIsDetailDialogOpen(false)} maxWidth='md' fullWidth>
+        <DialogTitle>Chi tiết đơn hàng {selectedOrder?.code}</DialogTitle>
+        <DialogContent>
+          {selectedOrder && (
+            <Box sx={{ mt: 2 }}>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardHeader title='Thông tin khách hàng' />
+                    <CardContent>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Họ tên
+                        </Typography>
+                        <Typography variant='body1' fontWeight={600}>
+                          {selectedOrder.guess_name}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Email
+                        </Typography>
+                        <Typography variant='body1'>{selectedOrder.guess_email}</Typography>
+                      </Box>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Số điện thoại
+                        </Typography>
+                        <Typography variant='body1'>{selectedOrder.guess_phone}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant='body2' color='text.secondary'>
+                          Địa chỉ giao hàng
+                        </Typography>
+                        <Typography variant='body1'>{selectedOrder.shipping_address}</Typography>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardHeader title='Thông tin thanh toán' />
+                    <CardContent>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Phương thức
+                        </Typography>
+                        {getPaymentMethodChip(selectedOrder.payment_method)}
+                      </Box>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Tạm tính
+                        </Typography>
+                        <Typography variant='body1'>{formatPrice(selectedOrder.total_amount)}</Typography>
+                      </Box>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Phí vận chuyển
+                        </Typography>
+                        <Typography variant='body1'>{formatPrice(selectedOrder.shipping_fee)}</Typography>
+                      </Box>
+                      {selectedOrder.discount_amount > 0 && (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant='body2' color='text.secondary'>
+                            Giảm giá
+                          </Typography>
+                          <Typography variant='body1' color='success.main'>
+                            -{formatPrice(selectedOrder.discount_amount)}
+                          </Typography>
+                        </Box>
+                      )}
+                      <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          Tổng cộng
+                        </Typography>
+                        <Typography variant='h6' fontWeight={700}>
+                          {formatPrice(selectedOrder.final_amount)}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              {selectedOrder.note && (
+                <Card sx={{ mt: 2 }}>
+                  <CardHeader title='Ghi chú' />
+                  <CardContent>
+                    <Typography variant='body1'>{selectedOrder.note}</Typography>
+                  </CardContent>
+                </Card>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsDetailDialogOpen(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Action Dialog */}
+      <Dialog open={isBulkDialogOpen} onClose={() => setIsBulkDialogOpen(false)}>
+        <DialogTitle>Cập nhật nhanh hàng loạt</DialogTitle>
+        <DialogContent>
+          <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+            Bạn đã chọn {selectedOrders.length} đơn hàng. Chọn hành động để thực hiện trên tất cả đơn hàng đã chọn.
+          </Typography>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Trạng thái mới</InputLabel>
+            <Select value={bulkAction} onChange={e => setBulkAction(e.target.value)} label='Trạng thái mới'>
+              {orderStatuses.map(status => (
+                <MenuItem key={status.id} value={status.id}>
+                  {status.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+            <Typography variant='body2' fontWeight={600} sx={{ mb: 1 }}>
+              Các tùy chọn cập nhật nhanh:
+            </Typography>
+            {orderStatuses.map(status => (
+              <Typography key={status.id} variant='caption' component='div'>
+                • <strong>{status.name}:</strong> {status.description}
+              </Typography>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsBulkDialogOpen(false)}>Hủy</Button>
+          <Button onClick={handleBulkAction} disabled={!bulkAction} variant='contained'>
+            Cập nhật {selectedOrders.length} đơn hàng
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Quick Update Dialog */}
+      <Dialog
+        open={isQuickUpdateDialogOpen}
+        onClose={() => !isUpdating && updateResults.length === 0 && setIsQuickUpdateDialogOpen(false)}
+        maxWidth='md'
+        fullWidth
+      >
+        <DialogTitle>Cập nhật nhanh trạng thái đơn hàng</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            {/* Selected Orders List */}
+            <Typography variant='h6' sx={{ mb: 2 }}>
+              Danh sách đơn hàng đã chọn ({selectedOrders.length})
+            </Typography>
+            <List sx={{ maxHeight: 200, overflow: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+              {selectedOrders.map(orderId => {
+                const order = orders.find(o => o.id === orderId)
+                if (!order) return null
+                const currentStatus = orderStatuses.find(s => s.id === order.current_status_id)
+                return (
+                  <ListItem key={orderId}>
+                    <ListItemIcon>
+                      <IconifyIcon icon='mdi:package-variant' />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={order.code}
+                      secondary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Typography variant='caption'>Trạng thái hiện tại:</Typography>
+                          {currentStatus ? (
+                            <Chip
+                              label={currentStatus.name}
+                              size='small'
+                              sx={{
+                                backgroundColor: currentStatus.hex_code,
+                                color: '#fff',
+                                '& .MuiChip-label': { color: '#fff' }
+                              }}
+                            />
+                          ) : (
+                            <Typography variant='caption' color='text.secondary'>
+                              Không xác định
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                )
+              })}
+            </List>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Status Selection */}
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Trạng thái mới</InputLabel>
+              <Select
+                value={quickUpdateStatus}
+                onChange={e => setQuickUpdateStatus(e.target.value)}
+                label='Trạng thái mới'
+                disabled={isUpdating}
+              >
+                {orderStatuses.map(status => (
+                  <MenuItem key={status.id} value={status.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          backgroundColor: status.hex_code
+                        }}
+                      />
+                      {status.name}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Progress Bar */}
+            {isUpdating && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                  Đang cập nhật... {Math.round(updateProgress)}%
+                </Typography>
+                <LinearProgress variant='determinate' value={updateProgress} />
+              </Box>
+            )}
+
+            {/* Update Results */}
+            {updateResults.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant='h6' sx={{ mb: 1 }}>
+                  Kết quả cập nhật
+                </Typography>
+
+                {/* Summary */}
+                <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                  <Typography variant='body1' sx={{ mb: 1 }}>
+                    <strong>Tổng kết:</strong>
+                  </Typography>
+                  <Typography variant='body2' color='success.main'>
+                    ✅ Thành công: {updateResults.filter(r => r.success).length} đơn hàng
+                  </Typography>
+                  <Typography variant='body2' color='error.main'>
+                    ❌ Thất bại: {updateResults.filter(r => !r.success).length} đơn hàng
+                  </Typography>
+                </Box>
+
+                {/* Detailed Results */}
+                <List sx={{ maxHeight: 300, overflow: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                  {updateResults.map((result, index) => (
+                    <ListItem key={index} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                      <ListItemIcon>
+                        <IconifyIcon
+                          icon={result.success ? 'mdi:check-circle' : 'mdi:close-circle'}
+                          color={result.success ? 'success.main' : 'error.main'}
+                        />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography
+                              variant='body1'
+                              color={result.success ? 'success.main' : 'error.main'}
+                              fontWeight={600}
+                            >
+                              {result.orderCode}
+                            </Typography>
+                            <Chip
+                              label={result.success ? 'Thành công' : 'Thất bại'}
+                              size='small'
+                              color={result.success ? 'success' : 'error'}
+                              variant={result.success ? 'filled' : 'outlined'}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          result.message && (
+                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                              {result.message}
+                            </Typography>
+                          )
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          {updateResults.length > 0 ? (
+            <>
+              <Button
+                onClick={() => {
+                  setUpdateResults([])
+                  setIsUpdating(false)
+                  setUpdateProgress(0)
+                  setIsQuickUpdateDialogOpen(false)
+                }}
+                variant='outlined'
+              >
+                Đóng
+              </Button>
+              <Button
+                onClick={() => {
+                  setSelectedOrders([])
+                  setQuickUpdateStatus('')
+                  setUpdateResults([])
+                  setIsUpdating(false)
+                  setUpdateProgress(0)
+                  setIsQuickUpdateDialogOpen(false)
+                }}
+                variant='contained'
+                color='primary'
+              >
+                Xác nhận
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={() => {
+                  setUpdateResults([])
+                  setIsUpdating(false)
+                  setUpdateProgress(0)
+                  setIsQuickUpdateDialogOpen(false)
+                }}
+                disabled={isUpdating}
+              >
+                {isUpdating ? 'Đang cập nhật...' : 'Hủy'}
+              </Button>
+              <Button
+                onClick={handleQuickUpdate}
+                disabled={!quickUpdateStatus || selectedOrders.length === 0 || isUpdating}
+                variant='contained'
+              >
+                {isUpdating ? 'Đang cập nhật...' : 'Xác nhận cập nhật'}
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </>
+  )
+}
+
+// Use a dedicated layout for manage-system
+// eslint-disable-next-line react/display-name
+;(OrderManagementPage as any).getLayout = (page: React.ReactNode) => <ManageSystemLayout>{page}</ManageSystemLayout>
+
+// Set authentication guard
+;(OrderManagementPage as any).authGuard = true
+;(OrderManagementPage as any).guestGuard = false
+
+export default OrderManagementPage
