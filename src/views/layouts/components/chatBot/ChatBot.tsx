@@ -12,18 +12,57 @@ import {
   Button
 } from '@mui/material'
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import CloseIcon from '@mui/icons-material/Close'
 import SendIcon from '@mui/icons-material/Send'
+
+interface ProductCardItem {
+  id: string
+  code?: string
+  name: string
+  description?: string
+  model?: string
+  caseMaterial?: string
+  caseSize?: number
+  strapSize?: number
+  gender?: string
+  waterResistance?: string
+  releaseDate?: string
+  sold?: number
+  basePrice: number
+  rating?: number | null
+  status?: boolean
+  thumbnail?: string
+  slider?: string[]
+  brandId?: string
+  categoryId?: string
+  movementTypeId?: string
+}
+
+interface QuickButton {
+  title: string
+  payload: string
+}
 
 interface Message {
   sender: 'user' | 'bot'
   text: string
   timestamp?: Date
+  buttons?: QuickButton[]
+  custom?: {
+    type?: string
+    cards?: ProductCardItem[]
+  }
 }
 
 interface RasaResponse {
   recipient_id: string
-  text: string
+  text?: string
+  buttons?: QuickButton[]
+  custom?: {
+    type?: string
+    cards?: ProductCardItem[]
+  }
 }
 
 // Hàm tiện ích để xóa lịch sử trò chuyện
@@ -74,28 +113,40 @@ const ChatBot = () => {
     }
   }, [open, messages, isLoading])
 
-  const handleSend = async () => {
-    if (!input.trim()) return
+  const handleSend = async (messageText?: string, displayText?: string) => {
+    const textToSend = messageText || input
+    if (!textToSend.trim()) return
 
+    console.log('handleSend called with:', { messageText, displayText, textToSend })
+
+    // Always display the actual text being sent (typed text or payload)
     const userMsg: Message = {
       sender: 'user',
-      text: input,
+      text: textToSend,
       timestamp: new Date()
     }
+    console.log('Adding user message:', userMsg)
     setMessages(prev => [...prev, userMsg])
-    setInput('')
+
+    // Clear input only if it's a typed message, not a button click
+    if (!messageText) setInput('')
     setIsLoading(true)
 
     try {
+      // Lấy token từ localStorage
+      const token = localStorage.getItem('accessToken')
+
       // Gửi tin nhắn đến Rasa server
       const response = await fetch('http://localhost:5005/webhooks/rest/webhook', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
         },
         body: JSON.stringify({
           sender: sessionId,
-          message: input
+          message: textToSend,
+          ...(token ? { metadata: { token } } : {})
         })
       })
 
@@ -113,11 +164,13 @@ const ChatBot = () => {
           setTimeout(() => {
             const botMsg: Message = {
               sender: 'bot',
-              text: item.text || 'Không có phản hồi từ hệ thống.',
+              text: item.text || (item.custom?.type === 'cards' ? '' : 'Không có phản hồi từ hệ thống.'),
+              buttons: item.buttons,
+              custom: item.custom,
               timestamp: new Date()
             }
             setMessages(prev => [...prev, botMsg])
-          }, index * 500) // Delay giữa các tin nhắn
+          }, index * 500)
         })
       } else {
         const botMsg: Message = {
@@ -145,11 +198,211 @@ const ChatBot = () => {
     clearChatHistory()
   }
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', {
+  const formatTime = (date: Date | string | number) => {
+    const dateObj = new Date(date)
+    return dateObj.toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const renderMessageContent = (msg: Message) => {
+    // User message: keep as-is
+    if (msg.sender === 'user') {
+      return (
+        <ListItemText
+          primary={msg.text}
+          primaryTypographyProps={{ sx: { whiteSpace: 'pre-line' } }}
+          secondary={msg.timestamp ? formatTime(msg.timestamp) : undefined}
+          secondaryTypographyProps={{
+            fontSize: '0.7rem',
+            color: 'rgba(255,255,255,0.7)'
+          }}
+        />
+      )
+    }
+
+    // Bot message: styled variants
+    const text = msg.text || ''
+
+    // 0) Product cards payload from Rasa custom
+    if (msg.custom?.type === 'cards' && Array.isArray(msg.custom.cards) && msg.custom.cards.length > 0) {
+      const formatCurrency = (value?: number) => {
+        if (typeof value !== 'number') return ''
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(
+          value
+        )
+      }
+
+      return (
+        <>
+          {text ? (
+            <Typography variant='body2' sx={{ mb: 1 }}>
+              {text}
+            </Typography>
+          ) : null}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {msg.custom.cards.slice(0, 10).map(card => (
+              <Link key={card.id} href={`/product/${card.id}`} style={{ textDecoration: 'none' }}>
+                <Paper
+                  sx={{
+                    p: 1,
+                    borderRadius: 2,
+                    border: '1px solid #eee',
+                    width: '100%',
+                    transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                    '&:hover': { bgcolor: '#fafafa', boxShadow: 1 }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        overflow: 'hidden',
+                        borderRadius: 1,
+                        bgcolor: '#f5f5f5',
+                        flexShrink: 0
+                      }}
+                    >
+                      <img
+                        src={card.thumbnail || '/images/placeholder.png'}
+                        alt={card.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    </Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
+                        variant='body2'
+                        sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {card.name}
+                      </Typography>
+                      <Typography variant='body2' color='primary.main' sx={{ fontWeight: 700 }}>
+                        {formatCurrency(card.basePrice)}
+                      </Typography>
+                      <Typography
+                        variant='caption'
+                        sx={{
+                          display: 'block',
+                          color: 'text.secondary',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        Mã: {card.code || '-'} · Mẫu: {card.model || '-'} · Vỏ: {card.caseMaterial || '-'}
+                      </Typography>
+                      <Typography
+                        variant='caption'
+                        sx={{
+                          display: 'block',
+                          color: 'text.secondary',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        Kích thước: {card.caseSize ? `${card.caseSize}mm` : '-'} · Dây:{' '}
+                        {card.strapSize ? `${card.strapSize}mm` : '-'} · Chống nước: {card.waterResistance || '-'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Paper>
+              </Link>
+            ))}
+          </Box>
+          {msg.timestamp ? (
+            <Typography variant='caption' sx={{ display: 'block', mt: 0.5, color: 'text.disabled' }}>
+              {formatTime(msg.timestamp)}
+            </Typography>
+          ) : null}
+        </>
+      )
+    }
+
+    // 1) Italic note like *Lưu ý ...*
+    if (/^\*.*\*$/.test(text.trim())) {
+      const plain = text.trim().replace(/^\*|\*$/g, '')
+      return (
+        <>
+          <Typography variant='body2' sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+            {plain}
+          </Typography>
+          {msg.timestamp ? (
+            <Typography variant='caption' sx={{ display: 'block', mt: 0.25, color: 'text.disabled' }}>
+              {formatTime(msg.timestamp)}
+            </Typography>
+          ) : null}
+        </>
+      )
+    }
+
+    // 2) Bullet list (supports •, -, 📍 and emoji bullets). Pattern: **Label**: value
+    // Detect lines starting with common bullets (•, -, 📍, emoji)
+    const bulletLike = text
+      .split('\n')
+      .some(l =>
+        /^(•|\-|📍|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]|[\uD83C-\uDBFF\uDC00-\uDFFF]+)/g.test(l.trim())
+      )
+    if (bulletLike) {
+      const lines = text
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l)
+
+      return (
+        <>
+          <Box component='ul' sx={{ p: 0, m: 0, listStyle: 'none' }}>
+            {lines.map((line, i) => {
+              // Extract emoji/bullet and content
+              const bulletMatch = line.match(
+                /^(•|\-|📍|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]|[\uD83C-\uDBFF\uDC00-\uDFFF]+)\s*(.+)$/
+              )
+              const bullet = bulletMatch ? bulletMatch[1] : ''
+              const content = bulletMatch ? bulletMatch[2] : line
+
+              // Extract **Label** with separator ':' or '-' then value
+              const match = content.match(/^\*\*(.+?)\*\*\s*[:\-]\s*(.+)$/)
+              const label = match ? match[1] : content
+              const value = match ? match[2] : ''
+              return (
+                <Box key={i} component='li' sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {bullet && <Typography sx={{ fontSize: '1rem' }}>{bullet}</Typography>}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.25 }}>
+                      <Typography variant='body2' sx={{ fontWeight: 700 }}>
+                        {label}:
+                      </Typography>
+                      <Typography variant='body2'>{value}</Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              )
+            })}
+          </Box>
+          {msg.timestamp ? (
+            <Typography variant='caption' sx={{ display: 'block', mt: 0.25, color: 'text.disabled' }}>
+              {formatTime(msg.timestamp)}
+            </Typography>
+          ) : null}
+        </>
+      )
+    }
+
+    // 3) Default bot text
+    return (
+      <>
+        <Typography variant='body2' sx={{ whiteSpace: 'pre-line' }}>
+          {text}
+        </Typography>
+        {msg.timestamp ? (
+          <Typography variant='caption' sx={{ display: 'block', mt: 0.25, color: 'text.disabled' }}>
+            {formatTime(msg.timestamp)}
+          </Typography>
+        ) : null}
+      </>
+    )
   }
 
   return (
@@ -239,15 +492,37 @@ const ChatBot = () => {
                       mb: 0.5
                     }}
                   >
-                    <ListItemText
-                      primary={msg.text}
-                      secondary={msg.timestamp ? formatTime(msg.timestamp) : undefined}
-                      secondaryTypographyProps={{
-                        fontSize: '0.7rem',
-                        color: msg.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'text.secondary'
-                      }}
-                    />
+                    {msg.sender === 'user' ? (
+                      <ListItemText
+                        primary={msg.text}
+                        secondary={msg.timestamp ? formatTime(msg.timestamp) : undefined}
+                        secondaryTypographyProps={{
+                          fontSize: '0.7rem',
+                          color: 'rgba(255,255,255,0.7)'
+                        }}
+                      />
+                    ) : (
+                      renderMessageContent(msg)
+                    )}
                   </Paper>
+                  {msg.buttons && msg.buttons.length > 0 && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                      {msg.buttons.map((btn, i) => (
+                        <Button
+                          key={i}
+                          size='small'
+                          variant='outlined'
+                          onClick={() => {
+                            console.log('Button clicked:', { payload: btn.payload, title: btn.title })
+                            handleSend(btn.payload)
+                          }}
+                          sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25, px: 1 }}
+                        >
+                          {btn.title}
+                        </Button>
+                      ))}
+                    </Box>
+                  )}
                 </ListItem>
               ))}
               {/* Biểu tượng loading */}
@@ -302,7 +577,7 @@ const ChatBot = () => {
               maxRows={3}
             />
             <IconButton
-              onClick={handleSend}
+              onClick={() => handleSend()}
               sx={{
                 ml: 1,
                 color: 'primary.main',
