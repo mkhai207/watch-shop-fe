@@ -57,9 +57,7 @@ const HomePage: NextPage<TProps> = () => {
   const handleGetBrands = async () => {
     try {
       const response = await getBrands()
-      // API returns { brands: { count, rows } }
       const rows: TBrand[] = response?.brands?.rows || []
-      // Prefer visible brands (del_flag === '0') first
       const visible = rows.filter(item => item.del_flag !== '1')
       setBrands(visible.length ? visible : rows)
     } catch (error: any) {
@@ -115,6 +113,7 @@ const HomePage: NextPage<TProps> = () => {
         setBrandSlide(prev => prev + 1)
       }
     }, 4000)
+
     return () => clearInterval(timer)
   }, [brands, brandAutoPausedUntil])
 
@@ -128,6 +127,7 @@ const HomePage: NextPage<TProps> = () => {
         setWatchSlide(prev => prev + 1)
       }
     }, 4000)
+
     return () => clearInterval(timer)
   }, [watches, watchAutoPausedUntil])
 
@@ -494,6 +494,7 @@ const HomePage: NextPage<TProps> = () => {
                         </Box>
                       )
                     }
+
                     return renderList.map((brand, idx) => (
                       <Box key={`${brand.id}-${idx}`} sx={{ flex: '0 0 33.3333%', boxSizing: 'border-box', p: 1.5 }}>
                         <Box

@@ -24,7 +24,7 @@ const initialFilters: FilterState = {
   search: '',
   priceRanges: [],
   ratings: [],
-  sortBy: 'created_at:DESC',
+  sortBy: '',
   categories: [],
   brands: []
 }
@@ -51,7 +51,6 @@ export const FilterProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const resetFilters = () => {
-    // Reset filters nhưng giữ search và sortBy
     setFilters(prev => ({
       ...initialFilters,
       search: prev.search,
@@ -60,7 +59,6 @@ export const FilterProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const resetAllFilters = () => {
-    // Reset tất cả bao gồm search
     setFilters(initialFilters)
   }
 

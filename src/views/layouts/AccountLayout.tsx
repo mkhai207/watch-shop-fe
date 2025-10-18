@@ -58,6 +58,7 @@ const AccountLayout: NextPage<TProps> = ({ children }) => {
   const handleMenuClick = (itemId: string, path: string) => {
     if (itemId === 'logout') {
       logout()
+
       return
     }
 
