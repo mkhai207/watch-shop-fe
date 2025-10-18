@@ -105,7 +105,7 @@ const HorizontalLayout: NextPage<TProps> = ({ open, toggleDrawer, isHideMenu }) 
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <InputSearch value='' onChange={handleSearch} expandable={true} />
+          <InputSearch value='' onChange={handleSearch} expandable={true} textColor='black' />
           <LanguageDropDown />
           <ModeToggle />
           <CartProduct />

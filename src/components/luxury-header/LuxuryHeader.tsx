@@ -193,7 +193,7 @@ const LuxuryHeader: React.FC = () => {
           >
             {/* Search */}
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-              <InputSearch value={filters.search || ''} onChange={handleSearch} expandable={true} />
+              <InputSearch value={filters.search || ''} onChange={handleSearch} expandable={true} textColor='black' />
             </Box>
 
             {/* User Menu */}

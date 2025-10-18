@@ -1,387 +1,279 @@
 import {
   Box,
-  Grid,
-  Typography,
-  useTheme,
-  TextField,
-  Slider,
-  Select,
-  MenuItem,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
   Button,
-  ToggleButtonGroup,
-  ToggleButton,
-  Card,
-  CardContent,
-  CardMedia,
-  Chip,
-  IconButton
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  Grid,
+  MenuItem,
+  Select,
+  Slider,
+  Typography,
+  useTheme
 } from '@mui/material'
-import Autocomplete from '@mui/material/Autocomplete'
-import { FavoriteBorder, ShoppingCartOutlined, GridView, ViewList, Star } from '@mui/icons-material'
 import { NextPage } from 'next'
-import Link from 'next/link'
-import { useMemo, useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import qs from 'qs'
+import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
+import { useTranslation } from 'react-i18next'
 import CardProduct from 'src/components/card-product/CardProduct'
+import CustomPagination from 'src/components/custom-pagination'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { ROUTE_CONFIG } from 'src/configs/route'
+import { useFilter } from 'src/contexts/FilterContext'
+import { search } from 'src/services/watch'
+import { getBrands } from 'src/services/brand'
+import { getCategories } from 'src/services/category'
+import { getMovementTypes } from 'src/services/movementType'
 import { TProduct } from 'src/types/product'
 
 type TProps = {}
 
 const LuxuryProductPage: NextPage<TProps> = () => {
   const theme = useTheme()
+  const { t } = useTranslation()
+  const router = useRouter()
+  const { filters, updateSortBy, updateSearch } = useFilter()
 
-  const watches = useMemo(
-    () => [
-      {
-        id: 1,
-        name: 'Rolex Submariner',
-        brand: 'Rolex',
-        price: 250000000,
-        originalPrice: 280000000,
-        image: '/images/luxury-watch-hero.jpg',
-        rating: 4.9,
-        reviews: 128,
-        colors: ['Đen', 'Xanh navy'],
-        caseMaterial: 'Thép không gỉ',
-        strapMaterial: 'Thép không gỉ',
-        movement: 'Automatic',
-        waterResistance: '300m',
-        category: 'Luxury',
-        gender: 'Nam',
-        isNew: false,
-        isBestseller: true
-      },
-      {
-        id: 2,
-        name: 'Omega Speedmaster',
-        brand: 'Omega',
-        price: 180000000,
-        originalPrice: 200000000,
-        image: '/images/luxury-watch-hero.jpg',
-        rating: 4.8,
-        reviews: 95,
-        colors: ['Đen', 'Trắng'],
-        caseMaterial: 'Thép không gỉ',
-        strapMaterial: 'Da',
-        movement: 'Manual',
-        waterResistance: '50m',
-        category: 'Sport',
-        gender: 'Nam',
-        isNew: true,
-        isBestseller: false
-      },
-      {
-        id: 3,
-        name: 'Cartier Tank',
-        brand: 'Cartier',
-        price: 320000000,
-        originalPrice: 350000000,
-        image: '/images/luxury-watch-hero.jpg',
-        rating: 4.7,
-        reviews: 67,
-        colors: ['Vàng', 'Bạc'],
-        caseMaterial: 'Vàng 18K',
-        strapMaterial: 'Da cá sấu',
-        movement: 'Quartz',
-        waterResistance: '30m',
-        category: 'Luxury',
-        gender: 'Nữ',
-        isNew: false,
-        isBestseller: true
-      }
-    ],
-    []
-  )
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+  const [page, setPage] = useState(1)
 
-  const [brands, setBrands] = useState<string[]>(['Tất cả'])
-  const [colors, setColors] = useState<string[]>(['Tất cả', 'Đen', 'Trắng', 'Bạc', 'Vàng', 'Xanh navy'])
-  const [strapMaterials, setStrapMaterials] = useState<string[]>(['Tất cả'])
-  const [movementTypes, setMovementTypes] = useState<string[]>(['Tất cả'])
-  const [categories, setCategories] = useState<string[]>(['Tất cả'])
-  const genders = ['Tất cả', 'Nam', 'Nữ']
+  // Filter states
+  const [statusSelected, setStatusSelected] = useState<string[]>([])
+  const [priceRange, setPriceRange] = useState<number[]>([0, 50000000])
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedMovementTypes, setSelectedMovementTypes] = useState<string[]>([])
+  const [selectedGenders, setSelectedGenders] = useState<number[]>([])
+  const [selectedRatings, setSelectedRatings] = useState<number[]>([])
 
+  //view mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState('newest')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [priceRange, setPriceRange] = useState<number[]>([0, 400000000])
-  const [selectedBrand, setSelectedBrand] = useState<string[]>(['Tất cả'])
-  const [selectedColors, setSelectedColors] = useState<string[]>(['Tất cả'])
-  const [selectedCaseMaterials, setSelectedCaseMaterials] = useState<string[]>([])
-  const [selectedStrapMaterial, setSelectedStrapMaterial] = useState<string[]>(['Tất cả'])
-  const [selectedMovementType, setSelectedMovementType] = useState<string[]>(['Tất cả'])
-  const [selectedCategory, setSelectedCategory] = useState<string[]>(['Tất cả'])
-  const [selectedGender, setSelectedGender] = useState('Tất cả')
 
-  // Watches from API
-  const [apiWatches, setApiWatches] = useState<any[]>([])
-  const [totalCount, setTotalCount] = useState<number>(0)
-  const [page, setPage] = useState<number>(1)
-  const [apiLimit, setApiLimit] = useState<number>(10)
+  // Data for filters
+  const [brands, setBrands] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [movementTypes, setMovementTypes] = useState<any[]>([])
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  // Data states
+  const [loading, setLoading] = useState(false)
+  const [productsPublic, setProductsPublic] = useState<{
+    data: any[]
+    total: number
+    totalPages: number
+    currentPage: number
+  }>({
+    data: [],
+    total: 0,
+    totalPages: 0,
+    currentPage: 1
+  })
 
-  const filtered = useMemo(() => {
-    const usingApi = apiWatches.length > 0
-    const source = usingApi ? apiWatches : watches
-    const result = source
-      .filter(w => {
-        const matchesText = usingApi
-          ? true
-          : w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            w.brand.toLowerCase().includes(searchQuery.toLowerCase())
-
-        const matchesPrice = w.price >= priceRange[0] && w.price <= priceRange[1]
-
-        const matchesBrand = usingApi ? true : selectedBrand.includes('Tất cả') || selectedBrand.includes(w.brand)
-
-        const matchesColors =
-          selectedColors.length === 0 ||
-          selectedColors.includes('Tất cả') ||
-          selectedColors.some(c => w.colors.includes(c))
-
-        const matchesCase = selectedCaseMaterials.length === 0 || selectedCaseMaterials.includes(w.caseMaterial)
-
-        const matchesStrap = selectedStrapMaterial.includes('Tất cả') || selectedStrapMaterial.includes(w.strapMaterial)
-
-        const matchesMovement = selectedMovementType.includes('Tất cả') || selectedMovementType.includes(w.movement)
-
-        const matchesCategory = usingApi
-          ? true
-          : selectedCategory.includes('Tất cả') || selectedCategory.includes(w.category)
-
-        const matchesGender = usingApi ? true : selectedGender === 'Tất cả' || w.gender === selectedGender
-
-        return (
-          matchesText &&
-          matchesPrice &&
-          matchesBrand &&
-          matchesColors &&
-          matchesCase &&
-          matchesStrap &&
-          matchesMovement &&
-          matchesCategory &&
-          matchesGender
-        )
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case 'price-low':
-            return a.price - b.price
-          case 'price-high':
-            return b.price - a.price
-          case 'rating':
-            return b.rating - a.rating
-          case 'newest':
-            return (b as any).isNew ? 1 : -1
-          default:
-            return a.name.localeCompare(b.name)
-        }
-      })
-
-    return result
-  }, [
-    apiWatches,
-    watches,
-    searchQuery,
-    priceRange,
-    selectedBrand,
-    selectedColors,
-    selectedCaseMaterials,
-    selectedStrapMaterial,
-    selectedMovementType,
-    selectedCategory,
-    selectedGender,
-    sortBy
-  ])
-
-  const clearAll = () => {
-    setSearchQuery('')
-    setPriceRange([0, 400000000])
-    setSelectedBrand(['Tất cả'])
-    setSelectedColors(['Tất cả'])
-    setSelectedCaseMaterials([])
-    setSelectedStrapMaterial(['Tất cả'])
-    setSelectedMovementType(['Tất cả'])
-    setSelectedCategory(['Tất cả'])
-    setSelectedGender('Tất cả')
+  const getPriceRangeValues = (range: string) => {
+    switch (range) {
+      case 'under-50k':
+        return { min: 0, max: 50000 }
+      case '50k-200k':
+        return { min: 50000, max: 200000 }
+      case '200k-400k':
+        return { min: 200000, max: 400000 }
+      case '400k-1m':
+        return { min: 400000, max: 1000000 }
+      case 'over-1m':
+        return { min: 1000000, max: null }
+      default:
+        return null
+    }
   }
 
-  // Load brands and categories from API with limit=1000
-  useEffect(() => {
-    const loadFilters = async () => {
-      try {
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('accessToken') || localStorage.getItem('token') || ''
-            : ''
-        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const formatFiltersForAPI = () => {
+    const params: Record<string, any> = {
+      page: page || 1,
+      limit: pageSize || 10
+    }
 
-        const [brandsRes, categoriesRes] = await Promise.all([
-          fetch('http://localhost:8080/v1/brands?page=1&limit=1000', { headers }),
-          fetch('http://localhost:8080/v1/categorys?page=1&limit=1000', { headers })
-        ])
+    if (filters.search?.trim()) {
+      params['name__like'] = filters.search?.trim() || ''
+    }
 
-        if (brandsRes.ok) {
-          const data = await brandsRes.json()
-          const rows = data?.brands?.rows || []
-          const names = rows.map((r: any) => r?.name).filter(Boolean)
-          setBrands(['Tất cả', ...names])
-        }
+    if (statusSelected?.length > 0) {
+      params.status = statusSelected.length === 1 ? statusSelected[0] : statusSelected
+    }
 
-        if (categoriesRes.ok) {
-          const data = await categoriesRes.json()
-          const rows = data?.categorys?.rows || []
-          const names = rows.map((r: any) => r?.name).filter(Boolean)
-          setCategories(['Tất cả', ...names])
-        }
-
-        // load strap materials and movement types
-        const [strapRes, moveRes, colorsRes] = await Promise.all([
-          fetch('http://localhost:8080/v1/strap-materials?page=1&limit=1000', { headers }),
-          fetch('http://localhost:8080/v1/movement-type?page=1&limit=1000', { headers }),
-          fetch('http://localhost:8080/v1/colors?page=1&limit=1000', { headers })
-        ])
-        if (strapRes.ok) {
-          const data = await strapRes.json()
-          const rows = data?.strapMaterials?.rows || []
-          setStrapMaterials(['Tất cả', ...rows.map((r: any) => r?.name).filter(Boolean)])
-        }
-        if (moveRes.ok) {
-          const data = await moveRes.json()
-          const rows = data?.movementTypes?.rows || []
-          setMovementTypes(['Tất cả', ...rows.map((r: any) => r?.name).filter(Boolean)])
-        }
-        if (colorsRes.ok) {
-          const data = await colorsRes.json()
-          const rows = data?.colors?.rows || []
-          const names = rows.map((r: any) => r?.name).filter(Boolean)
-          if (names.length > 0) setColors(['Tất cả', ...names])
-        }
-      } catch (error) {
-        // silent fail; keep defaults
-        // eslint-disable-next-line no-console
-        console.warn('Failed to load brands/categories', error)
+    if (filters.priceRanges?.length > 0) {
+      const priceRange = getPriceRangeValues(filters.priceRanges[0])
+      if (priceRange) {
+        if (priceRange.min !== null) params.min_price = priceRange.min
+        if (priceRange.max !== null) params.max_price = priceRange.max
       }
     }
 
-    loadFilters()
-  }, [])
-
-  // Build API query params from filters/sort
-  const buildQueryParams = () => {
-    const params = new URLSearchParams()
-
-    // Pagination: only send when user navigates pages (>1)
-    if (page > 1) params.set('page', String(page))
-
-    // Sorting
-    const sortParts: string[] = []
-    switch (sortBy) {
-      case 'name':
-        sortParts.push('name:ASC')
-        break
-      case 'price-low':
-        sortParts.push('base_price:ASC')
-        break
-      case 'price-high':
-        sortParts.push('base_price:DESC')
-        break
-      case 'rating':
-        sortParts.push('rating:DESC')
-        break
-      case 'newest':
-        sortParts.push('created_at:DESC')
-        break
-      default:
-        break
-    }
-    // Only send sort when user chooses a non-default option
-    if (!(sortBy === 'newest')) {
-      const sortValue = sortParts.length ? sortParts.join(',') : ''
-      if (sortValue) params.set('sort', sortValue)
+    if (filters.ratings?.length > 0) {
+      const ratings = [...filters.ratings]
+      const minRating = Math.min(...ratings)
+      const maxRating = Math.max(...ratings)
+      params.min_rating = minRating
+      if (minRating !== maxRating) params.max_rating = maxRating
     }
 
-    // Root like filters
-    if (searchQuery.trim()) {
-      params.set('name', searchQuery.trim())
+    // Price range from slider using Elasticsearch range format
+    if (priceRange && (priceRange[0] > 0 || priceRange[1] < 50000000)) {
+      params['base_price__range'] = `${priceRange[0]}:${priceRange[1]}`
     }
 
-    // Include filters by name
-    const firstBrand = Array.isArray(selectedBrand) ? selectedBrand[0] : selectedBrand
-    if (firstBrand && firstBrand !== 'Tất cả') {
-      params.set('brand.name', firstBrand)
-    }
-    const firstCategory = Array.isArray(selectedCategory) ? selectedCategory[0] : selectedCategory
-    if (firstCategory && firstCategory !== 'Tất cả') {
-      params.set('category.name', firstCategory)
+    if (filters.sortBy) {
+      // Backend expects 'sort' parameter with format 'field:order'
+      params.sort = filters.sortBy
     }
 
-    // Gender mapping: backend expects vi slug
-    if (selectedGender && selectedGender !== 'Tất cả') {
-      const genderMap: Record<string, string> = { Nam: 'nam', Nữ: 'nu', Unisex: 'unisex' }
-      const g = genderMap[selectedGender] || selectedGender.toLowerCase()
-      params.set('gender', g)
+    Object.keys(params).forEach(key => {
+      if (
+        params[key] === undefined ||
+        params[key] === null ||
+        (Array.isArray(params[key]) && params[key].length === 0)
+      ) {
+        delete params[key]
+      }
+    })
+
+    // Filter by brand IDs using Elasticsearch __in operator
+    if (selectedBrands.length > 0) {
+      params['brand_id__in'] = selectedBrands.join(',')
     }
 
-    // Note: priceRange is handled client-side; backend does not expose base_price range in spec
+    // Filter by category IDs using Elasticsearch __in operator
+    if (selectedCategories.length > 0) {
+      params['category_id__in'] = selectedCategories.join(',')
+    }
+
+    // Filter by movement type IDs using Elasticsearch __in operator
+    if (selectedMovementTypes.length > 0) {
+      params['movement_type_id__in'] = selectedMovementTypes.join(',')
+    }
+
+    // Filter by gender using Elasticsearch __in operator
+    if (selectedGenders.length > 0) {
+      params['gender__in'] = selectedGenders.join(',')
+    }
+
+    if (selectedRatings.length > 0) {
+      params['rating__gte'] = Math.min(...selectedRatings)
+    }
 
     return params
   }
 
-  // Load watches list from API with filters/sort/pagination
-  useEffect(() => {
-    const loadWatches = async () => {
-      try {
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('accessToken') || localStorage.getItem('token') || ''
-            : ''
-        const headers = token ? { Authorization: `Bearer ${token}` } : {}
-        const params = buildQueryParams()
-        const url = `http://localhost:8080/v1/watches?${params.toString()}`
-        const res = await fetch(url, { headers })
-        if (!res.ok) return
-        const data = await res.json()
-        const items = data?.watches?.items || []
-        const mapped = items.map((r: any) => ({
-          id: r.id,
-          name: r.name || '—',
-          brand: '—',
-          price: Number(r.base_price) || 0,
-          originalPrice: Number(r.base_price) || 0,
-          image: r.thumbnail,
-          rating: r.rating == null ? 0 : Number(r.rating),
-          reviews: 0,
-          colors: [] as string[],
-          caseMaterial: r.case_material || '—',
-          strapMaterial: '—',
-          movement: '—',
-          waterResistance: r.water_resistance || '—',
-          category: '—',
-          gender: r.gender === '1' ? 'Nam' : r.gender === '2' ? 'Nữ' : 'Unisex',
-          isNew: false,
-          isBestseller: false
-        }))
-        setApiWatches(mapped)
-        setTotalCount(Number(data?.watches?.totalItems) || mapped.length)
-        if (data?.watches?.limit) setApiLimit(Number(data.watches.limit))
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('Failed to load watches', error)
+  const handleLoadBrands = async () => {
+    try {
+      const response = await getBrands()
+      if (response && response.brands && response.brands.rows) {
+        setBrands(response.brands.rows)
       }
+    } catch (error) {
+      console.error('Error loading brands:', error)
     }
-    loadWatches()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sortBy, searchQuery, selectedBrand, selectedCategory, selectedGender])
+  }
 
-  // Reset to first page when filters/sort (except page) change
+  const handleLoadCategories = async () => {
+    try {
+      const response = await getCategories()
+      if (response && response.categories && response.categories.rows) {
+        setCategories(response.categories.rows)
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
+
+  const handleLoadMovementTypes = async () => {
+    try {
+      const response = await getMovementTypes()
+      if (response && response.movementTypes && response.movementTypes.rows) {
+        setMovementTypes(response.movementTypes.rows)
+      }
+    } catch (error) {
+      console.error('Error loading movement types:', error)
+    }
+  }
+
+  const handleGetListProducts = async () => {
+    try {
+      setLoading(true)
+
+      const queryParams = formatFiltersForAPI()
+      console.log('Final queryParams for Elasticsearch:', queryParams)
+      console.log('URL params will be:', qs.stringify(queryParams, { arrayFormat: 'repeat', encode: false }))
+
+      const response = await search({
+        params: queryParams,
+        paramsSerializer: params =>
+          qs.stringify(params, {
+            arrayFormat: 'repeat',
+            encode: false
+          })
+      })
+
+      if (response && response.watches) {
+        setProductsPublic({
+          data: response.watches.items || [],
+          total: response.watches.totalItems || 0,
+          totalPages: response.watches.totalPages || 0,
+          currentPage: response.watches.page || 1
+        })
+      } else {
+        toast.error(t('load_products_error'))
+      }
+    } catch (error: any) {
+      console.error('Error fetching products:', error)
+      toast.error(error?.message || t('load_products_error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearAll = () => {
+    setPriceRange([0, 50000000])
+    setSelectedBrands([])
+    setSelectedCategories([])
+    setSelectedRatings([])
+    updateSortBy('created_at:desc')
+  }
+
+  const handleOnchangePagination = (page: number, pageSize: number) => {
+    setPage(page)
+    setPageSize(pageSize)
+  }
+
+  const handleNavigateProduct = () => {
+    router.push(`${ROUTE_CONFIG.PRODUCT}`)
+  }
+
   useEffect(() => {
-    setPage(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortBy, searchQuery, selectedBrand, selectedCategory, selectedGender])
+    handleGetListProducts()
+  }, [
+    page,
+    pageSize,
+    filters.search,
+    filters.sortBy,
+    filters.priceRanges,
+    filters.ratings,
+    statusSelected,
+    priceRange,
+    selectedBrands,
+    selectedCategories,
+    selectedMovementTypes,
+    selectedGenders,
+    selectedRatings
+  ])
+
+  // Load brands, categories, movement types and initial products on mount
+  useEffect(() => {
+    handleLoadBrands()
+    handleLoadCategories()
+    handleLoadMovementTypes()
+    handleGetListProducts()
+  }, [])
 
   return (
     <Box
@@ -414,7 +306,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
             fontSize: { xs: 14, sm: 16, md: 18 }
           }}
         >
-          Khám phá {filtered.length} sản phẩm đồng hồ cao cấp
+          Khám phá {productsPublic.total} sản phẩm đồng hồ cao cấp
         </Typography>
       </Box>
 
@@ -437,27 +329,19 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
             <Box mb={3}>
               <Typography variant='body2' mb={1}>
-                Tìm kiếm
-              </Typography>
-              <TextField
-                fullWidth
-                size='small'
-                placeholder='Tìm theo tên hoặc thương hiệu...'
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </Box>
-
-            <Box mb={3}>
-              <Typography variant='body2' mb={1}>
-                Khoảng giá: {formatPrice(priceRange[0])} - {formatPrice(priceRange[1])}
+                Khoảng giá: {priceRange[0].toLocaleString()} - {priceRange[1].toLocaleString()} VND
               </Typography>
               <Slider
                 value={priceRange}
-                onChange={(_, v) => setPriceRange(v as number[])}
+                onChange={(_, v) => {
+                  const newRange = v as number[]
+                  setPriceRange(newRange)
+                }}
                 min={0}
-                max={400000000}
+                max={50000000}
                 step={1000000}
+                valueLabelDisplay='auto'
+                valueLabelFormat={value => `${(value / 1000000).toFixed(0)}M`}
               />
             </Box>
 
@@ -465,113 +349,171 @@ const LuxuryProductPage: NextPage<TProps> = () => {
               <Typography variant='body2' mb={1}>
                 Thương hiệu
               </Typography>
-              <Autocomplete
-                multiple
-                options={brands}
-                value={Array.isArray(selectedBrand) ? selectedBrand : [selectedBrand]}
-                onChange={(_, value) => {
-                  const raw = (value as string[]) || []
-                  const nonEmpty = raw.filter(Boolean)
-                  // If 'Tất cả' is selected alongside others, drop 'Tất cả'
-                  const withoutAll =
-                    nonEmpty.includes('Tất cả') && nonEmpty.length > 1 ? nonEmpty.filter(v => v !== 'Tất cả') : nonEmpty
-                  // If empty after changes, default back to 'Tất cả'
-                  const next = withoutAll.length === 0 ? ['Tất cả'] : withoutAll
-                  setSelectedBrand(next as any)
-                }}
-                renderInput={params => <TextField {...params} placeholder='Chọn thương hiệu' size='small' />}
-                ListboxProps={{ style: { maxHeight: 280 } }}
-                clearOnEscape
-              />
+              <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                <FormGroup>
+                  {brands.map(brand => (
+                    <FormControlLabel
+                      key={brand.id}
+                      control={
+                        <Checkbox
+                          checked={selectedBrands.includes(brand.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedBrands([...selectedBrands, brand.id])
+                            } else {
+                              setSelectedBrands(selectedBrands.filter(id => id !== brand.id))
+                            }
+                          }}
+                          size='small'
+                        />
+                      }
+                      label={brand.name}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
             </Box>
 
             <Box mb={3}>
               <Typography variant='body2' mb={1}>
                 Danh mục
               </Typography>
-              <Autocomplete
-                multiple
-                options={categories}
-                value={Array.isArray(selectedCategory) ? selectedCategory : [selectedCategory]}
-                onChange={(_, value) => setSelectedCategory(value.length === 0 ? 'Tất cả' : (value as any))}
-                renderInput={params => <TextField {...params} placeholder='Chọn danh mục' size='small' />}
-                ListboxProps={{ style: { maxHeight: 280 } }}
-                clearOnEscape
-              />
+              <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                <FormGroup>
+                  {categories.map(category => (
+                    <FormControlLabel
+                      key={category.id}
+                      control={
+                        <Checkbox
+                          checked={selectedCategories.includes(category.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedCategories([...selectedCategories, category.id])
+                            } else {
+                              setSelectedCategories(selectedCategories.filter(id => id !== category.id))
+                            }
+                          }}
+                          size='small'
+                        />
+                      }
+                      label={category.name}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
             </Box>
 
-            <Box mb={2}>
-              <Typography variant='body2' mb={1}>
-                Giới tính
-              </Typography>
-              <Select
-                fullWidth
-                size='small'
-                value={selectedGender}
-                onChange={e => setSelectedGender(e.target.value)}
-                MenuProps={{ disableScrollLock: true }}
-              >
-                {genders.map(g => (
-                  <MenuItem key={g} value={g}>
-                    {g}
-                  </MenuItem>
-                ))}
-              </Select>
-            </Box>
-
-            <Box mb={2}>
-              <Typography variant='body2' mb={1}>
-                Màu sắc
-              </Typography>
-              <Autocomplete
-                multiple
-                options={colors}
-                value={selectedColors}
-                onChange={(_, value) => setSelectedColors(value.length === 0 ? ['Tất cả'] : value)}
-                renderInput={params => <TextField {...params} placeholder='Chọn màu' size='small' />}
-                ListboxProps={{ style: { maxHeight: 280 } }}
-                disableCloseOnSelect
-              />
-            </Box>
-
-            {/* Bỏ Vật liệu vỏ */}
-
-            <Box mb={2}>
-              <Typography variant='body2' mb={1}>
-                Vật liệu dây
-              </Typography>
-              <Autocomplete
-                multiple
-                options={strapMaterials}
-                value={selectedStrapMaterial}
-                onChange={(_, value) =>
-                  setSelectedStrapMaterial((value as string[]).length === 0 ? ['Tất cả'] : (value as string[]))
-                }
-                renderInput={params => <TextField {...params} placeholder='Chọn vật liệu dây' size='small' />}
-                ListboxProps={{ style: { maxHeight: 280 } }}
-                disableClearable={false}
-                clearOnEscape
-              />
-            </Box>
-
-            <Box mb={2}>
+            <Box mb={3}>
               <Typography variant='body2' mb={1}>
                 Loại máy
               </Typography>
-              <Autocomplete
-                multiple
-                options={movementTypes}
-                value={selectedMovementType}
-                onChange={(_, value) =>
-                  setSelectedMovementType((value as string[]).length === 0 ? ['Tất cả'] : (value as string[]))
-                }
-                renderInput={params => <TextField {...params} placeholder='Chọn loại máy' size='small' />}
-                ListboxProps={{ style: { maxHeight: 280 } }}
-                disableClearable={false}
-                clearOnEscape
-              />
+              <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                <FormGroup>
+                  {movementTypes.map(movementType => (
+                    <FormControlLabel
+                      key={movementType.id}
+                      control={
+                        <Checkbox
+                          checked={selectedMovementTypes.includes(movementType.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedMovementTypes([...selectedMovementTypes, movementType.id])
+                            } else {
+                              setSelectedMovementTypes(selectedMovementTypes.filter(id => id !== movementType.id))
+                            }
+                          }}
+                          size='small'
+                        />
+                      }
+                      label={movementType.name}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
             </Box>
 
+            <Box mb={3}>
+              <Typography variant='body2' mb={1}>
+                Giới tính
+              </Typography>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={selectedGenders.includes(0)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedGenders([...selectedGenders, 0])
+                        } else {
+                          setSelectedGenders(selectedGenders.filter(g => g !== 0))
+                        }
+                      }}
+                      size='small'
+                    />
+                  }
+                  label='Nam'
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={selectedGenders.includes(1)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedGenders([...selectedGenders, 1])
+                        } else {
+                          setSelectedGenders(selectedGenders.filter(g => g !== 1))
+                        }
+                      }}
+                      size='small'
+                    />
+                  }
+                  label='Nữ'
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={selectedGenders.includes(3)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedGenders([...selectedGenders, 3])
+                        } else {
+                          setSelectedGenders(selectedGenders.filter(g => g !== 3))
+                        }
+                      }}
+                      size='small'
+                    />
+                  }
+                  label='Khác'
+                />
+              </FormGroup>
+            </Box>
+
+            <Box mb={3}>
+              <Typography variant='body2' mb={1}>
+                Đánh giá
+              </Typography>
+              <FormGroup>
+                {[5, 4, 3, 2, 1].map(rating => (
+                  <FormControlLabel
+                    key={rating}
+                    control={
+                      <Checkbox
+                        checked={selectedRatings.includes(rating)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setSelectedRatings([...selectedRatings, rating])
+                          } else {
+                            setSelectedRatings(selectedRatings.filter(r => r !== rating))
+                          }
+                        }}
+                        size='small'
+                      />
+                    }
+                    label={`${rating} sao trở lên`}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
             <Button variant='outlined' fullWidth onClick={clearAll}>
               Xóa tất cả bộ lọc
             </Button>
@@ -579,121 +521,97 @@ const LuxuryProductPage: NextPage<TProps> = () => {
         </Grid>
 
         <Grid item xs={12} md={9}>
-          <Box display='flex' justifyContent='space-between' alignItems='center' mb={2}>
-            <ToggleButtonGroup
-              size='small'
-              color='primary'
-              value={viewMode}
-              exclusive
-              onChange={(_, v) => v && setViewMode(v)}
-            >
-              <ToggleButton value='grid'>
-                <GridView fontSize='small' />
-              </ToggleButton>
-              <ToggleButton value='list'>
-                <ViewList fontSize='small' />
-              </ToggleButton>
-            </ToggleButtonGroup>
-
+          <Box display='flex' justifyContent='flex-end' alignItems='center' mb={2}>
             <Box display='flex' alignItems='center' gap={1}>
               <Typography variant='body2' color='text.secondary'>
                 Sắp xếp:
               </Typography>
               <Select
                 size='small'
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                sx={{ minWidth: 180 }}
+                value={filters.sortBy || 'created_at:desc'}
+                onChange={e => updateSortBy(e.target.value)}
+                sx={{ minWidth: 200 }}
                 MenuProps={{ disableScrollLock: true }}
               >
-                <MenuItem value='name'>Tên A-Z</MenuItem>
-                <MenuItem value='price-low'>Giá thấp đến cao</MenuItem>
-                <MenuItem value='price-high'>Giá cao đến thấp</MenuItem>
-                <MenuItem value='rating'>Đánh giá cao nhất</MenuItem>
-                <MenuItem value='newest'>Mới nhất</MenuItem>
+                <MenuItem value='created_at:desc'>Mới nhất</MenuItem>
+                <MenuItem value='created_at:asc'>Cũ nhất</MenuItem>
+                <MenuItem value='base_price:asc'>Giá thấp đến cao</MenuItem>
+                <MenuItem value='base_price:desc'>Giá cao đến thấp</MenuItem>
+                <MenuItem value='rating:desc'>Đánh giá cao nhất</MenuItem>
+                <MenuItem value='sold:desc'>Bán chạy nhất</MenuItem>
               </Select>
             </Box>
           </Box>
 
-          {viewMode === 'grid' ? (
+          {loading ? (
+            <Box display='flex' justifyContent='center' alignItems='center' minHeight='200px'>
+              <Typography>Đang tải sản phẩm...</Typography>
+            </Box>
+          ) : viewMode === 'grid' ? (
             <Grid container spacing={2}>
-              {filtered.map(w => {
+              {productsPublic.data.map(w => {
                 const item: TProduct = {
                   id: String(w.id),
                   name: w.name,
-                  price: Number(w.price) || 0,
-                  thumbnail: w.image || '/placeholder-product.jpg',
-                  sold: (w as any).sold || 0,
+                  price: Number(w.base_price) || 0,
+                  thumbnail: w.thumbnail || '/placeholder-product.jpg',
+                  sold: w.sold || 0,
                   rating: Number(w.rating) || 0
                 } as any
+
                 return (
                   <Grid key={w.id} item xs={12} sm={6} md={4}>
                     <CardProduct item={item} />
                   </Grid>
                 )
               })}
+              {productsPublic.data.length === 0 && (
+                <Grid item xs={12}>
+                  <Typography textAlign='center' color='text.secondary'>
+                    Không tìm thấy sản phẩm nào
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           ) : (
             <Grid container spacing={2}>
-              {filtered.map(w => {
+              {productsPublic.data.map(w => {
                 const item: TProduct = {
                   id: String(w.id),
                   name: w.name,
-                  price: Number(w.price) || 0,
-                  thumbnail: w.image || '/placeholder-product.jpg',
-                  sold: (w as any).sold || 0,
+                  price: Number(w.base_price) || 0,
+                  thumbnail: w.thumbnail || '/placeholder-product.jpg',
+                  sold: w.sold || 0,
                   rating: Number(w.rating) || 0
                 } as any
+
                 return (
                   <Grid key={w.id} item xs={12}>
                     <CardProduct item={item} />
                   </Grid>
                 )
               })}
+              {productsPublic.data.length === 0 && (
+                <Grid item xs={12}>
+                  <Typography textAlign='center' color='text.secondary'>
+                    Không tìm thấy sản phẩm nào
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           )}
-
-          {/* Pagination when data from API */}
-          {totalCount > apiLimit && (
-            <Box display='flex' justifyContent='center' mt={3}>
-              <Button
-                variant='outlined'
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                sx={{ mr: 1 }}
-                disabled={page <= 1}
-              >
-                Trang trước
-              </Button>
-              <Typography sx={{ px: 2, lineHeight: '36px' }}>
-                Trang {page} / {Math.ceil(totalCount / apiLimit)}
-              </Typography>
-              <Button
-                variant='outlined'
-                onClick={() => setPage(p => p + 1)}
-                disabled={page >= Math.ceil(totalCount / apiLimit)}
-              >
-                Trang sau
-              </Button>
-            </Box>
-          )}
-
-          {filtered.length === 0 && (
-            <Box textAlign='center' py={8}>
-              <Typography variant='h3' mb={1}>
-                ⌚
-              </Typography>
-              <Typography variant='h6' fontWeight={700} mb={1}>
-                Không tìm thấy sản phẩm
-              </Typography>
-              <Typography color='text.secondary' mb={2}>
-                Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm
-              </Typography>
-              <Button variant='contained' onClick={clearAll}>
-                Xóa tất cả bộ lọc
-              </Button>
-            </Box>
-          )}
         </Grid>
+        <Box sx={{ mt: 4, mb: 4, width: '100%' }} display='flex' justifyContent='center' alignItems='center'>
+          <CustomPagination
+            onChangePagination={handleOnchangePagination}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            pageSize={pageSize}
+            totalPages={productsPublic?.totalPages}
+            page={page}
+            rowLength={10}
+            isHideShowed
+          />
+        </Box>
       </Grid>
     </Box>
   )
