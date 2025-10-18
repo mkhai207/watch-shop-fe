@@ -221,7 +221,20 @@ const WatchPage: NextPage = () => {
       return toast.error('Chọn đủ thương hiệu, phân loại, loại máy')
     try {
       setActionLoading(true)
-      const payload = { ...form, sold: undefined as any, rating: undefined as any, status: '1' as any }
+      const payload = {
+        ...form,
+        brand_id: Number(form.brand_id),
+        category_id: Number(form.category_id),
+        movement_type_id: Number(form.movement_type_id),
+        variants: form.variants?.map(v => ({
+          ...v,
+          color_id: Number((v as any).color_id),
+          strap_material_id: Number((v as any).strap_material_id)
+        })),
+        sold: undefined as any,
+        rating: undefined as any,
+        status: '1' as any
+      }
       const res = await createWatch(payload as any)
       if ((res as any)?.watch?.watch?.id) {
         toast.success('Tạo đồng hồ thành công')
@@ -303,7 +316,13 @@ const WatchPage: NextPage = () => {
       return toast.error('Tồn kho phải lớn hơn 0')
     try {
       setActionLoading(true)
-      const res = await createWatchVariant(variantNew)
+      const payload = {
+        ...variantNew,
+        watch_id: Number(variantNew.watch_id),
+        color_id: Number(variantNew.color_id),
+        strap_material_id: Number(variantNew.strap_material_id)
+      }
+      const res = await createWatchVariant(payload)
       if ((res as any)?.variant?.id) {
         toast.success('Thêm biến thể thành công')
         setOpenVariants(false)
@@ -578,6 +597,16 @@ const WatchPage: NextPage = () => {
                 label='Giá cơ bản (VNĐ)'
                 value={form.base_price as any}
                 onChange={e => setForm(p => ({ ...p, base_price: Number(e.target.value) }))}
+                onFocus={e => {
+                  if (e.target.value === '0') {
+                    e.target.select()
+                  }
+                }}
+                onBlur={e => {
+                  if (!e.target.value || e.target.value === '') {
+                    setForm(p => ({ ...p, base_price: 0 }))
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -803,6 +832,16 @@ const WatchPage: NextPage = () => {
                     label='Tồn kho'
                     value={variantDraft.stock_quantity as any}
                     onChange={e => setVariantDraft(v => ({ ...v, stock_quantity: Number(e.target.value) }))}
+                    onFocus={e => {
+                      if (e.target.value === '0') {
+                        e.target.select()
+                      }
+                    }}
+                    onBlur={e => {
+                      if (!e.target.value || e.target.value === '') {
+                        setVariantDraft(v => ({ ...v, stock_quantity: 0 }))
+                      }
+                    }}
                   />
                 </Grid>
 
@@ -898,6 +937,16 @@ const WatchPage: NextPage = () => {
                   label='Tồn'
                   value={(variantEditing as any).stock_quantity as any}
                   onChange={e => setVariantEditing((p: any) => ({ ...p, stock_quantity: Number(e.target.value) }))}
+                  onFocus={e => {
+                    if (e.target.value === '0') {
+                      e.target.select()
+                    }
+                  }}
+                  onBlur={e => {
+                    if (!e.target.value || e.target.value === '') {
+                      setVariantEditing((p: any) => ({ ...p, stock_quantity: 0 }))
+                    }
+                  }}
                 />
               </Grid>
             </Grid>
@@ -1224,6 +1273,16 @@ const WatchPage: NextPage = () => {
                 label='Giá cơ bản (VNĐ)'
                 value={editForm.base_price as any}
                 onChange={e => setEditForm(p => ({ ...p, base_price: Number(e.target.value) }))}
+                onFocus={e => {
+                  if (e.target.value === '0') {
+                    e.target.select()
+                  }
+                }}
+                onBlur={e => {
+                  if (!e.target.value || e.target.value === '') {
+                    setEditForm(p => ({ ...p, base_price: 0 }))
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1389,7 +1448,13 @@ const WatchPage: NextPage = () => {
               try {
                 setActionLoading(true)
                 const { variants, ...rest } = editForm as any
-                const payload = { ...rest, status: '0' as any }
+                const payload = {
+                  ...rest,
+                  brand_id: Number(rest.brand_id),
+                  category_id: Number(rest.category_id),
+                  movement_type_id: Number(rest.movement_type_id),
+                  status: '0' as any
+                }
                 await updateWatch(String(selected.id), payload as any)
                 toast.success('Cập nhật thành công')
                 setOpenEditWatch(false)
@@ -1457,6 +1522,16 @@ const WatchPage: NextPage = () => {
                     label='Tồn'
                     value={variantNew.stock_quantity as any}
                     onChange={e => setVariantNew(v => ({ ...v, stock_quantity: Number(e.target.value) }))}
+                    onFocus={e => {
+                      if (e.target.value === '0') {
+                        e.target.select()
+                      }
+                    }}
+                    onBlur={e => {
+                      if (!e.target.value || e.target.value === '') {
+                        setVariantNew(v => ({ ...v, stock_quantity: 0 }))
+                      }
+                    }}
                   />
                 </Grid>
               </Grid>
