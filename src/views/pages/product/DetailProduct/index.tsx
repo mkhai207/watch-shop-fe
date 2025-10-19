@@ -55,7 +55,6 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [loading, setLoading] = useState(false)
   const [productDetail, setProductDetail] = useState<TProductDetail | null>(null)
   const [watchDetail, setWatchDetail] = useState<TWatch | null>(null)
-  // Variant selections for Watch detail
   const [selectedStrapId, setSelectedStrapId] = useState<string | null>(null)
   const [colorOptions, setColorOptions] = useState<{ id: string; name: string; hex_code?: string }[]>([])
   const [strapOptions, setStrapOptions] = useState<{ id: string; name: string }[]>([])

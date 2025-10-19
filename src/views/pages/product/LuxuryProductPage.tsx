@@ -39,7 +39,6 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
   const [page, setPage] = useState(1)
 
-  // Filter states
   const [statusSelected, setStatusSelected] = useState<string[]>([])
   const [priceRange, setPriceRange] = useState<number[]>([0, 50000000])
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
@@ -48,15 +47,12 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const [selectedGenders, setSelectedGenders] = useState<number[]>([])
   const [selectedRatings, setSelectedRatings] = useState<number[]>([])
 
-  //view mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  // Data for filters
   const [brands, setBrands] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [movementTypes, setMovementTypes] = useState<any[]>([])
 
-  // Data states
   const [loading, setLoading] = useState(false)
   const [productsPublic, setProductsPublic] = useState<{
     data: any[]
@@ -117,13 +113,11 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       if (minRating !== maxRating) params.max_rating = maxRating
     }
 
-    // Price range from slider using Elasticsearch range format
     if (priceRange && (priceRange[0] > 0 || priceRange[1] < 50000000)) {
       params['base_price__range'] = `${priceRange[0]}:${priceRange[1]}`
     }
 
     if (filters.sortBy) {
-      // Backend expects 'sort' parameter with format 'field:order'
       params.sort = filters.sortBy
     }
 
@@ -137,22 +131,18 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       }
     })
 
-    // Filter by brand IDs using Elasticsearch __in operator
     if (selectedBrands.length > 0) {
       params['brand_id__in'] = selectedBrands.join(',')
     }
 
-    // Filter by category IDs using Elasticsearch __in operator
     if (selectedCategories.length > 0) {
       params['category_id__in'] = selectedCategories.join(',')
     }
 
-    // Filter by movement type IDs using Elasticsearch __in operator
     if (selectedMovementTypes.length > 0) {
       params['movement_type_id__in'] = selectedMovementTypes.join(',')
     }
 
-    // Filter by gender using Elasticsearch __in operator
     if (selectedGenders.length > 0) {
       params['gender__in'] = selectedGenders.join(',')
     }
