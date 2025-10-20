@@ -1,119 +1,48 @@
-import React, { useState, useEffect } from 'react'
-import { NextPage } from 'next'
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   CardHeader,
+  Checkbox,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
   Grid,
-  IconButton,
-  InputAdornment,
-  Menu,
+  InputLabel,
+  LinearProgress,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
-  Paper,
+  Select,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
-  Typography,
-  Checkbox,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  Alert,
-  Snackbar,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider
+  Typography
 } from '@mui/material'
+import { NextPage } from 'next'
+import React, { useCallback, useEffect, useState } from 'react'
+import AdvancedFilter, { buildBackendQuery, FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import { useDebounce } from 'src/hooks/useDebounce'
+import CustomPagination from 'src/components/custom-pagination'
 import IconifyIcon from 'src/components/Icon'
-import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import { formatCurrency } from 'src/utils/date'
-import instanceAxios from 'src/helpers/axios'
 import { CONFIG_API } from 'src/configs/api'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import instanceAxios from 'src/helpers/axios'
+import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
+import { Order, OrderStatus, OrderStatusesResponse } from 'src/types/order'
 
-// Types
-interface Order {
-  id: string
-  code: string
-  user_id: string
-  total_amount: number
-  discount_code?: string
-  discount_amount: number
-  final_amount: number
-  current_status_id: string
-  payment_method?: string
-  shipping_address: string
-  shipping_fee: number
-  note?: string
-  guess_name: string
-  guess_email: string
-  guess_phone: string
-  review_flag: string
-  created_at: string
-  created_by: string
-  updated_at?: string
-  updated_by?: string
-  del_flag: string
-}
-
-interface OrdersResponse {
-  orders: {
-    count: number
-    rows: Order[]
-  }
-}
-
-interface OrderStatus {
-  id: string
-  code: string
-  name: string
-  description: string
-  hex_code: string
-  color: string
-  sort_order: number
-  created_at: string
-  created_by: string
-  updated_at?: string
-  updated_by?: string
-  del_flag: string
-}
-
-interface OrderStatusesResponse {
-  orderStatuses: {
-    count: number
-    rows: OrderStatus[]
-  }
-}
-
-// Helper function to get MUI color from hex
-const getMuiColor = (
-  hexCode: string
-): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-  const colorMap: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-    '#FFC107': 'warning', // Yellow
-    '#FD7E14': 'warning', // Orange
-    '#00FF00': 'success', // Green
-    '#2196F3': 'info', // Blue
-    '#FFC0CB': 'secondary', // Pink
-    '#FF4336': 'error' // Red
-  }
-  return colorMap[hexCode] || 'default'
-}
-
-// Payment method mapping
 const paymentMethodMap: Record<string, string> = {
   '1': 'Chuyển khoản',
   '2': 'Thẻ tín dụng',
@@ -124,8 +53,8 @@ const OrderManagementPage: NextPage = () => {
   const [orders, setOrders] = useState<Order[]>([])
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [loadingStatuses, setLoadingStatuses] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
   const [selectedOrders, setSelectedOrders] = useState<string[]>([])
   const [bulkAction, setBulkAction] = useState('')
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
@@ -148,47 +77,168 @@ const OrderManagementPage: NextPage = () => {
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   })
 
-  // Fetch order statuses from API
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+
+  const filterConfig: FilterConfig = React.useMemo(() => {
+    return {
+      searchFields: [{ key: 'code', label: 'Mã đơn hàng', type: 'string' }],
+      filterFields: [
+        {
+          key: 'current_status_id',
+          label: 'Trạng thái',
+          type: 'select',
+          operator: 'eq',
+          options: orderStatuses.map(status => ({
+            value: status.id,
+            label: status.name
+          }))
+        }
+      ],
+      sortOptions: [
+        { value: 'guess_name:asc', label: 'Tên khách hàng A-Z' },
+        { value: 'guess_name:desc', label: 'Tên khách hàng Z-A' }
+      ],
+
+      dateRangeFields: [{ key: 'created_at', label: 'Ngày tạo đơn hàng' }]
+    }
+  }, [orderStatuses])
+
+  const {
+    values: filterValues,
+    setValues: setFilterValues,
+    reset: resetFilters
+  } = useAdvancedFilter({
+    config: filterConfig,
+    initialValues: {
+      sort: 'created_at:desc'
+    }
+  })
+
+  const handleFilterChange = useCallback(
+    (newValues: typeof filterValues) => {
+      setFilterValues(newValues)
+    },
+    [setFilterValues]
+  )
+
+  const handleFilterReset = useCallback(() => {
+    resetFilters()
+  }, [resetFilters])
+
+  const debouncedSearchValue = useDebounce(filterValues.search || '', 300)
+
+  const debouncedFilterValues = React.useMemo(
+    () => ({
+      search: debouncedSearchValue,
+      filters: filterValues.filters,
+      sort: filterValues.sort,
+      dateRange: filterValues.dateRange
+    }),
+    [debouncedSearchValue, filterValues.filters, filterValues.sort, filterValues.dateRange]
+  )
+
   const fetchOrderStatuses = async () => {
     try {
+      setLoadingStatuses(true)
       const response = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS.INDEX}`)
       const data: OrderStatusesResponse = response.data
       setOrderStatuses(data.orderStatuses.rows || [])
     } catch (error) {
       console.error('Error fetching order statuses:', error)
+    } finally {
+      setLoadingStatuses(false)
     }
   }
 
-  // Fetch orders from API
-  const fetchOrders = async () => {
-    try {
-      setLoading(true)
-      const response = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}/all`)
-      const data: OrdersResponse = response.data
-      setOrders(data.orders.rows || [])
-    } catch (error) {
-      console.error('Error fetching orders:', error)
-      setSnackbar({ open: true, message: 'Lỗi khi tải dữ liệu đơn hàng', severity: 'error' })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const fetchOrders = useCallback(
+    async (queryParams?: any) => {
+      try {
+        setLoading(true)
+
+        const url = `${CONFIG_API.ORDER.INDEX}/all`
+        const params = new URLSearchParams()
+
+        params.set('page', page.toString())
+        params.set('limit', pageSize.toString())
+
+        if (queryParams) {
+          Object.entries(queryParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== '' && value !== null) {
+              params.set(key, String(value))
+            }
+          })
+        }
+
+        const finalUrl = `${url}?${params.toString()}`
+
+        const response = await instanceAxios.get(finalUrl)
+        const data = response.data
+        let ordersData = []
+        let totalItems = 0
+
+        if (data.orders?.items) {
+          ordersData = data.orders.items
+          totalItems = data.orders.totalItems || 0
+        } else if (data.orders?.rows) {
+          ordersData = data.orders.rows
+          totalItems = data.orders.count || 0
+        } else if (Array.isArray(data.orders)) {
+          ordersData = data.orders
+          totalItems = ordersData.length
+        } else {
+          console.log('Unknown response format:', data)
+        }
+
+        setOrders(ordersData)
+        setTotalCount(totalItems)
+      } catch (error) {
+        console.error('Error fetching orders:', error)
+        setSnackbar({ open: true, message: 'Lỗi khi tải dữ liệu đơn hàng', severity: 'error' })
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page, pageSize]
+  )
 
   useEffect(() => {
     const loadData = async () => {
-      await Promise.all([fetchOrderStatuses(), fetchOrders()])
+      await fetchOrderStatuses()
     }
     loadData()
   }, [])
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch =
-      order.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.guess_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.guess_email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = selectedStatus === 'all' || order.current_status_id === selectedStatus
-    return matchesSearch && matchesStatus
-  })
+  useEffect(() => {
+    if (loadingStatuses || orderStatuses.length === 0) {
+      console.log(
+        'Waiting for order statuses to load before fetching orders... loadingStatuses:',
+        loadingStatuses,
+        'orderStatuses.length:',
+        orderStatuses.length
+      )
+
+      return
+    }
+
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchOrders(queryParams)
+  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchOrders, orderStatuses.length, loadingStatuses])
+
+  const paginatedData = orders
+
+  const handleOnchangePagination = (newPage: number, newPageSize: number) => {
+    if (newPageSize !== pageSize) {
+      setPage(1)
+    } else {
+      setPage(newPage)
+    }
+    setPageSize(newPageSize)
+  }
+
+  React.useEffect(() => {
+    setPage(1)
+  }, [filterValues])
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -198,7 +248,6 @@ const OrderManagementPage: NextPage = () => {
   }
 
   const formatDate = (dateString: string) => {
-    // Convert from YYYYMMDDHHMMSS format to readable date
     const year = dateString.substring(0, 4)
     const month = dateString.substring(4, 6)
     const day = dateString.substring(6, 8)
@@ -207,6 +256,7 @@ const OrderManagementPage: NextPage = () => {
     const second = dateString.substring(12, 14)
 
     const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`)
+
     return date.toLocaleDateString('vi-VN', {
       year: 'numeric',
       month: '2-digit',
@@ -216,41 +266,22 @@ const OrderManagementPage: NextPage = () => {
     })
   }
 
-  const getStatusChip = (statusId: string) => {
+  const getStatusInfo = (statusId: string) => {
     const status = orderStatuses.find(s => s.id === statusId)
-    if (!status) {
-      return <Chip label='Không xác định' color='default' size='small' />
-    }
 
-    const muiColor = getMuiColor(status.hex_code)
-    return (
-      <Chip
-        label={status.name}
-        color={muiColor}
-        size='small'
-        sx={{
-          backgroundColor: status.hex_code,
-          color: '#fff',
-          '& .MuiChip-label': {
-            color: '#fff'
-          }
-        }}
-      />
-    )
+    return {
+      name: status?.name || `Trạng thái ${statusId}`,
+      color: status?.hex_code || '#999999'
+    }
   }
 
   const getPaymentMethodChip = (paymentMethod?: string) => {
     if (!paymentMethod) return <Chip label='Chưa chọn' color='default' size='small' />
     const method = paymentMethodMap[paymentMethod] || 'Khác'
+
     return <Chip label={method} color='primary' size='small' />
   }
 
-  // Helper function to get status by code
-  const getStatusByCode = (code: string) => {
-    return orderStatuses.find(status => status.code === code)
-  }
-
-  // Handle individual order selection
   const handleOrderSelect = (orderId: string, checked: boolean) => {
     if (checked) {
       setSelectedOrders([...selectedOrders, orderId])
@@ -259,21 +290,18 @@ const OrderManagementPage: NextPage = () => {
     }
   }
 
-  // Handle select all orders
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(filteredOrders.map(order => order.id))
+      setSelectedOrders(paginatedData.map(order => order.id))
     } else {
       setSelectedOrders([])
     }
   }
 
-  // Handle bulk actions
   const handleBulkAction = async () => {
     if (!bulkAction || selectedOrders.length === 0) return
 
     try {
-      // Update multiple orders via API
       const updatePromises = selectedOrders.map(orderId =>
         instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/${orderId}/change-status`, {
           order_status_id: parseInt(bulkAction)
@@ -282,18 +310,16 @@ const OrderManagementPage: NextPage = () => {
 
       await Promise.all(updatePromises)
 
-      // Update local state
       setOrders(
         orders.map(order => {
           if (selectedOrders.includes(order.id)) {
             return { ...order, current_status_id: bulkAction }
           }
+
           return order
         })
       )
 
-      // Không reset selectedOrders để giữ lại selection
-      // setSelectedOrders([])
       setBulkAction('')
       setIsBulkDialogOpen(false)
       setSnackbar({ open: true, message: `Đã cập nhật ${selectedOrders.length} đơn hàng`, severity: 'success' })
@@ -317,47 +343,11 @@ const OrderManagementPage: NextPage = () => {
     }
   }
 
-  // Handle quick action buttons (direct API calls)
-  const handleQuickAction = async (statusId: string) => {
-    if (selectedOrders.length === 0) {
-      setSnackbar({ open: true, message: 'Hãy chọn ít nhất 1 đơn hàng', severity: 'warning' })
-      return
-    }
-
-    try {
-      // Update multiple orders via API
-      const updatePromises = selectedOrders.map(orderId =>
-        instanceAxios.put(`${CONFIG_API.ORDER.INDEX}/${orderId}/change-status`, {
-          order_status_id: parseInt(statusId)
-        })
-      )
-
-      await Promise.all(updatePromises)
-
-      // Update local state
-      setOrders(
-        orders.map(order => {
-          if (selectedOrders.includes(order.id)) {
-            return { ...order, current_status_id: statusId }
-          }
-          return order
-        })
-      )
-
-      // Không reset selectedOrders để giữ lại selection
-      setSnackbar({ open: true, message: `Đã cập nhật ${selectedOrders.length} đơn hàng`, severity: 'success' })
-    } catch (error) {
-      console.error('Error updating orders:', error)
-      setSnackbar({ open: true, message: 'Lỗi khi cập nhật đơn hàng', severity: 'error' })
-    }
-  }
-
   const viewOrderDetail = (order: Order) => {
     setSelectedOrder(order)
     setIsDetailDialogOpen(true)
   }
 
-  // Handle quick update
   const handleQuickUpdate = async () => {
     if (!quickUpdateStatus || selectedOrders.length === 0) return
 
@@ -385,7 +375,6 @@ const OrderManagementPage: NextPage = () => {
           message: 'Thành công'
         })
 
-        // Update local state
         setOrders(prevOrders =>
           prevOrders.map(o => (o.id === orderId ? { ...o, current_status_id: quickUpdateStatus } : o))
         )
@@ -398,33 +387,16 @@ const OrderManagementPage: NextPage = () => {
         })
       }
 
-      // Update progress
       setUpdateProgress(((i + 1) / totalOrders) * 100)
       setUpdateResults([...results])
 
-      // Small delay to show progress
       await new Promise(resolve => setTimeout(resolve, 200))
     }
 
     setIsUpdating(false)
-    // Không tự động đóng dialog, để người dùng xem kết quả
-    // setSelectedOrders([])
-    // setQuickUpdateStatus('')
-    // setIsQuickUpdateDialogOpen(false)
-
-    const successCount = results.filter(r => r.success).length
-    const failCount = results.filter(r => !r.success).length
-
-    // Không hiển thị snackbar, để người dùng xem kết quả chi tiết trong dialog
-    // setSnackbar({
-    //   open: true,
-    //   message: `Cập nhật hoàn tất: ${successCount} thành công, ${failCount} thất bại`,
-    //   severity: failCount > 0 ? 'warning' : 'success'
-    // })
   }
 
-  // Calculate stats
-  const totalOrders = orders.length
+  const totalOrders = totalCount
   const totalRevenue = orders.reduce((sum, order) => sum + order.final_amount, 0)
   const pendingOrders = orders.filter(order => order.current_status_id === '1').length
   const completedOrders = orders.filter(order => order.current_status_id === '5').length
@@ -507,41 +479,22 @@ const OrderManagementPage: NextPage = () => {
         </Grid>
       </Grid>
 
-      {/* Filters and Actions */}
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        config={filterConfig}
+        values={filterValues}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
+        loading={loading}
+        compact={false}
+      />
+
+      {/* Quick Actions */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={2} alignItems='center'>
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                placeholder='Tìm kiếm đơn hàng...'
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position='start'>
-                      <IconifyIcon icon='mdi:magnify' />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>Trạng thái</InputLabel>
-                <Select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} label='Trạng thái'>
-                  <MenuItem value='all'>Tất cả</MenuItem>
-                  {orderStatuses.map(status => (
-                    <MenuItem key={status.id} value={status.id}>
-                      {status.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={6}>
               <Button
-                fullWidth
                 variant='contained'
                 color='primary'
                 onClick={() => {
@@ -556,8 +509,8 @@ const OrderManagementPage: NextPage = () => {
                 Cập nhật nhanh ({selectedOrders.length})
               </Button>
             </Grid>
-            <Grid item xs={12} md={5}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {selectedOrders.length > 0 ? (
                   <>
                     <Typography variant='body2' color='text.secondary'>
@@ -575,8 +528,6 @@ const OrderManagementPage: NextPage = () => {
               </Box>
             </Grid>
           </Grid>
-
-          {/* Quick Action Buttons removed as requested */}
         </CardContent>
       </Card>
 
@@ -593,7 +544,7 @@ const OrderManagementPage: NextPage = () => {
                     sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: 'background.paper' }}
                   >
                     <Checkbox
-                      checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                      checked={selectedOrders.length === paginatedData.length && paginatedData.length > 0}
                       onChange={e => handleSelectAll(e.target.checked)}
                     />
                   </TableCell>
@@ -638,14 +589,14 @@ const OrderManagementPage: NextPage = () => {
                       </Box>
                     </TableCell>
                   </TableRow>
-                ) : filteredOrders.length === 0 ? (
+                ) : paginatedData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
                       Không có đơn hàng nào
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOrders.map(order => (
+                  paginatedData.map(order => (
                     <TableRow key={order.id} hover sx={{ cursor: 'pointer' }} onClick={() => viewOrderDetail(order)}>
                       <TableCell
                         padding='checkbox'
@@ -808,7 +759,7 @@ const OrderManagementPage: NextPage = () => {
                             }
                             sx={{
                               fontSize: '0.7rem',
-                              backgroundColor: `${orderStatuses.find(s => s.id === order.current_status_id)?.hex_code || '#eee'}`,
+                              backgroundColor: getStatusInfo(order.current_status_id).color,
                               color: '#000',
                               '& .MuiSvgIcon-root': { color: '#000' },
                               '& .MuiSelect-select': {
@@ -817,12 +768,11 @@ const OrderManagementPage: NextPage = () => {
                                 color: '#000',
                                 fontWeight: 700
                               },
-                              // Keep strong black text even when disabled (terminal status)
                               '&.Mui-disabled': {
                                 opacity: 1,
                                 color: '#000',
                                 WebkitTextFillColor: '#000',
-                                backgroundColor: `${orderStatuses.find(s => s.id === order.current_status_id)?.hex_code || '#eee'}`
+                                backgroundColor: getStatusInfo(order.current_status_id).color
                               },
                               '&.Mui-disabled .MuiSelect-select': {
                                 color: '#000',
@@ -837,7 +787,7 @@ const OrderManagementPage: NextPage = () => {
                           >
                             {/* Hiển thị trạng thái hiện tại (display only) */}
                             <MenuItem value={order.current_status_id} sx={{ fontSize: '0.7rem' }}>
-                              {orderStatuses.find(s => s.id === order.current_status_id)?.name || 'Không xác định'}
+                              {getStatusInfo(order.current_status_id).name}
                             </MenuItem>
                             {/* Hiển thị các trạng thái có thể chọn */}
                             {orderStatuses
@@ -857,6 +807,17 @@ const OrderManagementPage: NextPage = () => {
             </Table>
           </TableContainer>
         </CardContent>
+        <Box sx={{ mt: 4, mb: 4, width: '100%' }} display='flex' justifyContent='center' alignItems='center'>
+          <CustomPagination
+            onChangePagination={handleOnchangePagination}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            pageSize={pageSize}
+            totalPages={Math.ceil(totalCount / pageSize)}
+            page={page}
+            rowLength={totalCount}
+            isHideShowed={false}
+          />
+        </Box>
       </Card>
 
       {/* Order Detail Dialog */}
@@ -1014,6 +975,7 @@ const OrderManagementPage: NextPage = () => {
                 const order = orders.find(o => o.id === orderId)
                 if (!order) return null
                 const currentStatus = orderStatuses.find(s => s.id === order.current_status_id)
+
                 return (
                   <ListItem key={orderId}>
                     <ListItemIcon>
@@ -1217,11 +1179,7 @@ const OrderManagementPage: NextPage = () => {
   )
 }
 
-// Use a dedicated layout for manage-system
-// eslint-disable-next-line react/display-name
 ;(OrderManagementPage as any).getLayout = (page: React.ReactNode) => <ManageSystemLayout>{page}</ManageSystemLayout>
-
-// Set authentication guard
 ;(OrderManagementPage as any).authGuard = true
 ;(OrderManagementPage as any).guestGuard = false
 

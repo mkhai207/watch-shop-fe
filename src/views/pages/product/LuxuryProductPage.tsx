@@ -22,10 +22,10 @@ import CustomPagination from 'src/components/custom-pagination'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useFilter } from 'src/contexts/FilterContext'
-import { search } from 'src/services/watch'
 import { getBrands } from 'src/services/brand'
 import { getCategories } from 'src/services/category'
 import { getMovementTypes } from 'src/services/movementType'
+import { search } from 'src/services/watch'
 import { TProduct } from 'src/types/product'
 
 type TProps = {}

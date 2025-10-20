@@ -13,19 +13,15 @@ export interface CreateOrderResponse {
 
 export const getListOrders = async (data: { params: TParams; paramsSerializer?: (params: any) => string }) => {
   try {
-    // Call new v1 orders list endpoint and normalize to existing consumer shape
     const res = await instanceAxios.get(`${CONFIG_API.ORDER.INDEX}`, {
       params: data.params,
       paramsSerializer: data.paramsSerializer
     })
 
     const raw = res.data
-    // Expected backend shape:
-    // { orders: { count: number, rows: Array<...> } }
     const rows = raw?.orders?.rows || []
     const count = raw?.orders?.count ?? rows.length
 
-    // Normalize items for UI expectations with more complete data
     const normalized = rows.map((item: any) => ({
       id: item.id,
       code: item.code,
@@ -134,6 +130,7 @@ export interface OrderStatusHistoriesResponse {
 export const getOrderStatusHistories = async (orderId: string) => {
   try {
     const res = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS_HISTORY.INDEX}/${orderId}`)
+
     return res.data as OrderStatusHistoriesResponse
   } catch (error) {
     return error

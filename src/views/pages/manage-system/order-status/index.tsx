@@ -1,4 +1,6 @@
+import { Add, Delete, Edit } from '@mui/icons-material'
 import {
+  alpha,
   Box,
   Button,
   Card,
@@ -8,7 +10,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
   Paper,
   Table,
@@ -17,23 +18,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
-  alpha,
   useTheme
 } from '@mui/material'
-import { Add, Delete, Edit, Visibility } from '@mui/icons-material'
-import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useTranslation } from 'react-i18next'
 import Spinner from 'src/components/spinner'
-import {
-  getOrderStatusList,
-  deleteOrderStatus,
-  OrderStatus,
-  CreateOrderStatusRequest,
-  UpdateOrderStatusRequest
-} from 'src/services/orderStatus'
+import { deleteOrderStatus, getOrderStatusList, OrderStatus } from 'src/services/orderStatus'
 import OrderStatusForm from './OrderStatusForm'
 
 const OrderStatusManagement = () => {

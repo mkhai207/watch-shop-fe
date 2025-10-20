@@ -95,5 +95,8 @@ export const CONFIG_API = {
   AI_RECOMMEND: {
     INDEX: `${AI_URL}/recommendations`,
     GET_SIMILAR_PRODUCTS: `${AI_URL}/recommendations_by_product`
+  },
+  REPORT: {
+    INDEX: `${BASE_URL}/reports`
   }
 }
