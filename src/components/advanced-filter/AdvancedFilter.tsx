@@ -26,70 +26,97 @@ import { AdvancedFilterProps, FilterField } from './types'
 import styles from './AdvancedFilter.module.scss'
 
 const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
-  ({ config, values, onChange, onReset, loading = false, compact = false }) => {
-    const [expanded, setExpanded] = useState(!compact)
+  ({ config, values, onChange, onReset, loading = false }) => {
+    const [expanded, setExpanded] = useState(false)
     const [activeFilters, setActiveFilters] = useState<string[]>([])
 
     const [localSearchValue, setLocalSearchValue] = useState(values.search || '')
 
     useEffect(() => {
-      if (values.search !== localSearchValue) {
-        setLocalSearchValue(values.search || '')
-      }
-    }, [values.search, localSearchValue])
+      setLocalSearchValue(values.search || '')
+    }, [values.search])
 
-    const handleSearchChange = React.useCallback(
-      (search: string) => {
-        setLocalSearchValue(search)
-        onChange({
-          ...values,
-          search
-        })
+    const handleSearchChange = React.useCallback((search: string) => {
+      setLocalSearchValue(search)
+    }, [])
+
+    const handleSearchSubmit = React.useCallback(() => {
+      const newValues = {
+        search: localSearchValue,
+        filters: values.filters,
+        sort: values.sort,
+        dateRange: values.dateRange
+      }
+      onChange(newValues)
+    }, [onChange, localSearchValue, values.filters, values.sort, values.dateRange])
+
+    const handleSearchKeyDown = React.useCallback(
+      (event: React.KeyboardEvent) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          handleSearchSubmit()
+        }
       },
-      [onChange, values]
+      [handleSearchSubmit]
     )
 
-    const handleFilterChange = (key: string, value: any) => {
-      const newFilters = { ...values.filters }
+    const handleFilterChange = React.useCallback(
+      (key: string, value: any) => {
+        const newFilters = { ...values.filters }
 
-      if (value === '' || value === null || value === undefined) {
-        delete newFilters[key]
-        setActiveFilters(prev => prev.filter(f => f !== key))
-      } else {
-        newFilters[key] = value
-        if (!activeFilters.includes(key)) {
-          setActiveFilters(prev => [...prev, key])
+        if (value === '' || value === null || value === undefined) {
+          delete newFilters[key]
+          setActiveFilters(prev => prev.filter(f => f !== key))
+        } else {
+          newFilters[key] = value
+          if (!activeFilters.includes(key)) {
+            setActiveFilters(prev => [...prev, key])
+          }
         }
-      }
 
-      onChange({
-        ...values,
-        filters: newFilters
-      })
-    }
+        onChange({
+          search: values.search,
+          filters: newFilters,
+          sort: values.sort,
+          dateRange: values.dateRange
+        })
+      },
+      [onChange, values.filters, values.search, values.sort, values.dateRange, activeFilters]
+    )
 
-    const handleSortChange = (sort: string) => {
-      onChange({
-        ...values,
-        sort
-      })
-    }
+    const handleSortChange = React.useCallback(
+      (sort: string) => {
+        onChange({
+          search: values.search,
+          filters: values.filters,
+          sort,
+          dateRange: values.dateRange
+        })
+      },
+      [onChange, values.search, values.filters, values.dateRange]
+    )
 
-    const handleDateRangeChange = (field: string, type: 'from' | 'to', value: string) => {
-      const dateStr = value || undefined
+    const handleDateRangeChange = React.useCallback(
+      (field: string, type: 'from' | 'to', value: string) => {
+        const dateStr = value || undefined
 
-      onChange({
-        ...values,
-        dateRange: {
-          ...values.dateRange,
-          field,
-          [type]: dateStr
-        }
-      })
-    }
+        onChange({
+          search: values.search,
+          filters: values.filters,
+          sort: values.sort,
+          dateRange: {
+            ...values.dateRange,
+            field,
+            [type]: dateStr
+          }
+        })
+      },
+      [onChange, values.search, values.filters, values.sort, values.dateRange]
+    )
 
-    const handleReset = () => {
+    const handleReset = React.useCallback(() => {
       setActiveFilters([])
+      setLocalSearchValue('')
       if (onReset) {
         onReset()
       } else {
@@ -100,7 +127,7 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
           dateRange: undefined
         })
       }
-    }
+    }, [onReset, onChange, config.sortOptions])
 
     const renderFilterField = (field: FilterField) => {
       const currentValue = values.filters[field.key]
@@ -241,7 +268,7 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
           sx={{
             p: 3,
             mb: 3,
-            borderRadius: 2,
+            borderRadius: 1,
             background: (theme: any) => theme.palette.background.paper,
             border: (theme: any) => `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
             transition: 'all 0.2s ease-in-out',
@@ -252,18 +279,20 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
           }}
         >
           {/* Header Section */}
-          <Stack direction='row' spacing={2} alignItems='center' sx={{ mb: expanded ? 3 : 0 }}>
+          <Stack direction='row' spacing={2} alignItems='stretch' sx={{ mb: expanded ? 3 : 0 }}>
             {/* Search Field */}
             <TextField
-              placeholder='Tìm kiếm sản phẩm...'
+              placeholder='Tìm kiếm sản phẩm... (nhấn Enter để lọc)'
               value={localSearchValue}
               onChange={e => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               size='small'
               className={styles.searchField}
               sx={{
                 flex: 1,
                 maxWidth: 400,
                 '& .MuiOutlinedInput-root': {
+                  height: '42px',
                   borderRadius: 2,
                   backgroundColor: (theme: any) => alpha(theme.palette.grey[50], 0.5),
                   '&:hover': {
@@ -283,19 +312,35 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
                       fontSize: '1.1rem'
                     }}
                   />
+                ),
+                endAdornment: (
+                  <IconButton
+                    onClick={handleSearchSubmit}
+                    disabled={loading}
+                    size='small'
+                    sx={{
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: (theme: any) => alpha(theme.palette.primary.main, 0.08)
+                      }
+                    }}
+                  >
+                    <SearchIcon fontSize='small' />
+                  </IconButton>
                 )
               }}
               disabled={loading}
             />
 
             {/* Actions */}
-            <Stack direction='row' spacing={1} alignItems='center'>
+            <Stack direction='row' spacing={1} alignItems='stretch'>
               {/* Sort Dropdown */}
               <FormControl
                 size='small'
                 sx={{
                   minWidth: 180,
                   '& .MuiOutlinedInput-root': {
+                    height: '42px',
                     borderRadius: 2
                   }
                 }}
@@ -324,11 +369,11 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
                 disabled={loading}
                 className={styles.filterButton}
                 sx={{
+                  height: '42px',
                   borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 500,
                   px: 2,
-                  py: 1,
                   minWidth: 'auto',
                   borderColor: (theme: any) => alpha(theme.palette.primary.main, 0.3),
                   color: 'primary.main',
@@ -360,10 +405,13 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
                   onClick={handleReset}
                   disabled={loading}
                   sx={{
+                    height: '42px',
+                    width: '42px',
                     borderRadius: 2,
                     color: 'text.secondary',
+                    backgroundColor: 'transparent',
                     '&:hover': {
-                      backgroundColor: (theme: any) => alpha(theme.palette.error.main, 0.08),
+                      backgroundColor: (theme: any) => alpha(theme.palette.error.main, 0.1),
                       color: 'error.main'
                     }
                   }}

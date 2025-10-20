@@ -489,51 +489,31 @@ const OrderManagementPage: NextPage = () => {
         compact={false}
       />
 
-      {/* Quick Actions */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems='center'>
-            <Grid item xs={12} md={6}>
-              <Button
-                variant='contained'
-                color='primary'
-                onClick={() => {
-                  // Reset dialog state when opening
-                  setUpdateResults([])
-                  setQuickUpdateStatus('')
-                  setIsQuickUpdateDialogOpen(true)
-                }}
-                disabled={selectedOrders.length === 0}
-                startIcon={<IconifyIcon icon='mdi:update' />}
-              >
-                Cập nhật nhanh ({selectedOrders.length})
-              </Button>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {selectedOrders.length > 0 ? (
-                  <>
-                    <Typography variant='body2' color='text.secondary'>
-                      Đã chọn {selectedOrders.length} đơn hàng
-                    </Typography>
-                    <Button size='small' variant='outlined' onClick={() => setSelectedOrders([])}>
-                      Bỏ chọn
-                    </Button>
-                  </>
-                ) : (
-                  <Typography variant='body2' color='text.secondary'>
-                    Chọn đơn hàng để cập nhật
-                  </Typography>
-                )}
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
       {/* Orders Table */}
       <Card>
-        <CardHeader title='Danh sách đơn hàng' />
+        <CardHeader
+          title='Danh sách đơn hàng'
+          action={
+            <Button
+              variant='contained'
+              color='primary'
+              onClick={() => {
+                setUpdateResults([])
+                setQuickUpdateStatus('')
+                setIsQuickUpdateDialogOpen(true)
+              }}
+              disabled={selectedOrders.length === 0}
+              startIcon={<IconifyIcon icon='mdi:update' />}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 500,
+                borderRadius: 2
+              }}
+            >
+              Cập nhật nhanh ({selectedOrders.length})
+            </Button>
+          }
+        />
         <CardContent>
           <TableContainer>
             <Table sx={{ minWidth: 1100 }}>
@@ -550,10 +530,22 @@ const OrderManagementPage: NextPage = () => {
                   </TableCell>
                   <TableCell
                     sx={{
+                      width: 60,
+                      minWidth: 60,
+                      position: 'sticky',
+                      left: 48,
+                      zIndex: 2,
+                      backgroundColor: 'background.paper'
+                    }}
+                  >
+                    STT
+                  </TableCell>
+                  <TableCell
+                    sx={{
                       width: 120,
                       minWidth: 120,
                       position: 'sticky',
-                      left: 48,
+                      left: 108,
                       zIndex: 2,
                       backgroundColor: 'background.paper'
                     }}
@@ -582,7 +574,7 @@ const OrderManagementPage: NextPage = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align='center' sx={{ py: 4 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                         <IconifyIcon icon='mdi:loading' className='animate-spin' />
                         Đang tải dữ liệu...
@@ -591,12 +583,12 @@ const OrderManagementPage: NextPage = () => {
                   </TableRow>
                 ) : paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align='center' sx={{ py: 4 }}>
                       Không có đơn hàng nào
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedData.map(order => (
+                  paginatedData.map((order, index) => (
                     <TableRow key={order.id} hover sx={{ cursor: 'pointer' }} onClick={() => viewOrderDetail(order)}>
                       <TableCell
                         padding='checkbox'
@@ -610,11 +602,36 @@ const OrderManagementPage: NextPage = () => {
                       </TableCell>
                       <TableCell
                         sx={{
+                          width: 60,
+                          minWidth: 60,
+                          maxWidth: 60,
+                          position: 'sticky',
+                          left: 48,
+                          zIndex: 1,
+                          backgroundColor: 'background.paper'
+                        }}
+                      >
+                        <Typography
+                          variant='caption'
+                          fontWeight={600}
+                          sx={{
+                            fontSize: '0.7rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block'
+                          }}
+                        >
+                          {(page - 1) * pageSize + index + 1}
+                        </Typography>
+                      </TableCell>
+                      <TableCell
+                        sx={{
                           width: 120,
                           minWidth: 120,
                           maxWidth: 120,
                           position: 'sticky',
-                          left: 48,
+                          left: 108,
                           zIndex: 1,
                           backgroundColor: 'background.paper'
                         }}

@@ -33,7 +33,7 @@ export const CONFIG_API = {
   },
   DISCOUNT: {
     INDEX: `${BASE_URL}/discounts`,
-    GET_DISCOUNTS: `${BASE_URL}/discounts/get-discounts`,
+    GET_DISCOUNTS: `${BASE_URL}/discounts`,
     CREATE_DISCOUNT: `${BASE_URL}/discounts/create-discount`
   },
   CATEGORY: {

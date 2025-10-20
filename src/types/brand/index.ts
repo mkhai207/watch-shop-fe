@@ -31,8 +31,11 @@ export type TUpdateBrand = {
 
 export type GetBrandsResponse = {
   brands: {
-    count: number
-    rows: TBrand[]
+    page: number
+    limit: number
+    totalItems: number
+    totalPages: number
+    items: TBrand[]
   }
 }
 
