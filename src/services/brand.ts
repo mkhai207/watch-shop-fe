@@ -1,10 +1,11 @@
 import instanceAxios from 'src/helpers/axios'
 import { CONFIG_API } from 'src/configs/api'
 import { TCreateBrand, TUpdateBrand } from 'src/types/brand'
+import axios from 'axios'
 
 export const getBrands = async () => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.BRAND.INDEX}`)
+    const res = await axios.get(`${CONFIG_API.BRAND.INDEX}`)
 
     return res.data
   } catch (error) {
@@ -56,7 +57,8 @@ export const deleteBrand = async (id: string) => {
 
 export const getBrandById = async (id: string) => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.BRAND.INDEX}/${id}`)
+    const res = await axios.get(`${CONFIG_API.BRAND.INDEX}/${id}`)
+
     return res.data
   } catch (error) {
     return error

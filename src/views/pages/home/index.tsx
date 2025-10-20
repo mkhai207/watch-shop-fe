@@ -60,9 +60,7 @@ const HomePage: NextPage<TProps> = () => {
       const rows: TBrand[] = response?.brands?.rows || []
       const visible = rows.filter(item => item.del_flag !== '1')
       setBrands(visible.length ? visible : rows)
-    } catch (error: any) {
-      // silent fail to avoid blocking homepage
-    }
+    } catch (error: any) {}
   }
 
   const handleGetWatches = async () => {
@@ -86,9 +84,7 @@ const HomePage: NextPage<TProps> = () => {
           currentPage: response.data.currentPage || 1
         })
       }
-    } catch (error: any) {
-      // Silent fail for recommendation API
-    }
+    } catch (error: any) {}
   }
 
   useEffect(() => {
@@ -103,7 +99,6 @@ const HomePage: NextPage<TProps> = () => {
     }
   }, [user?.id])
 
-  // Auto-advance brands carousel by 1, loop infinitely (smooth)
   useEffect(() => {
     const len = brands?.length || 0
     if (len <= 1) return
@@ -117,7 +112,6 @@ const HomePage: NextPage<TProps> = () => {
     return () => clearInterval(timer)
   }, [brands, brandAutoPausedUntil])
 
-  // Auto-advance watches carousel by 1, loop infinitely (smooth)
   useEffect(() => {
     const len = watches?.length || 0
     if (len <= 1) return

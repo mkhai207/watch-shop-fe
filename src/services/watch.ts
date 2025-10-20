@@ -13,7 +13,7 @@ import {
 
 export const getWatches = async () => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.WATCH.INDEX}`)
+    const res = await axios.get(`${CONFIG_API.WATCH.INDEX}`)
 
     return res.data as GetWatchesResponse
   } catch (error) {
@@ -35,7 +35,7 @@ export const createWatch = async (data: TCreateWatch) => {
 
 export const getWatchById = async (id: string) => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.WATCH.INDEX}/${id}`)
+    const res = await axios.get(`${CONFIG_API.WATCH.INDEX}/${id}`)
 
     return res.data as GetWatchResponse
   } catch (error) {
@@ -81,7 +81,7 @@ export const createWatchVariant = async (data: CreateWatchVariant) => {
 
 export const getWatchVariants = async () => {
   try {
-    const res = await instanceAxios.get(`${CONFIG_API.WATCH_VARIANT.INDEX}`)
+    const res = await axios.get(`${CONFIG_API.WATCH_VARIANT.INDEX}`)
 
     return res.data as { variants: { count: number; rows: any[] } }
   } catch (error) {
