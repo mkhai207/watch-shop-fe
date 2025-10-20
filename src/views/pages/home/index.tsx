@@ -57,7 +57,7 @@ const HomePage: NextPage<TProps> = () => {
   const handleGetBrands = async () => {
     try {
       const response = await getBrands()
-      const rows: TBrand[] = response?.brands?.rows || []
+      const rows: TBrand[] = response?.brands?.items || []
       const visible = rows.filter(item => item.del_flag !== '1')
       setBrands(visible.length ? visible : rows)
     } catch (error: any) {}

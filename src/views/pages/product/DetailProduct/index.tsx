@@ -195,16 +195,16 @@ const DetailProductPage: NextPage<TProps> = () => {
         if (colorsRes.ok) {
           const data = await colorsRes.json()
           console.log('Colors API response:', data)
-          console.log('All colors from API:', data?.colors?.rows)
+          console.log('All colors from API:', data?.colors?.items)
           console.log(
             'Color IDs from API:',
-            data?.colors?.rows?.map((r: any) => ({ id: r.id, type: typeof r.id }))
+            data?.colors?.items?.map((r: any) => ({ id: r.id, type: typeof r.id }))
           )
 
-          const rows = (data?.colors?.rows || []).filter((r: any) => uniqueColorIds.includes(String(r.id)))
+          const rows = (data?.colors?.items || []).filter((r: any) => uniqueColorIds.includes(String(r.id)))
 
           if (rows.length === 0) {
-            const allColors = data?.colors?.rows || []
+            const allColors = data?.colors?.items || []
             setColorOptions(allColors.map((r: any) => ({ id: String(r.id), name: r.name, hex_code: r.hex_code })))
           } else {
             setColorOptions(rows.map((r: any) => ({ id: String(r.id), name: r.name, hex_code: r.hex_code })))

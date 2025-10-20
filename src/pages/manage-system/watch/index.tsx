@@ -233,10 +233,10 @@ const WatchPage: NextPage = () => {
         getColors(),
         getStrapMaterials()
       ])
-      setBrands((b as any)?.brands?.rows || [])
-      setCategories((c as any)?.categorys?.rows || [])
+      setBrands((b as any)?.brands?.items || [])
+      setCategories((c as any)?.categorys?.items || [])
       setMovementTypes((m as any)?.movementTypes?.rows || [])
-      setColors((cl as any)?.colors?.rows || [])
+      setColors((cl as any)?.colors?.items || [])
       setStrapMaterials((sm as any)?.strapMaterials?.rows || [])
     } catch {}
   }
@@ -251,7 +251,7 @@ const WatchPage: NextPage = () => {
       const allItems = watchData?.items || watchData?.rows || []
       setItems(allItems)
 
-      const vrows = (vRes as any)?.variants?.rows || []
+      const vrows = (vRes as any)?.variants?.items || []
       const counts: Record<string, number> = {}
       vrows.forEach((v: any) => {
         const id = String(v.watch_id)
@@ -502,7 +502,7 @@ const WatchPage: NextPage = () => {
         if (viewingWatch && String(viewingWatch.id) === createdWatchId) {
           const [wRes, vRes] = await Promise.all([getWatchById(createdWatchId), getWatchVariants()])
           setViewingWatch(((wRes as any)?.watch || viewingWatch) as any)
-          const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+          const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
           setViewVariants(all.filter(i => String(i.watch_id) === createdWatchId))
         }
       } else {
@@ -599,7 +599,7 @@ const WatchPage: NextPage = () => {
                           setActionLoading(true)
                           const [wRes, vRes] = await Promise.all([getWatchById(String(row.id)), getWatchVariants()])
                           setViewingWatch((wRes as any)?.watch || row)
-                          const all = ((vRes as any)?.variants?.rows || []) as any[]
+                          const all = ((vRes as any)?.variants?.items || []) as any[]
                           setViewVariants(all.filter(v => String(v.watch_id) === String(row.id)) as any)
                           setOpenViewWatch(true)
                         } finally {
@@ -1146,7 +1146,7 @@ const WatchPage: NextPage = () => {
                 toast.success('Cập nhật biến thể thành công')
                 setOpenEditVariant(false)
                 const vRes = await getWatchVariants()
-                const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+                const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
                 if (viewingWatch) setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch?.id)))
               } catch (e: any) {
                 toast.error(e?.message || 'Cập nhật thất bại')
@@ -1326,7 +1326,7 @@ const WatchPage: NextPage = () => {
                                 await deleteWatchVariant(String(v.id))
                                 toast.success('Đã xóa biến thể')
                                 const vRes = await getWatchVariants()
-                                const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+                                const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
                                 if (viewingWatch)
                                   setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch?.id)))
                               } catch (e: any) {

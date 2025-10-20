@@ -157,8 +157,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const handleLoadBrands = async () => {
     try {
       const response = await getBrands()
-      if (response && response.brands && response.brands.rows) {
-        setBrands(response.brands.rows)
+      if (response && response.brands && response.brands.items) {
+        setBrands(response.brands.items)
       }
     } catch (error) {
       console.error('Error loading brands:', error)
@@ -168,8 +168,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const handleLoadCategories = async () => {
     try {
       const response = await getCategories()
-      if (response && response.categories && response.categories.rows) {
-        setCategories(response.categories.rows)
+      if (response && response.categories && response.categories.items) {
+        setCategories(response.categories.items)
       }
     } catch (error) {
       console.error('Error loading categories:', error)
