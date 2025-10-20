@@ -21,15 +21,12 @@ import {
   Typography
 } from '@mui/material'
 import Avatar from '@mui/material/Avatar'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
 import Chip from '@mui/material/Chip'
 import { Card, CardContent } from '@mui/material'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
-import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryById } from 'src/services/category'
@@ -44,12 +41,14 @@ import { uploadImage } from 'src/services/file'
 import Spinner from 'src/components/spinner'
 import { formatCompactVN } from 'src/utils/date'
 import toast from 'react-hot-toast'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import CustomPagination from 'src/components/custom-pagination'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 
 const CategoryPage: NextPage = () => {
   const [categories, setCategories] = useState<TCategory[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
-  const [search, setSearch] = useState<string>('')
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [selected, setSelected] = useState<TCategory | null>(null)
@@ -57,6 +56,50 @@ const CategoryPage: NextPage = () => {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [descriptionInput, setDescriptionInput] = useState<string>('')
+
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+
+  const filterConfig: FilterConfig = React.useMemo(() => {
+    return {
+      searchFields: [{ key: 'name', label: 'Tên danh mục', type: 'string' }],
+      filterFields: [
+        {
+          key: 'del_flag',
+          label: 'Trạng thái',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '0', label: 'Hoạt động' },
+            { value: '1', label: 'Đã xóa' }
+          ]
+        }
+      ],
+      sortOptions: [
+        { value: 'name_asc', label: 'Tên A-Z' },
+        { value: 'name_desc', label: 'Tên Z-A' },
+        { value: 'created_at_desc', label: 'Mới nhất' },
+        { value: 'created_at_asc', label: 'Cũ nhất' }
+      ],
+      dateRangeFields: [
+        { key: 'created_at', label: 'Ngày tạo' },
+        { key: 'updated_at', label: 'Ngày cập nhật' }
+      ]
+    }
+  }, [])
+
+  const {
+    values: filterValues,
+    setValues: setFilterValues,
+    reset: resetFilter
+  } = useAdvancedFilter({
+    config: filterConfig,
+    initialValues: {
+      search: '',
+      filters: {},
+      sort: 'created_at_desc'
+    }
+  })
 
   const totalCategories = categories.length
   const totalProducts = 0
@@ -68,7 +111,8 @@ const CategoryPage: NextPage = () => {
     try {
       const res = await getCategories()
       const data = res as GetCategorysResponse
-      setCategories(data?.categorys?.rows || [])
+      const allCategories = data?.categorys?.items || []
+      setCategories(allCategories)
     } catch (err: any) {
       toast.error(err?.message || 'Lỗi tải dữ liệu')
     } finally {
@@ -80,20 +124,66 @@ const CategoryPage: NextPage = () => {
     fetchData()
   }, [])
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deleted'>('all')
   const filtered = useMemo(() => {
-    const bySearch = categories.filter(c => {
-      if (!search) return true
-      const lower = search.toLowerCase().trim()
-      return c.name.toLowerCase().includes(lower) || c.id.toLowerCase().includes(lower)
+    let result = [...categories]
+
+    if (filterValues.search) {
+      const searchLower = filterValues.search.toLowerCase().trim()
+      result = result.filter(c => c.name.toLowerCase().includes(searchLower))
+    }
+
+    Object.entries(filterValues.filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '' && value !== null) {
+        if (key === 'del_flag') {
+          result = result.filter(c => c.del_flag === value)
+        }
+      }
     })
-    const byStatus = bySearch.filter(c => {
-      if (statusFilter === 'all') return true
-      const deleted = c.del_flag === '1'
-      return statusFilter === 'deleted' ? deleted : !deleted
-    })
-    return byStatus
-  }, [categories, search, statusFilter])
+
+    if (filterValues.sort) {
+      const [field, direction] = filterValues.sort.split('_')
+      result.sort((a, b) => {
+        let aValue: any
+        let bValue: any
+
+        switch (field) {
+          case 'name':
+            aValue = a.name?.toLowerCase() || ''
+            bValue = b.name?.toLowerCase() || ''
+            break
+          case 'created':
+            aValue = new Date(a.created_at || 0)
+            bValue = new Date(b.created_at || 0)
+            break
+          default:
+            aValue = a.name?.toLowerCase() || ''
+            bValue = b.name?.toLowerCase() || ''
+        }
+
+        if (direction === 'desc') {
+          return aValue < bValue ? 1 : -1
+        }
+
+        return aValue > bValue ? 1 : -1
+      })
+    }
+
+    return result
+  }, [categories, filterValues])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+
+    return filtered.slice(startIndex, endIndex)
+  }, [filtered, page, pageSize])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+
+  const handleChangePagination = (newPage: number, newPageSize: number) => {
+    setPage(newPage)
+    setPageSize(newPageSize)
+  }
 
   const handleOpenCreate = () => {
     setNameInput('')
@@ -294,31 +384,14 @@ const CategoryPage: NextPage = () => {
         </Grid>
       </Grid>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mb: 3 }}>
-        <Stack direction='row' spacing={2}>
-          <TextField
-            size='small'
-            placeholder='Tìm theo tên hoặc ID...'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: (<SearchIcon fontSize='small' />) as any }}
-            sx={{ maxWidth: 360 }}
-          />
-          <Select
-            size='small'
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value='all'>Tất cả trạng thái</MenuItem>
-            <MenuItem value='active'>Hoạt động</MenuItem>
-            <MenuItem value='deleted'>Đã xóa</MenuItem>
-          </Select>
-          <Button variant='outlined' onClick={fetchData} disabled={loading}>
-            Làm mới
-          </Button>
-        </Stack>
-      </Paper>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        config={filterConfig}
+        values={filterValues}
+        onChange={setFilterValues}
+        onReset={resetFilter}
+        loading={loading}
+      />
 
       <TableContainer
         component={Paper}
@@ -328,7 +401,17 @@ const CategoryPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90}>ID</TableCell>
+              <TableCell
+                width={80}
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  backgroundColor: 'background.paper'
+                }}
+              >
+                STT
+              </TableCell>
               <TableCell width={80}>Ảnh</TableCell>
               <TableCell>Tên phân loại</TableCell>
               <TableCell>Mô tả</TableCell>
@@ -339,9 +422,19 @@ const CategoryPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(category => (
+            {paginatedData.map((category, index) => (
               <TableRow key={category.id} hover sx={{ opacity: category.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{category.id}</TableCell>
+                <TableCell
+                  sx={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 1,
+                    backgroundColor: 'background.paper',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {(page - 1) * pageSize + index + 1}
+                </TableCell>
                 <TableCell>
                   <Avatar
                     src={category.image_url || undefined}
@@ -387,7 +480,7 @@ const CategoryPage: NextPage = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {paginatedData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
@@ -397,6 +490,18 @@ const CategoryPage: NextPage = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Custom Pagination */}
+      <Box sx={{ mt: 3 }}>
+        <CustomPagination
+          page={page}
+          pageSize={pageSize}
+          rowLength={filtered.length}
+          totalPages={totalPages}
+          pageSizeOptions={PAGE_SIZE_OPTION}
+          onChangePagination={handleChangePagination}
+        />
+      </Box>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>

@@ -21,8 +21,11 @@ export type TUpdateColor = {
 
 export type GetColorsResponse = {
   colors: {
-    count: number
-    rows: TColor[]
+    page: number
+    limit: number
+    totalItems: number
+    totalPages: number
+    items: TColor[]
   }
 }
 

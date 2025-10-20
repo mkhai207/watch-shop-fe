@@ -1,15 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import type { NextPage } from 'next'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import {
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Grid,
   IconButton,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -18,69 +24,176 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Typography,
-  MenuItem,
-  Select,
-  Chip
+  Typography
 } from '@mui/material'
-import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import Spinner from 'src/components/spinner'
+import type { NextPage } from 'next'
+import React, { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { formatCompactVN } from 'src/utils/date'
-import {
-  getWatches,
-  createWatch,
-  getWatchById,
-  createWatchVariant,
-  getWatchVariants,
-  updateWatch,
-  updateWatchVariant,
-  deleteWatchVariant
-} from 'src/services/watch'
-import type {
-  TWatch,
-  TWatchVariant,
-  TCreateWatch,
-  CreateWatchVariant,
-  GetWatchesResponse,
-  GetWatchResponse
-} from 'src/types/watch'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import CustomPagination from 'src/components/custom-pagination'
+import Spinner from 'src/components/spinner'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { getBrands } from 'src/services/brand'
 import { getCategories } from 'src/services/category'
-import { getMovementTypes } from 'src/services/movementType'
 import { getColors } from 'src/services/color'
+import { uploadImage, uploadMultipleImages } from 'src/services/file'
+import { getMovementTypes } from 'src/services/movementType'
 import { getStrapMaterials } from 'src/services/strapMaterial'
+import {
+  createWatch,
+  createWatchVariant,
+  deleteWatchVariant,
+  getWatchById,
+  getWatches,
+  getWatchVariants,
+  updateWatch,
+  updateWatchVariant
+} from 'src/services/watch'
 import type { TBrand } from 'src/types/brand'
 import type { TCategory } from 'src/types/category/manage'
-import type { TMovementType } from 'src/types/movementType'
 import type { TColor } from 'src/types/color'
+import type { TMovementType } from 'src/types/movementType'
 import type { TStrapMaterial } from 'src/types/strapMaterial'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import AddIcon from '@mui/icons-material/Add'
-import VisibilityIcon from '@mui/icons-material/Visibility'
-import SearchIcon from '@mui/icons-material/Search'
-import { uploadImage, uploadMultipleImages } from 'src/services/file'
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
+import type {
+  CreateWatchVariant,
+  GetWatchesResponse,
+  GetWatchResponse,
+  TCreateWatch,
+  TWatch,
+  TWatchVariant
+} from 'src/types/watch'
+import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 
 const WatchPage: NextPage = () => {
   const [items, setItems] = useState<TWatch[]>([])
   const [variantCountByWatchId, setVariantCountByWatchId] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [openCreate, setOpenCreate] = useState(false)
-  const [openView, setOpenView] = useState(false)
   const [selected, setSelected] = useState<TWatch | null>(null)
 
-  // Master data
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+
   const [brands, setBrands] = useState<TBrand[]>([])
   const [categories, setCategories] = useState<TCategory[]>([])
   const [movementTypes, setMovementTypes] = useState<TMovementType[]>([])
   const [colors, setColors] = useState<TColor[]>([])
   const [strapMaterials, setStrapMaterials] = useState<TStrapMaterial[]>([])
 
-  // Create form
+  const filterConfig: FilterConfig = React.useMemo(() => {
+    return {
+      searchFields: [
+        { key: 'name', label: 'Tên đồng hồ', type: 'string' },
+        { key: 'code', label: 'Mã đồng hồ', type: 'string' }
+      ],
+      filterFields: [
+        {
+          key: 'brand_id',
+          label: 'Thương hiệu',
+          type: 'select',
+          operator: 'eq',
+          options: brands
+            .filter(b => b.del_flag !== '1')
+            .map(brand => ({
+              value: String(brand.id),
+              label: brand.name
+            }))
+        },
+        {
+          key: 'category_id',
+          label: 'Phân loại',
+          type: 'select',
+          operator: 'eq',
+          options: categories
+            .filter(c => c.del_flag !== '1')
+            .map(category => ({
+              value: String(category.id),
+              label: category.name
+            }))
+        },
+        {
+          key: 'movement_type_id',
+          label: 'Loại máy',
+          type: 'select',
+          operator: 'eq',
+          options: movementTypes
+            .filter(m => m.del_flag !== '1')
+            .map(movementType => ({
+              value: String(movementType.id),
+              label: movementType.name
+            }))
+        },
+        {
+          key: 'gender',
+          label: 'Giới tính',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '0', label: 'Nam' },
+            { value: '1', label: 'Nữ' }
+          ]
+        },
+        {
+          key: 'status',
+          label: 'Trạng thái',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '1', label: 'Đang bán' },
+            { value: '0', label: 'Ngừng bán' }
+          ]
+        },
+        {
+          key: 'base_price_min',
+          label: 'Giá từ (VNĐ)',
+          type: 'number',
+          operator: 'gte'
+        },
+        {
+          key: 'base_price_max',
+          label: 'Giá đến (VNĐ)',
+          type: 'number',
+          operator: 'lte'
+        }
+      ],
+      sortOptions: [
+        { value: 'name:asc', label: 'Tên A-Z' },
+        { value: 'name:desc', label: 'Tên Z-A' },
+        { value: 'base_price:asc', label: 'Giá thấp đến cao' },
+        { value: 'base_price:desc', label: 'Giá cao đến thấp' },
+        { value: 'created_at:desc', label: 'Mới nhất' },
+        { value: 'created_at:asc', label: 'Cũ nhất' }
+      ],
+      dateRangeFields: [
+        { key: 'created_at', label: 'Ngày tạo' },
+        { key: 'release_date', label: 'Ngày ra mắt' }
+      ]
+    }
+  }, [brands, categories, movementTypes])
+
+  const {
+    values: filterValues,
+    setValues: setFilterValues,
+    reset: resetFilters
+  } = useAdvancedFilter({
+    config: filterConfig,
+    initialValues: {
+      sort: 'created_at:desc'
+    }
+  })
+
+  const handleFilterChange = React.useCallback(
+    (newValues: typeof filterValues) => {
+      setFilterValues(newValues)
+    },
+    [setFilterValues]
+  )
+
+  const handleFilterReset = React.useCallback(() => {
+    resetFilters()
+  }, [resetFilters])
+
   const [form, setForm] = useState<TCreateWatch>({
     code: '',
     name: '',
@@ -133,7 +246,11 @@ const WatchPage: NextPage = () => {
     try {
       const [wRes, vRes] = await Promise.all([getWatches(), getWatchVariants()])
       const data = wRes as GetWatchesResponse
-      setItems((data as any)?.watches?.items || [])
+      const watchData = (data as any)?.watches
+
+      const allItems = watchData?.items || watchData?.rows || []
+      setItems(allItems)
+
       const vrows = (vRes as any)?.variants?.rows || []
       const counts: Record<string, number> = {}
       vrows.forEach((v: any) => {
@@ -153,17 +270,71 @@ const WatchPage: NextPage = () => {
     fetchData()
   }, [])
 
-  const filtered = useMemo(() => {
-    const lower = search.toLowerCase().trim()
-    return items.filter(it => {
-      if (!lower) return true
-      return (
-        it.name.toLowerCase().includes(lower) ||
-        it.code.toLowerCase().includes(lower) ||
-        String(it.id).toLowerCase().includes(lower)
-      )
+  useEffect(() => {
+    setPage(1)
+  }, [filterValues.search, filterValues.filters])
+
+  const { filteredData, paginatedData } = useMemo(() => {
+    const searchTerm = (filterValues.search || '').toLowerCase().trim()
+
+    const filtered = items.filter(it => {
+      // Text search
+      if (searchTerm) {
+        const matchesSearch =
+          it.name.toLowerCase().includes(searchTerm) ||
+          it.code.toLowerCase().includes(searchTerm) ||
+          String(it.id).toLowerCase().includes(searchTerm)
+        if (!matchesSearch) return false
+      }
+
+      // Filter conditions
+      const filters = filterValues.filters || {}
+
+      if (filters.brand_id && String(it.brand_id) !== String(filters.brand_id)) return false
+      if (filters.category_id && String(it.category_id) !== String(filters.category_id)) return false
+      if (filters.movement_type_id && String(it.movement_type_id) !== String(filters.movement_type_id)) return false
+      if (filters.gender && String(it.gender) !== String(filters.gender)) return false
+      if (filters.status && String(it.status ? '1' : '0') !== String(filters.status)) return false
+
+      if (filters.base_price_min && Number(it.base_price) < Number(filters.base_price_min)) return false
+      if (filters.base_price_max && Number(it.base_price) > Number(filters.base_price_max)) return false
+
+      return true
     })
-  }, [items, search])
+
+    // Apply sorting
+    const sortedData = [...filtered]
+    if (filterValues.sort) {
+      const [field, direction] = filterValues.sort.split(':')
+      sortedData.sort((a: any, b: any) => {
+        let valueA = a[field]
+        let valueB = b[field]
+
+        if (field === 'base_price') {
+          valueA = Number(valueA) || 0
+          valueB = Number(valueB) || 0
+        } else if (typeof valueA === 'string') {
+          valueA = valueA.toLowerCase()
+          valueB = valueB.toLowerCase()
+        }
+
+        if (direction === 'desc') {
+          return valueA < valueB ? 1 : valueA > valueB ? -1 : 0
+        } else {
+          return valueA > valueB ? 1 : valueA < valueB ? -1 : 0
+        }
+      })
+    }
+
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const paginated = sortedData.slice(startIndex, endIndex)
+
+    return {
+      filteredData: sortedData,
+      paginatedData: paginated
+    }
+  }, [items, filterValues.search, filterValues.filters, filterValues.sort, page, pageSize])
 
   const resetForm = () => {
     setForm({
@@ -326,9 +497,7 @@ const WatchPage: NextPage = () => {
       if ((res as any)?.variant?.id) {
         toast.success('Thêm biến thể thành công')
         setOpenVariants(false)
-        // Refresh main list counts
         fetchData()
-        // If viewing this watch details, refresh its info and variants list
         const createdWatchId = String(variantNew.watch_id)
         if (viewingWatch && String(viewingWatch.id) === createdWatchId) {
           const [wRes, vRes] = await Promise.all([getWatchById(createdWatchId), getWatchVariants()])
@@ -344,6 +513,11 @@ const WatchPage: NextPage = () => {
     } finally {
       setActionLoading(false)
     }
+  }
+
+  const handleOnchangePagination = (page: number, pageSize: number) => {
+    setPage(page)
+    setPageSize(pageSize)
   }
 
   return (
@@ -365,21 +539,15 @@ const WatchPage: NextPage = () => {
         </Button>
       </Stack>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mb: 3 }}>
-        <Stack direction='row' spacing={2}>
-          <TextField
-            size='small'
-            placeholder='Tìm theo tên, mã hoặc ID...'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: (<SearchIcon fontSize='small' />) as any }}
-            sx={{ maxWidth: 360 }}
-          />
-          <Button variant='outlined' onClick={fetchData} disabled={loading}>
-            Làm mới
-          </Button>
-        </Stack>
-      </Paper>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        config={filterConfig}
+        values={filterValues}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
+        loading={loading}
+        compact={false}
+      />
 
       <TableContainer
         component={Paper}
@@ -389,7 +557,7 @@ const WatchPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90}>ID</TableCell>
+              <TableCell width={90}>STT</TableCell>
               <TableCell width={160}>Mã</TableCell>
               <TableCell>Tên</TableCell>
               <TableCell width={140}>Giá cơ bản</TableCell>
@@ -402,9 +570,9 @@ const WatchPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(row => (
+            {paginatedData.map((row, index) => (
               <TableRow key={row.id} hover sx={{ opacity: row.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.id}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{(page - 1) * pageSize + index + 1}</TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>{row.code}</TableCell>
                 <TableCell>{row.name}</TableCell>
                 <TableCell>{(row.base_price || 0).toLocaleString('vi-VN')}</TableCell>
@@ -485,15 +653,26 @@ const WatchPage: NextPage = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {paginatedData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align='center'>
+                <TableCell colSpan={8} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        <Box sx={{ mt: 4, mb: 4, width: '100%' }} display='flex' justifyContent='center' alignItems='center'>
+          <CustomPagination
+            onChangePagination={handleOnchangePagination}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            pageSize={pageSize}
+            totalPages={Math.ceil(filteredData.length / pageSize)}
+            page={page}
+            rowLength={filteredData.length}
+            isHideShowed={false}
+          />
+        </Box>
       </TableContainer>
 
       {/* Create Watch */}
@@ -1447,6 +1626,7 @@ const WatchPage: NextPage = () => {
               if (!selected) return
               try {
                 setActionLoading(true)
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { variants, ...rest } = editForm as any
                 const payload = {
                   ...rest,

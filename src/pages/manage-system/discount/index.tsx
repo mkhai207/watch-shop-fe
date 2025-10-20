@@ -26,12 +26,14 @@ import {
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
-import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import Spinner from 'src/components/spinner'
 import toast from 'react-hot-toast'
 import { formatCompactVN } from 'src/utils/date'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import CustomPagination from 'src/components/custom-pagination'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import {
   v1CreateDiscount,
   v1DeleteDiscount,
@@ -39,42 +41,94 @@ import {
   v1GetDiscounts,
   v1UpdateDiscount,
   type TV1CreateDiscountReq,
-  type TV1Discount,
-  type TV1ListResponse
+  type TV1Discount
 } from 'src/services/discount'
 
 const DiscountPage: NextPage = () => {
-  // Convert between compact yyyyMMddHHmmss and input date YYYY-MM-DD (default HHmmss=000000)
   const compactToDateStr = (compact?: string): string => {
     if (!compact || compact.length < 8) return ''
     const s = String(compact)
+
     return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
   }
   const dateStrToCompact = (dateStr?: string): string => {
     if (!dateStr) return ''
     const s = dateStr.replaceAll('-', '')
     if (s.length !== 8) return ''
+
     return `${s}000000`
   }
   const [items, setItems] = useState<TV1Discount[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
-  const [search, setSearch] = useState<string>('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deleted'>('all')
 
-  const [page, setPage] = useState<number>(1)
-  const [limit, setLimit] = useState<number>(10)
-  const [totalPages, setTotalPages] = useState<number>(1)
-  const [totalItems, setTotalItems] = useState<number>(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+
+  const filterConfig: FilterConfig = React.useMemo(() => {
+    return {
+      searchFields: [
+        { key: 'name', label: 'Tên khuyến mãi', type: 'string' },
+        { key: 'code', label: 'Mã khuyến mãi', type: 'string' }
+      ],
+      filterFields: [
+        {
+          key: 'discount_type',
+          label: 'Loại khuyến mãi',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '0', label: 'Cố định' },
+            { value: '1', label: 'Phần trăm' }
+          ]
+        },
+        {
+          key: 'del_flag',
+          label: 'Trạng thái',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '0', label: 'Hoạt động' },
+            { value: '1', label: 'Đã xóa' }
+          ]
+        }
+      ],
+      sortOptions: [
+        { value: 'name_asc', label: 'Tên A-Z' },
+        { value: 'name_desc', label: 'Tên Z-A' },
+        { value: 'code_asc', label: 'Mã A-Z' },
+        { value: 'code_desc', label: 'Mã Z-A' },
+        { value: 'created_at_desc', label: 'Mới nhất' },
+        { value: 'created_at_asc', label: 'Cũ nhất' }
+      ],
+      dateRangeFields: [
+        { key: 'created_at', label: 'Ngày tạo' },
+        { key: 'updated_at', label: 'Ngày cập nhật' },
+        { key: 'effective_date', label: 'Ngày bắt đầu' },
+        { key: 'valid_until', label: 'Ngày kết thúc' }
+      ]
+    }
+  }, [])
+
+  const {
+    values: filterValues,
+    setValues: setFilterValues,
+    reset: resetFilter
+  } = useAdvancedFilter({
+    config: filterConfig,
+    initialValues: {
+      search: '',
+      filters: {},
+      sort: 'created_at_desc'
+    }
+  })
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = (await v1GetDiscounts({ page, limit })) as TV1ListResponse
-      const data = res?.discounts
-      setItems(data?.items || [])
-      setTotalPages(data?.totalPages || 1)
-      setTotalItems(data?.totalItems || 0)
+      const response = await v1GetDiscounts()
+      const allDiscounts = response?.discounts?.items || []
+      setItems(allDiscounts)
     } catch (err: any) {
       toast.error(err?.message || 'Lỗi tải dữ liệu')
     } finally {
@@ -84,28 +138,77 @@ const DiscountPage: NextPage = () => {
 
   useEffect(() => {
     fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit])
+  }, [])
 
   const filtered = useMemo(() => {
-    const bySearch = items.filter(d => {
-      if (!search) return true
-      const lower = search.toLowerCase().trim()
-      return (
-        d.code.toLowerCase().includes(lower) ||
-        d.name.toLowerCase().includes(lower) ||
-        d.id.toLowerCase().includes(lower)
-      )
-    })
-    const byStatus = bySearch.filter(d => {
-      if (statusFilter === 'all') return true
-      const deleted = d.del_flag === '1'
-      return statusFilter === 'deleted' ? deleted : !deleted
-    })
-    return byStatus
-  }, [items, search, statusFilter])
+    let result = [...items]
 
-  // Create state
+    if (filterValues.search) {
+      const searchLower = filterValues.search.toLowerCase().trim()
+      result = result.filter(
+        d => (d.name && d.name.toLowerCase().includes(searchLower)) || d.code.toLowerCase().includes(searchLower)
+      )
+    }
+
+    Object.entries(filterValues.filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '' && value !== null) {
+        if (key === 'discount_type') {
+          result = result.filter(d => d.discount_type === value)
+        } else if (key === 'del_flag') {
+          result = result.filter(d => (d as any).del_flag === value)
+        }
+      }
+    })
+
+    if (filterValues.sort) {
+      const [field, direction] = filterValues.sort.split('_')
+      result.sort((a, b) => {
+        let aValue: any
+        let bValue: any
+
+        switch (field) {
+          case 'name':
+            aValue = (a.name || '').toLowerCase()
+            bValue = (b.name || '').toLowerCase()
+            break
+          case 'code':
+            aValue = a.code.toLowerCase()
+            bValue = b.code.toLowerCase()
+            break
+          case 'created':
+            aValue = new Date(a.created_at || 0)
+            bValue = new Date(b.created_at || 0)
+            break
+          default:
+            aValue = (a.name || '').toLowerCase()
+            bValue = (b.name || '').toLowerCase()
+        }
+
+        if (direction === 'desc') {
+          return aValue < bValue ? 1 : -1
+        }
+
+        return aValue > bValue ? 1 : -1
+      })
+    }
+
+    return result
+  }, [items, filterValues])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+
+    return filtered.slice(startIndex, endIndex)
+  }, [filtered, page, pageSize])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+
+  const handleChangePagination = (newPage: number, newPageSize: number) => {
+    setPage(newPage)
+    setPageSize(newPageSize)
+  }
+
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [createForm, setCreateForm] = useState<TV1CreateDiscountReq>({
     code: '',
@@ -159,9 +262,8 @@ const DiscountPage: NextPage = () => {
     }
   }
 
-  // Edit state
   const [openEdit, setOpenEdit] = useState<boolean>(false)
-  const [selected, setSelected] = useState<TV1Discount | null>(null)
+  const [selected, setSelected] = useState<any>(null)
   const [editForm, setEditForm] = useState<Omit<TV1CreateDiscountReq, 'code'>>({
     name: '',
     description: '',
@@ -174,7 +276,7 @@ const DiscountPage: NextPage = () => {
   const [editEffectiveDate, setEditEffectiveDate] = useState<string>('')
   const [editValidUntil, setEditValidUntil] = useState<string>('')
 
-  const handleOpenEdit = async (item: TV1Discount) => {
+  const handleOpenEdit = async (item: any) => {
     try {
       setActionLoading(true)
       const res = await v1GetDiscountById(item.id)
@@ -220,7 +322,7 @@ const DiscountPage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (item: TV1Discount) => {
+  const handleDelete = async (item: any) => {
     if (!confirm(`Xóa khuyến mãi "${item.name}"?`)) return
     try {
       setActionLoading(true)
@@ -238,10 +340,9 @@ const DiscountPage: NextPage = () => {
     }
   }
 
-  // View state
   const [openView, setOpenView] = useState<boolean>(false)
-  const [viewing, setViewing] = useState<TV1Discount | null>(null)
-  const handleOpenView = async (item: TV1Discount) => {
+  const [viewing, setViewing] = useState<any>(null)
+  const handleOpenView = async (item: any) => {
     try {
       setActionLoading(true)
       const res = await v1GetDiscountById(item.id)
@@ -266,41 +367,14 @@ const DiscountPage: NextPage = () => {
         </Button>
       </Stack>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mb: 3 }}>
-        <Stack direction='row' spacing={2}>
-          <TextField
-            size='small'
-            placeholder='Tìm theo mã, tên hoặc ID...'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: (<SearchIcon fontSize='small' />) as any }}
-            sx={{ maxWidth: 360 }}
-          />
-          <Select
-            size='small'
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value='all'>Tất cả trạng thái</MenuItem>
-            <MenuItem value='active'>Hoạt động</MenuItem>
-            <MenuItem value='deleted'>Đã xóa</MenuItem>
-          </Select>
-          <Select size='small' value={limit} onChange={e => setLimit(Number(e.target.value))} sx={{ minWidth: 120 }}>
-            <MenuItem value={10}>10 / trang</MenuItem>
-            <MenuItem value={20}>20 / trang</MenuItem>
-            <MenuItem value={50}>50 / trang</MenuItem>
-          </Select>
-          <Button variant='outlined' onClick={fetchData} disabled={loading}>
-            Làm mới
-          </Button>
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
-            <Typography variant='body2' color='text.secondary'>
-              Tổng: {totalItems}
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        config={filterConfig}
+        values={filterValues}
+        onChange={setFilterValues}
+        onReset={resetFilter}
+        loading={loading}
+      />
 
       <TableContainer
         component={Paper}
@@ -310,7 +384,17 @@ const DiscountPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90}>ID</TableCell>
+              <TableCell
+                width={80}
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  backgroundColor: 'background.paper'
+                }}
+              >
+                STT
+              </TableCell>
               <TableCell width={160}>Mã</TableCell>
               <TableCell>Tên</TableCell>
               <TableCell>Mô tả</TableCell>
@@ -331,17 +415,29 @@ const DiscountPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(item => (
-              <TableRow key={item.id} hover sx={{ opacity: item.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.id}</TableCell>
+            {paginatedData.map((item, index) => (
+              <TableRow key={item.id} hover sx={{ opacity: (item as any).del_flag === '1' ? 0.6 : 1 }}>
+                <TableCell
+                  sx={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 1,
+                    backgroundColor: 'background.paper',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {(page - 1) * pageSize + index + 1}
+                </TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.code}</TableCell>
-                <TableCell sx={{ textDecoration: item.del_flag === '1' ? 'line-through' : 'none' }}>
+                <TableCell sx={{ textDecoration: (item as any).del_flag === '1' ? 'line-through' : 'none' }}>
                   {item.name}
                 </TableCell>
                 <TableCell sx={{ color: 'text.secondary' }}>{item.description || '-'}</TableCell>
-                <TableCell align='right'>{item.discount_type === '1' ? 'Tỷ lệ %' : 'Cố định'}</TableCell>
+                <TableCell align='right'>{item.discount_type === '1' ? 'Phần trăm' : 'Cố định'}</TableCell>
                 <TableCell align='right'>
-                  {item.discount_type === '1' ? `${item.discount_value}%` : item.discount_value.toLocaleString('vi-VN')}
+                  {item.discount_type === '1'
+                    ? `${item.discount_value}%`
+                    : Number(item.discount_value).toLocaleString('vi-VN')}
                 </TableCell>
                 <TableCell align='right'>{item.min_order_value?.toLocaleString('vi-VN')}</TableCell>
                 <TableCell>
@@ -357,7 +453,7 @@ const DiscountPage: NextPage = () => {
                   </Stack>
                 </TableCell>
                 <TableCell width={120}>
-                  {item.del_flag === '1' ? (
+                  {(item as any).del_flag === '1' ? (
                     <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
                   ) : (
                     <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
@@ -368,13 +464,17 @@ const DiscountPage: NextPage = () => {
                     <IconButton size='small' onClick={() => handleOpenView(item)}>
                       <VisibilityIcon fontSize='small' />
                     </IconButton>
-                    <IconButton size='small' disabled={item.del_flag === '1'} onClick={() => handleOpenEdit(item)}>
+                    <IconButton
+                      size='small'
+                      disabled={(item as any).del_flag === '1'}
+                      onClick={() => handleOpenEdit(item)}
+                    >
                       <EditIcon fontSize='small' />
                     </IconButton>
                     <IconButton
                       size='small'
                       color='error'
-                      disabled={item.del_flag === '1'}
+                      disabled={(item as any).del_flag === '1'}
                       onClick={() => handleDelete(item)}
                     >
                       <DeleteIcon fontSize='small' />
@@ -383,9 +483,9 @@ const DiscountPage: NextPage = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {paginatedData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} align='center'>
+                <TableCell colSpan={9} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
                 </TableCell>
               </TableRow>
@@ -394,17 +494,17 @@ const DiscountPage: NextPage = () => {
         </Table>
       </TableContainer>
 
-      <Stack direction='row' alignItems='center' justifyContent='space-between' sx={{ mt: 2 }}>
-        <Button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-          Trang trước
-        </Button>
-        <Typography>
-          Trang {page} / {totalPages}
-        </Typography>
-        <Button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
-          Trang sau
-        </Button>
-      </Stack>
+      {/* Custom Pagination */}
+      <Box sx={{ mt: 3 }}>
+        <CustomPagination
+          page={page}
+          pageSize={pageSize}
+          rowLength={filtered.length}
+          totalPages={totalPages}
+          pageSizeOptions={PAGE_SIZE_OPTION}
+          onChangePagination={handleChangePagination}
+        />
+      </Box>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='sm'>
@@ -639,7 +739,7 @@ const DiscountPage: NextPage = () => {
                   <Typography variant='subtitle2' color='text.secondary'>
                     Loại
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.discount_type === '1' ? 'Tỷ lệ %' : 'Cố định'}</Typography>
+                  <Typography sx={{ mt: 0.5 }}>{viewing.discount_type === '1' ? 'Phần trăm' : 'Cố định'}</Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant='subtitle2' color='text.secondary'>
@@ -648,7 +748,7 @@ const DiscountPage: NextPage = () => {
                   <Typography sx={{ mt: 0.5 }}>
                     {viewing.discount_type === '1'
                       ? `${viewing.discount_value}%`
-                      : viewing.discount_value.toLocaleString('vi-VN')}
+                      : Number(viewing.discount_value).toLocaleString('vi-VN')}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>

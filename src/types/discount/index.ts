@@ -29,6 +29,16 @@ export interface DiscountResponse {
   }
 }
 
+export interface GetDiscountsResponse {
+  discounts: {
+    page: number
+    limit: number
+    totalItems: number
+    totalPages: number
+    items: TDiscount[]
+  }
+}
+
 export interface NewDiscount {
   code: string
   name: string

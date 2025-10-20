@@ -56,7 +56,6 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [loading, setLoading] = useState(false)
   const [productDetail, setProductDetail] = useState<TProductDetail | null>(null)
   const [watchDetail, setWatchDetail] = useState<TWatch | null>(null)
-  // Variant selections for Watch detail
   const [selectedStrapId, setSelectedStrapId] = useState<string | null>(null)
   const [colorOptions, setColorOptions] = useState<{ id: string; name: string; hex_code?: string }[]>([])
   const [strapOptions, setStrapOptions] = useState<{ id: string; name: string }[]>([])
@@ -95,7 +94,6 @@ const DetailProductPage: NextPage<TProps> = () => {
     setTabValue(newValue)
   }
 
-  // Lọc sizes có sẵn cho color được chọn
   const getAvailableSizes = () => {
     if (!selectedColor || !productDetail?.variants) return []
 
@@ -110,7 +108,6 @@ const DetailProductPage: NextPage<TProps> = () => {
     return availableSizes
   }
 
-  // Lấy stock của size được chọn
   const getSelectedSizeStock = () => {
     if (!selectedColor || !selectedSize || !productDetail?.variants) return 0
 
@@ -119,13 +116,24 @@ const DetailProductPage: NextPage<TProps> = () => {
     return variant?.stock || 0
   }
 
-  // Handle color change
-  const handleColorChange = (colorId: string) => {
-    setSelectedColor(colorId)
-    setSelectedSize('') // Reset size khi đổi color for ProductDetail flow
+  const handleColorToggle = (colorId: string) => {
+    if (selectedColor === colorId) {
+      setSelectedColor(null)
+      setSelectedStrapId(null)
+    } else {
+      setSelectedColor(colorId)
+      setSelectedStrapId(null)
+    }
   }
 
-  // For Watch detail: map variants to color/strap options and set defaults
+  const handleStrapToggle = (strapId: string) => {
+    if (selectedStrapId === strapId) {
+      setSelectedStrapId(null)
+    } else {
+      setSelectedStrapId(strapId)
+    }
+  }
+
   useEffect(() => {
     const initLookups = async () => {
       if (!watchDetail) return
@@ -134,52 +142,116 @@ const DetailProductPage: NextPage<TProps> = () => {
           typeof window !== 'undefined'
             ? localStorage.getItem('accessToken') || localStorage.getItem('token') || ''
             : ''
-        const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-        const activeVariants = (watchDetail.variants || []).filter((v: any) => String(v.del_flag) !== '1')
-        const uniqueColorIds = Array.from(new Set(activeVariants.map((v: any) => v.color_id)))
-        const uniqueStrapIds = Array.from(new Set(activeVariants.map((v: any) => v.strap_material_id)))
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+
+        const watchWithVariants = watchDetail as any
+        const activeVariants = (watchWithVariants.variants || []).filter((v: any) => String(v.del_flag) !== '1')
+
+        const availableColors = activeVariants
+          .map((v: any) => v.color)
+          .filter((c: any) => c && c.id)
+          .reduce((acc: any[], color: any) => {
+            if (!acc.find(existing => existing.id === color.id)) {
+              acc.push(color)
+            }
+
+            return acc
+          }, [])
+
+        const availableStraps = activeVariants
+          .map((v: any) => v.strapMaterial)
+          .filter((s: any) => s && s.id)
+          .reduce((acc: any[], strap: any) => {
+            if (!acc.find(existing => existing.id === strap.id)) {
+              acc.push(strap)
+            }
+
+            return acc
+          }, [])
+        setColorOptions(
+          availableColors.map((c: any) => ({
+            id: String(c.id),
+            name: c.name,
+            hex_code: c.hex_code
+          }))
+        )
+
+        setStrapOptions(
+          availableStraps.map((s: any) => ({
+            id: String(s.id),
+            name: s.name
+          }))
+        )
+
+        setSelectedColor(null)
+        setSelectedStrapId(null)
 
         const [colorsRes, strapsRes] = await Promise.all([
           fetch('http://localhost:8080/v1/colors?page=1&limit=1000', { headers }),
           fetch('http://localhost:8080/v1/strap-materials?page=1&limit=1000', { headers })
         ])
+
         if (colorsRes.ok) {
           const data = await colorsRes.json()
-          const rows = (data?.colors?.rows || []).filter((r: any) => uniqueColorIds.includes(r.id))
-          setColorOptions(rows.map((r: any) => ({ id: r.id, name: r.name, hex_code: r.hex_code })))
-        }
-        if (strapsRes.ok) {
-          const data = await strapsRes.json()
-          const rows = (data?.strapMaterials?.rows || []).filter((r: any) => uniqueStrapIds.includes(r.id))
-          setStrapOptions(rows.map((r: any) => ({ id: r.id, name: r.name })))
+          console.log('Colors API response:', data)
+          console.log('All colors from API:', data?.colors?.rows)
+          console.log(
+            'Color IDs from API:',
+            data?.colors?.rows?.map((r: any) => ({ id: r.id, type: typeof r.id }))
+          )
+
+          const rows = (data?.colors?.rows || []).filter((r: any) => uniqueColorIds.includes(String(r.id)))
+
+          if (rows.length === 0) {
+            const allColors = data?.colors?.rows || []
+            setColorOptions(allColors.map((r: any) => ({ id: String(r.id), name: r.name, hex_code: r.hex_code })))
+          } else {
+            setColorOptions(rows.map((r: any) => ({ id: String(r.id), name: r.name, hex_code: r.hex_code })))
+          }
+        } else {
+          console.error('Failed to fetch colors:', colorsRes.status)
         }
 
-        // defaults from first variant
+        if (strapsRes.ok) {
+          const data = await strapsRes.json()
+          const rows = (data?.strapMaterials?.rows || []).filter((r: any) => uniqueStrapIds.includes(String(r.id)))
+          setStrapOptions(rows.map((r: any) => ({ id: String(r.id), name: r.name })))
+        } else {
+          console.error('Failed to fetch straps:', strapsRes.status)
+        }
+
         const first = activeVariants?.[0]
         if (first) {
-          setSelectedColor(first.color_id)
-          setSelectedStrapId(first.strap_material_id)
+          setSelectedColor(String(first.color_id))
+          setSelectedStrapId(String(first.strap_material_id))
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error in initLookups:', error)
+      }
     }
     initLookups()
   }, [watchDetail])
 
-  // When color changes, only show straps available with that color
   useEffect(() => {
-    if (!watchDetail) return
+    if (!watchDetail || !selectedColor) {
+      setFilteredStrapOptions(strapOptions)
+
+      return
+    }
+    const watchWithVariants = watchDetail as any
     const allowedIds = Array.from(
       new Set(
-        (watchDetail.variants || [])
-          .filter((v: any) => String(v.del_flag) !== '1' && v.color_id === selectedColor)
-          .map((v: any) => v.strap_material_id)
+        (watchWithVariants.variants || [])
+          .filter((v: any) => String(v.del_flag) !== '1' && String(v.color_id) === selectedColor)
+          .map((v: any) => String(v.strap_material_id))
       )
     )
     const nextOptions = strapOptions.filter(s => allowedIds.includes(s.id))
     setFilteredStrapOptions(nextOptions)
-    if (nextOptions.length && (!selectedStrapId || !allowedIds.includes(selectedStrapId))) {
-      setSelectedStrapId(nextOptions[0].id)
+
+    if (selectedStrapId && !allowedIds.includes(selectedStrapId)) {
+      setSelectedStrapId(null)
     }
   }, [selectedColor, strapOptions, watchDetail, selectedStrapId])
 
@@ -200,12 +272,10 @@ const DetailProductPage: NextPage<TProps> = () => {
       if (response.status === 'success') {
         setProductDetail(response?.data)
 
-        // Set color đầu tiên làm default nếu có
         if (response?.data?.colors && response.data.colors.length > 0) {
           setSelectedColor(response.data.colors[0].id)
         }
       } else {
-        // fallback: try watch details
         const wRes = (await getWatchById(String(productId))) as any
         if (wRes?.watch) {
           setWatchDetail(wRes.watch)
@@ -213,7 +283,6 @@ const DetailProductPage: NextPage<TProps> = () => {
       }
     } catch (error: any) {
       console.error('Error fetching products:', error)
-      // attempt watch fetch on error
       try {
         const wRes = (await getWatchById(String(productId))) as any
         if (wRes?.watch) {
@@ -256,7 +325,6 @@ const DetailProductPage: NextPage<TProps> = () => {
     setQuantity(Math.max(1, Math.min(newQuantity, maxStock)))
   }
 
-  // Reset quantity khi đổi size
   useEffect(() => {
     if (selectedSize) {
       const maxStock = getSelectedSizeStock()
@@ -316,7 +384,6 @@ const DetailProductPage: NextPage<TProps> = () => {
     try {
       setReviewsLoading(true)
 
-      // If viewing Watch detail, use v1 reviews by watch_id
       if (isWatch && watchDetail?.id) {
         const res = await getReviewsByWatchIdV1(watchDetail.id, { page, limit: pageSize })
         if (res?.reviews) {
@@ -326,11 +393,11 @@ const DetailProductPage: NextPage<TProps> = () => {
             totalPages: res.reviews.totalPages || 0,
             currentPage: res.reviews.page || 1
           })
+
           return
         }
       }
 
-      // Fallback to legacy product reviews API
       const queryParams = formatFiltersForAPI()
       queryParams.product_id = productId
       const response = await fetchReviewsByProductId({ params: queryParams })
@@ -343,7 +410,6 @@ const DetailProductPage: NextPage<TProps> = () => {
         })
       }
     } catch (error: any) {
-      console.error('Error fetching products:', error)
       setReviewsLoading(false)
     } finally {
       setReviewsLoading(false)
@@ -402,13 +468,17 @@ const DetailProductPage: NextPage<TProps> = () => {
         return toast.error('Vui lòng chọn dây')
       }
 
-      const variant = (watchDetail?.variants || []).find(
+      const watchWithVariants = watchDetail as any
+      const variant = (watchWithVariants?.variants || []).find(
         (v: any) =>
-          String(v.del_flag) !== '1' && v.color_id === selectedColor && v.strap_material_id === selectedStrapId
+          String(v.del_flag) !== '1' &&
+          String(v.color_id) === selectedColor &&
+          String(v.strap_material_id) === selectedStrapId
       )
       if (!variant) {
         return toast.error('Biến thể không hợp lệ')
       }
+
       return dispatch(
         addToCartAsync({
           variant_id: Number(variant.id),
@@ -453,8 +523,8 @@ const DetailProductPage: NextPage<TProps> = () => {
 
   const getMaxQuantity = () => {
     if (isWatch) {
-      // stock by selected watch variant
       const stock = (selectedVariant as any)?.stock_quantity || 0
+
       return stock
     }
     return getSelectedSizeStock()
@@ -483,17 +553,16 @@ const DetailProductPage: NextPage<TProps> = () => {
       fetchGetSimilarProduct()
       fetchReviews(String(productDetail?.id || watchDetail?.id))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productDetail, watchDetail, page, pageSize])
 
   const isWatch = !!watchDetail
   const mainImages = parseSlider((isWatch ? watchDetail?.slider : (productDetail as any)?.slider) || '')
   const displayName = (isWatch ? watchDetail?.name : productDetail?.name) || ''
-  // For watches, price is from selected variant if available
+
   const selectedVariant = isWatch
-    ? (watchDetail?.variants || [])
+    ? ((watchDetail as any)?.variants || [])
         .filter((v: any) => String(v.del_flag) !== '1')
-        .find((v: any) => v.color_id === selectedColor && v.strap_material_id === selectedStrapId)
+        .find((v: any) => String(v.color_id) === selectedColor && String(v.strap_material_id) === selectedStrapId)
     : null
   const displayPrice = isWatch
     ? (selectedVariant?.price || 0) > 0
@@ -632,7 +701,7 @@ const DetailProductPage: NextPage<TProps> = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <Typography variant='body2' fontWeight='medium' gutterBottom>
-                        Màu sắc
+                        Màu sắc {selectedColor ? '' : '(Chưa chọn)'}
                       </Typography>
                       <Box display='flex' gap={1} flexWrap='wrap'>
                         {colorOptions.map(c => (
@@ -645,9 +714,16 @@ const DetailProductPage: NextPage<TProps> = () => {
                                 border: '2px solid',
                                 borderColor: selectedColor === c.id ? 'primary.main' : 'grey.300',
                                 borderRadius: '50%',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                opacity: selectedColor === null || selectedColor === c.id ? 1 : 0.5,
+                                transform: selectedColor === c.id ? 'scale(1.1)' : 'scale(1)',
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                  transform: 'scale(1.1)',
+                                  opacity: 1
+                                }
                               }}
-                              onClick={() => setSelectedColor(c.id)}
+                              onClick={() => handleColorToggle(c.id)}
                             />
                           </Tooltip>
                         ))}
@@ -655,7 +731,7 @@ const DetailProductPage: NextPage<TProps> = () => {
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <Typography variant='body2' fontWeight='medium' gutterBottom>
-                        Vật liệu dây
+                        Vật liệu dây {selectedStrapId ? '' : '(Chưa chọn)'}
                       </Typography>
                       <Box display='flex' gap={1} flexWrap='wrap'>
                         {filteredStrapOptions.map(s => (
@@ -663,13 +739,22 @@ const DetailProductPage: NextPage<TProps> = () => {
                             key={s.id}
                             size='small'
                             variant={selectedStrapId === s.id ? 'contained' : 'outlined'}
-                            onClick={() => setSelectedStrapId(s.id)}
-                            sx={{ textTransform: 'none' }}
+                            onClick={() => handleStrapToggle(s.id)}
+                            sx={{
+                              textTransform: 'none',
+                              opacity: !selectedColor ? 0.6 : 1
+                            }}
+                            disabled={!selectedColor}
                           >
                             {s.name}
                           </Button>
                         ))}
                       </Box>
+                      {!selectedColor && (
+                        <Typography variant='caption' color='text.secondary' sx={{ mt: 1, display: 'block' }}>
+                          Vui lòng chọn màu sắc trước
+                        </Typography>
+                      )}
                     </Grid>
                   </Grid>
                   {/* Variant price caption removed as requested */}

@@ -1,10 +1,10 @@
+import axios from 'axios'
 import { CONFIG_API } from 'src/configs/api'
-import { CategoryResponse } from 'src/types/category'
 import instanceAxios from 'src/helpers/axios'
 
 export const getCategories = async () => {
   try {
-    const res = await instanceAxios.get(CONFIG_API.CATEGORY.GET_CATEGORIES, {
+    const res = await axios.get(CONFIG_API.CATEGORY.GET_CATEGORIES, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -27,11 +27,11 @@ export const createCategory = async (categoryData: { name: string; image_url?: s
     })
 
     console.log('API Response:', res.data)
+
     return res.data
   } catch (error: any) {
     console.error('Create category error:', error)
 
-    // Xử lý các loại lỗi cụ thể
     if (error.response) {
       const { status, data } = error.response
 
@@ -47,7 +47,6 @@ export const createCategory = async (categoryData: { name: string; image_url?: s
       } else if (status === 400) {
         throw new Error(data?.message || 'Dữ liệu không hợp lệ.')
       } else if (status === 500) {
-        // Lỗi server - hiển thị thông tin chi tiết hơn
         const serverError = data?.message || data?.error || 'Lỗi server nội bộ'
         throw new Error(`Lỗi server (500): ${serverError}. Vui lòng liên hệ admin hoặc thử lại sau.`)
       } else {
@@ -76,11 +75,11 @@ export const updateCategory = async (
     })
 
     console.log('Update API Response:', res.data)
+
     return res.data
   } catch (error: any) {
     console.error('Update category error:', error)
 
-    // Xử lý các loại lỗi cụ thể
     if (error.response) {
       const { status, data } = error.response
 
@@ -98,7 +97,6 @@ export const updateCategory = async (
       } else if (status === 400) {
         throw new Error(data?.message || 'Dữ liệu không hợp lệ.')
       } else if (status === 500) {
-        // Lỗi server - hiển thị thông tin chi tiết hơn
         const serverError = data?.message || data?.error || 'Lỗi server nội bộ'
         throw new Error(`Lỗi server (500): ${serverError}. Vui lòng liên hệ admin hoặc thử lại sau.`)
       } else {
@@ -123,11 +121,11 @@ export const deleteCategory = async (id: string) => {
     })
 
     console.log('Delete API Response:', res.data)
+
     return res.data
   } catch (error: any) {
     console.error('Delete category error:', error)
 
-    // Xử lý các loại lỗi cụ thể
     if (error.response) {
       const { status, data } = error.response
 
@@ -145,7 +143,6 @@ export const deleteCategory = async (id: string) => {
       } else if (status === 400) {
         throw new Error(data?.message || 'Dữ liệu không hợp lệ.')
       } else if (status === 500) {
-        // Lỗi server - hiển thị thông tin chi tiết hơn
         const serverError = data?.message || data?.error || 'Lỗi server nội bộ'
         throw new Error(`Lỗi server (500): ${serverError}. Vui lòng liên hệ admin hoặc thử lại sau.`)
       } else {
@@ -163,18 +160,18 @@ export const getCategoryById = async (id: string) => {
   try {
     console.log('Getting category by ID:', id)
 
-    const res = await instanceAxios.get(`${CONFIG_API.CATEGORY.GET_CATEGORY_BY_ID}/${id}`, {
+    const res = await axios.get(`${CONFIG_API.CATEGORY.GET_CATEGORY_BY_ID}/${id}`, {
       headers: {
         'Content-Type': 'application/json'
       }
     })
 
     console.log('Get category by ID API Response:', res.data)
+
     return res.data
   } catch (error: any) {
     console.error('Get category by ID error:', error)
 
-    // Xử lý các loại lỗi cụ thể
     if (error.response) {
       const { status, data } = error.response
 
@@ -190,7 +187,6 @@ export const getCategoryById = async (id: string) => {
       } else if (status === 400) {
         throw new Error(data?.message || 'Dữ liệu không hợp lệ.')
       } else if (status === 500) {
-        // Lỗi server - hiển thị thông tin chi tiết hơn
         const serverError = data?.message || data?.error || 'Lỗi server nội bộ'
         throw new Error(`Lỗi server (500): ${serverError}. Vui lòng liên hệ admin hoặc thử lại sau.`)
       } else {

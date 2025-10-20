@@ -33,7 +33,7 @@ export const CONFIG_API = {
   },
   DISCOUNT: {
     INDEX: `${BASE_URL}/discounts`,
-    GET_DISCOUNTS: `${BASE_URL}/discounts/get-discounts`,
+    GET_DISCOUNTS: `${BASE_URL}/discounts`,
     CREATE_DISCOUNT: `${BASE_URL}/discounts/create-discount`
   },
   CATEGORY: {
@@ -98,5 +98,8 @@ export const CONFIG_API = {
   AI_RECOMMEND: {
     INDEX: `${AI_URL}/recommendations`,
     GET_SIMILAR_PRODUCTS: `${AI_URL}/recommendations_by_product`
+  },
+  REPORT: {
+    INDEX: `${BASE_URL}/reports`
   }
 }

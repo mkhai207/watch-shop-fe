@@ -18,17 +18,12 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Typography
+  Typography,
+  Chip
 } from '@mui/material'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import Chip from '@mui/material/Chip'
-import { Card, CardContent } from '@mui/material'
-import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
-import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import { getColors, createColor, updateColor, deleteColor, getColorById } from 'src/services/color'
@@ -36,17 +31,74 @@ import type { TColor, TCreateColor, TUpdateColor, GetColorsResponse, GetColorRes
 import Spinner from 'src/components/spinner'
 import toast from 'react-hot-toast'
 import { formatCompactVN } from 'src/utils/date'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import CustomPagination from 'src/components/custom-pagination'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 
 const ColorPage: NextPage = () => {
   const [colors, setColors] = useState<TColor[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
-  const [search, setSearch] = useState<string>('')
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+
+  const filterConfig: FilterConfig = React.useMemo(() => {
+    return {
+      searchFields: [
+        { key: 'name', label: 'Tên màu', type: 'string' },
+        { key: 'hex_code', label: 'Mã màu', type: 'string' }
+      ],
+      filterFields: [
+        {
+          key: 'del_flag',
+          label: 'Trạng thái',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '0', label: 'Hoạt động' },
+            { value: '1', label: 'Đã xóa' }
+          ]
+        }
+      ],
+      sortOptions: [
+        { value: 'name_asc', label: 'Tên A-Z' },
+        { value: 'name_desc', label: 'Tên Z-A' },
+        { value: 'hex_code_asc', label: 'Mã màu A-Z' },
+        { value: 'hex_code_desc', label: 'Mã màu Z-A' },
+        { value: 'created_at_desc', label: 'Mới nhất' },
+        { value: 'created_at_asc', label: 'Cũ nhất' }
+      ],
+      dateRangeFields: [
+        { key: 'created_at', label: 'Ngày tạo' },
+        { key: 'updated_at', label: 'Ngày cập nhật' }
+      ]
+    }
+  }, [])
+
+  const {
+    values: filterValues,
+    setValues: setFilterValues,
+    reset: resetFilter
+  } = useAdvancedFilter({
+    config: filterConfig,
+    initialValues: {
+      search: '',
+      filters: {},
+      sort: 'created_at_desc'
+    }
+  })
+
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
+  const [openView, setOpenView] = useState<boolean>(false)
   const [selected, setSelected] = useState<TColor | null>(null)
+  const [viewing, setViewing] = useState<TColor | null>(null)
   const [nameInput, setNameInput] = useState<string>('')
   const [hexInput, setHexInput] = useState<string>('')
+
   const PRESET_COLORS = useMemo(
     () => [
       '#000000',
@@ -81,17 +133,15 @@ const ColorPage: NextPage = () => {
     handleHexChange(hex.toUpperCase())
   }
 
-  const totalColors = colors.length
-  const totalProducts = 0
-  const avgRating = undefined as number | undefined
-  const newColors = undefined as number | undefined
-
   const fetchData = async () => {
     setLoading(true)
     try {
       const res = await getColors()
       const data = res as GetColorsResponse
-      setColors(data?.colors?.rows || [])
+
+      setColors(data?.colors?.items || [])
+      setTotalItems(data?.colors?.totalItems || 0)
+      setTotalPages(data?.colors?.totalPages || 0)
     } catch (err: any) {
       toast.error(err?.message || 'Lỗi tải dữ liệu')
     } finally {
@@ -103,24 +153,93 @@ const ColorPage: NextPage = () => {
     fetchData()
   }, [])
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deleted'>('all')
   const filtered = useMemo(() => {
-    const bySearch = colors.filter(c => {
-      if (!search) return true
-      const lower = search.toLowerCase().trim()
-      return (
-        c.name.toLowerCase().includes(lower) ||
-        c.id.toLowerCase().includes(lower) ||
-        c.hex_code.toLowerCase().includes(lower)
+    let result = [...colors]
+
+    if (filterValues.search) {
+      const searchLower = filterValues.search.toLowerCase().trim()
+      result = result.filter(
+        c =>
+          c.name.toLowerCase().includes(searchLower) ||
+          c.id.toLowerCase().includes(searchLower) ||
+          c.hex_code.toLowerCase().includes(searchLower)
       )
+    }
+
+    Object.entries(filterValues.filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '' && value !== null) {
+        if (key === 'del_flag') {
+          result = result.filter(c => c.del_flag === value)
+        }
+      }
     })
-    const byStatus = bySearch.filter(c => {
-      if (statusFilter === 'all') return true
-      const deleted = c.del_flag === '1'
-      return statusFilter === 'deleted' ? deleted : !deleted
-    })
-    return byStatus
-  }, [colors, search, statusFilter])
+
+    if (filterValues.sort) {
+      const [field, direction] = filterValues.sort.split('_')
+      result.sort((a, b) => {
+        let aValue: any
+        let bValue: any
+
+        switch (field) {
+          case 'name':
+            aValue = a.name.toLowerCase()
+            bValue = b.name.toLowerCase()
+            break
+          case 'hex_code':
+            aValue = a.hex_code.toLowerCase()
+            bValue = b.hex_code.toLowerCase()
+            break
+          case 'created':
+            aValue = new Date(a.created_at || 0)
+            bValue = new Date(b.created_at || 0)
+            break
+          default:
+            aValue = a.name.toLowerCase()
+            bValue = b.name.toLowerCase()
+        }
+
+        if (direction === 'desc') {
+          return aValue < bValue ? 1 : -1
+        }
+
+        return aValue > bValue ? 1 : -1
+      })
+    }
+
+    return result
+  }, [colors, filterValues])
+
+  const paginatedData = useMemo(() => {
+    if (!filterValues.search && Object.keys(filterValues.filters).length === 0) {
+      return colors
+    }
+
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+
+    return filtered.slice(startIndex, endIndex)
+  }, [colors, filtered, page, pageSize, filterValues])
+
+  const displayTotalPages = useMemo(() => {
+    if (!filterValues.search && Object.keys(filterValues.filters).length === 0) {
+      return totalPages
+    }
+
+    return Math.ceil(filtered.length / pageSize)
+  }, [totalPages, filtered.length, pageSize, filterValues])
+
+  const displayTotalItems = useMemo(() => {
+    if (!filterValues.search && Object.keys(filterValues.filters).length === 0) {
+      return totalItems
+    }
+
+    return filtered.length
+  }, [totalItems, filtered.length, filterValues])
+
+  const handleChangePagination = (newPage: number, newPageSize: number) => {
+    setPage(newPage)
+    setPageSize(newPageSize)
+  }
 
   const handleOpenCreate = () => {
     setNameInput('')
@@ -132,6 +251,7 @@ const ColorPage: NextPage = () => {
     const payload: TCreateColor = { name: nameInput.trim(), hex_code: hexInput.trim() }
     if (!payload.name) return toast.error('Tên màu không được để trống')
     if (!payload.hex_code) return toast.error('Mã màu không được để trống')
+    if (!isValidHex(payload.hex_code)) return toast.error('Mã màu không hợp lệ')
     try {
       setActionLoading(true)
       const res = await createColor(payload)
@@ -170,6 +290,7 @@ const ColorPage: NextPage = () => {
     const payload: TUpdateColor = { name: nameInput.trim(), hex_code: hexInput.trim() }
     if (!payload.name) return toast.error('Tên màu không được để trống')
     if (!payload.hex_code) return toast.error('Mã màu không được để trống')
+    if (!isValidHex(payload.hex_code)) return toast.error('Mã màu không hợp lệ')
     try {
       setActionLoading(true)
       const res = await updateColor(selected.id, payload)
@@ -206,8 +327,6 @@ const ColorPage: NextPage = () => {
     }
   }
 
-  const [openView, setOpenView] = useState<boolean>(false)
-  const [viewing, setViewing] = useState<TColor | null>(null)
   const handleOpenView = async (color: TColor) => {
     try {
       setActionLoading(true)
@@ -233,97 +352,14 @@ const ColorPage: NextPage = () => {
         </Button>
       </Stack>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
-            <CardContent>
-              <Typography variant='body2' color='text.secondary'>
-                Tổng màu
-              </Typography>
-              <Typography variant='h5' fontWeight={700} sx={{ my: 1 }}>
-                {totalColors || 'N/A'}
-              </Typography>
-              <Typography variant='caption' color='text.secondary'>
-                {totalColors ? `${totalColors} đang hoạt động` : 'N/A'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
-            <CardContent>
-              <Typography variant='body2' color='text.secondary'>
-                Tổng sản phẩm
-              </Typography>
-              <Typography variant='h5' fontWeight={700} sx={{ my: 1 }}>
-                {totalProducts || 'N/A'}
-              </Typography>
-              <Typography variant='caption' color='text.secondary'>
-                Từ tất cả màu
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
-            <CardContent>
-              <Typography variant='body2' color='text.secondary'>
-                Đánh giá trung bình
-              </Typography>
-              <Stack direction='row' alignItems='center' spacing={1} sx={{ my: 1 }}>
-                <Typography variant='h5' fontWeight={700}>
-                  {typeof avgRating === 'number' ? avgRating.toFixed(1) : 'N/A'}
-                </Typography>
-                {typeof avgRating === 'number' && <StarRoundedIcon sx={{ color: 'warning.main' }} />}
-              </Stack>
-              <Typography variant='caption' color='text.secondary'>
-                Trên 5 sao
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
-            <CardContent>
-              <Typography variant='body2' color='text.secondary'>
-                Màu mới
-              </Typography>
-              <Typography variant='h5' fontWeight={700} sx={{ my: 1 }}>
-                {typeof newColors === 'number' ? newColors : 'N/A'}
-              </Typography>
-              <Typography variant='caption' color='text.secondary'>
-                Trong tháng này
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mb: 3 }}>
-        <Stack direction='row' spacing={2}>
-          <TextField
-            size='small'
-            placeholder='Tìm theo tên, ID hoặc mã màu...'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: (<SearchIcon fontSize='small' />) as any }}
-            sx={{ maxWidth: 360 }}
-          />
-          <Select
-            size='small'
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value='all'>Tất cả trạng thái</MenuItem>
-            <MenuItem value='active'>Hoạt động</MenuItem>
-            <MenuItem value='deleted'>Đã xóa</MenuItem>
-          </Select>
-          <Button variant='outlined' onClick={fetchData} disabled={loading}>
-            Làm mới
-          </Button>
-        </Stack>
-      </Paper>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        config={filterConfig}
+        values={filterValues}
+        onChange={setFilterValues}
+        onReset={resetFilter}
+        loading={loading}
+      />
 
       <TableContainer
         component={Paper}
@@ -333,9 +369,19 @@ const ColorPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90}>ID</TableCell>
+              <TableCell
+                width={80}
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  backgroundColor: 'background.paper'
+                }}
+              >
+                STT
+              </TableCell>
               <TableCell>Tên màu</TableCell>
-              <TableCell width={140}>Mã màu</TableCell>
+              <TableCell width={160}>Mã màu</TableCell>
               <TableCell width={120}>Trạng thái</TableCell>
               <TableCell width={120} align='right'>
                 Thao tác
@@ -343,9 +389,19 @@ const ColorPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(color => (
+            {paginatedData.map((color, index) => (
               <TableRow key={color.id} hover sx={{ opacity: color.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{color.id}</TableCell>
+                <TableCell
+                  sx={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 1,
+                    backgroundColor: 'background.paper',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {(page - 1) * pageSize + index + 1}
+                </TableCell>
                 <TableCell sx={{ textDecoration: color.del_flag === '1' ? 'line-through' : 'none' }}>
                   {color.name}
                 </TableCell>
@@ -393,7 +449,7 @@ const ColorPage: NextPage = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {paginatedData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
@@ -403,6 +459,18 @@ const ColorPage: NextPage = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Custom Pagination */}
+      <Box sx={{ mt: 3 }}>
+        <CustomPagination
+          page={page}
+          pageSize={pageSize}
+          rowLength={displayTotalItems}
+          totalPages={displayTotalPages}
+          pageSizeOptions={PAGE_SIZE_OPTION}
+          onChangePagination={handleChangePagination}
+        />
+      </Box>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>
@@ -439,6 +507,7 @@ const ColorPage: NextPage = () => {
             <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(10, 24px)', gap: 1 }}>
               {PRESET_COLORS.map(color => {
                 const selected = isValidHex(hexInput) && hexInput.toUpperCase() === color.toUpperCase()
+
                 return (
                   <Box
                     key={color}
@@ -503,6 +572,7 @@ const ColorPage: NextPage = () => {
             <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(10, 24px)', gap: 1 }}>
               {PRESET_COLORS.map(color => {
                 const selected = isValidHex(hexInput) && hexInput.toUpperCase() === color.toUpperCase()
+
                 return (
                   <Box
                     key={color}

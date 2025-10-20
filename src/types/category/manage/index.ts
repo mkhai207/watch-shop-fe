@@ -24,8 +24,11 @@ export type TUpdateCategory = {
 
 export type GetCategorysResponse = {
   categorys: {
-    count: number
-    rows: TCategory[]
+    page: number
+    limit: number
+    totalItems: number
+    totalPages: number
+    items: TCategory[]
   }
 }
 
