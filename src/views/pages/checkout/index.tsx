@@ -42,7 +42,8 @@ import { useAuth } from 'src/hooks/useAuth'
 import { deleteCartItems, deleteCartItemsByIds } from 'src/services/cart'
 import { createOrder } from 'src/services/checkout'
 import { getDiscountByCode, v1GetDiscounts } from 'src/services/discount'
-import { createUserInteraction } from 'src/services/userInteraction'
+// removed old user interaction API; using recommendation interactions instead
+import { createRecommendationInteraction } from 'src/services/recommendation'
 import { getAddressesByUserId, createAddressV1, listAddressesV1 } from 'src/services/address'
 import {
   getProvinces,
@@ -405,7 +406,30 @@ const CheckoutPage: NextPage<TProps> = () => {
       // Support both shapes: { status, data } and { order: { vnpayUrl } }
       const vnpUrl = response?.data?.vnpayUrl || response?.order?.vnpayUrl
       if (response) {
-        await handleCreateUserInteraction(data)
+        // send recommendation interactions for purchase
+        // Send recommendations purchase interaction per watch item
+        try {
+          if (user?.id) {
+            const list = isBuyNowMode
+              ? buyNowItems.map(it => ({ variantId: it.product_variant_id, quantity: it.quantity }))
+              : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
+                  it => ({ variantId: it.variant.id, quantity: it.quantity })
+                )
+            for (const it of list) {
+              const cartItem = items.find(ci => ci.variant.id === it.variantId)
+              const watchId = (cartItem as any)?.variant?.watch?.id
+              if (watchId) {
+                await createRecommendationInteraction({
+                  user_id: Number(user.id),
+                  watch_id: Number(watchId),
+                  interaction_type: 'purchase',
+                  session_id:
+                    typeof window !== 'undefined' ? localStorage.getItem('session_id') || undefined : undefined
+                })
+              }
+            }
+          }
+        } catch {}
 
         // If not buy now, delete selected items before redirect
         if (!isBuyNowMode) {
@@ -496,47 +520,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     }
   }
 
-  const getProductIdFromVariant = (variantId: string) => {
-    const cartItem = items.find(item => item.variant.id === variantId)
-
-    return cartItem ? cartItem.variant.product.id : null
-  }
-
-  const handleCreateUserInteraction = async (data: TCreateOrder) => {
-    try {
-      if (isBuyNowMode) {
-        // Trường hợp mua trực tiếp - lấy product_id từ buyNowItems
-        for (const item of buyNowItems) {
-          const response = await createUserInteraction({
-            product_id: item.product_id,
-            interaction_type: 5
-          })
-
-          if (response.status === 'success') {
-            console.log('User interaction created successfully for product:', item.product_id)
-          }
-        }
-      } else {
-        // Trường hợp mua từ giỏ hàng - lấy product_id từ variant
-        for (const orderDetail of data.orderDetails) {
-          const productId = getProductIdFromVariant(orderDetail.product_variant_id)
-
-          if (productId) {
-            const response = await createUserInteraction({
-              product_id: productId,
-              interaction_type: 5
-            })
-
-            if (response.status === 'success') {
-              console.log('User interaction created successfully for product:', productId)
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error creating user interaction:', error)
-    }
-  }
+  // removed legacy product interaction hooks
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) {

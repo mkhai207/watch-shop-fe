@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import IconifyIcon from 'src/components/Icon'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { TProduct } from 'src/types/product'
-import { createUserInteraction } from 'src/services/userInteraction'
+// removed old user interaction API; detail tracking handled in detail page
 import { useAuth } from 'src/hooks/useAuth'
 
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -33,22 +33,7 @@ const CardProduct = (props: TCardProduct) => {
   const { user } = useAuth()
 
   const handleNavigateDetailProduct = (id: string) => {
-    if (user && user.id) {
-      handleCreateUserInteraction()
-    }
-
     router.push(`${ROUTE_CONFIG.PRODUCT}/${id}`)
-  }
-
-  const handleCreateUserInteraction = async () => {
-    const response = await createUserInteraction({
-      product_id: item?.id || '',
-      interaction_type: 1
-    })
-
-    if (response.status == 'success') {
-      console.log('User interaction created successfully:', response.data)
-    }
   }
 
   // Removed Buy Now modal; direct navigation is used instead

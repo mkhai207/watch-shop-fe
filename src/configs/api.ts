@@ -80,6 +80,9 @@ export const CONFIG_API = {
   REVIEW: {
     INDEX: `${BASE_URL}/reviews`
   },
+  RECOMMENDATIONS: {
+    INDEX: `${BASE_URL}/recommendations`
+  },
   ADDRESS: {
     INDEX: `${BASE_URL}/addresses`
   },

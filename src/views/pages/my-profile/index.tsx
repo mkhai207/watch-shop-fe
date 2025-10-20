@@ -163,8 +163,8 @@ const MyProfilePage: NextPage<TProps> = () => {
           overflow: 'hidden'
         }}
       >
-          <Box
-            sx={{
+        <Box
+          sx={{
             position: 'absolute',
             top: -50,
             right: -50,
@@ -232,9 +232,9 @@ const MyProfilePage: NextPage<TProps> = () => {
                 >
                   Chỉnh sửa
                 </Button>
-                    <Button
-                      variant='outlined'
-                      sx={{
+                <Button
+                  variant='outlined'
+                  sx={{
                     borderColor: 'rgba(255, 255, 255, 0.5)',
                     color: 'white',
                     '&:hover': {
@@ -245,7 +245,7 @@ const MyProfilePage: NextPage<TProps> = () => {
                   startIcon={<IconifyIcon icon='mdi:lock' />}
                 >
                   Đổi mật khẩu
-                    </Button>
+                </Button>
               </Stack>
             </Grid>
           </Grid>
@@ -369,7 +369,7 @@ const MyProfilePage: NextPage<TProps> = () => {
                   </Typography>
                   <Typography variant='body1' fontWeight='medium'>
                     {formatCompactVN(userData.created_at)}
-                    </Typography>
+                  </Typography>
                 </Box>
 
                 <Box>
@@ -394,9 +394,9 @@ const MyProfilePage: NextPage<TProps> = () => {
               </Stack>
             </CardContent>
           </Card>
-              </Grid>
-            </Grid>
-          </Box>
+        </Grid>
+      </Grid>
+    </Box>
   )
 }
 

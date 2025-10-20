@@ -30,6 +30,7 @@ import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION_MIN } from 'src/configs/gridConfig'
 import { useAuth } from 'src/hooks/useAuth'
 import { getDetailsProductPublic, getSimilarProducts } from 'src/services/product'
+import { createRecommendationInteraction } from 'src/services/recommendation'
 import { getWatchById } from 'src/services/watch'
 import type { TWatch } from 'src/types/watch'
 import { fetchReviewsByProductId, getReviewsByWatchIdV1 } from 'src/services/review'
@@ -224,6 +225,31 @@ const DetailProductPage: NextPage<TProps> = () => {
     }
   }, [router?.query?.productId])
 
+  // Send recommendation interaction: view when viewing watch detail
+  useEffect(() => {
+    let cancelled = false
+    const sendView = async () => {
+      try {
+        if (!user?.id || !watchDetail?.id) return
+        const stored = (typeof window !== 'undefined' && localStorage.getItem('rec_view_watch_id')) || ''
+        if (stored && stored === String(watchDetail.id)) return
+        await createRecommendationInteraction({
+          user_id: Number(user.id),
+          watch_id: Number(watchDetail.id as any),
+          interaction_type: 'view',
+          session_id: typeof window !== 'undefined' ? localStorage.getItem('session_id') || undefined : undefined
+        })
+        if (!cancelled && typeof window !== 'undefined') {
+          localStorage.setItem('rec_view_watch_id', String(watchDetail.id))
+        }
+      } catch {}
+    }
+    sendView()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, watchDetail?.id])
+
   const handleQuantityChange = (change: number) => {
     const maxStock = getMaxQuantity()
     const newQuantity = quantity + change
@@ -388,7 +414,19 @@ const DetailProductPage: NextPage<TProps> = () => {
           variant_id: Number(variant.id),
           quantity
         })
-      ).then(() => triggerFlyToCart())
+      ).then(() => {
+        triggerFlyToCart()
+        try {
+          if (user?.id && watchDetail?.id) {
+            createRecommendationInteraction({
+              user_id: Number(user.id),
+              watch_id: Number(watchDetail.id as any),
+              interaction_type: 'cart_add',
+              session_id: typeof window !== 'undefined' ? localStorage.getItem('session_id') || undefined : undefined
+            })
+          }
+        } catch {}
+      })
     }
 
     if (!productDetail?.id) {

@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import { addToCart, deleteCartItem, deleteCartItems, getCartItems, updateCartItem } from 'src/services/cart'
-import { createUserInteraction } from 'src/services/userInteraction'
+// removed old user interaction API; recommendation interactions are sent at UI points
 import { TUpdateCartItem } from 'src/types/cart'
 
 export const serviceName = 'cart'
@@ -16,12 +16,6 @@ export const addToCartAsync = createAsyncThunk('cart/addToCart', async (data: an
   if (isSuccess) {
     // Refresh cart immediately to update header badge
     dispatch(getCartItemsAsync())
-    dispatch(
-      createUserInteractionAsync({
-        product_id: data?.product_id || '',
-        interaction_type: 3
-      })
-    )
 
     return { status: 'success', data: response?.data || response?.cartItem || response?.cart || response }
   }
@@ -102,21 +96,4 @@ export const deleteCartItemsAsync = createAsyncThunk('cart/deleteCartItem', asyn
   }
 })
 
-export const createUserInteractionAsync = createAsyncThunk(
-  'user-interaction',
-  async (data: { product_id: string; interaction_type: number }) => {
-    const response = await createUserInteraction(data)
-
-    if (response?.status === 'success') {
-      console.log('createUserInteractionAsync', response)
-
-      return response
-    }
-
-    return {
-      data: null,
-      message: response?.response.data.message,
-      error: response?.response.data.error
-    }
-  }
-)
+// removed createUserInteractionAsync thunk
