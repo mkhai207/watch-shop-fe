@@ -1,9 +1,22 @@
 import {
+  CheckCircle as CheckCircleIcon,
+  Payment as PaymentIcon,
+  Pending as PendingIcon,
+  Receipt as ReceiptIcon,
+  LocalShipping as ShippingIcon,
+  AccessTime as TimeIcon,
+  Visibility as VisibilityIcon
+} from '@mui/icons-material'
+import StarIcon from '@mui/icons-material/Star'
+import {
+  Alert,
+  Avatar,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Container,
   Dialog,
   DialogActions,
@@ -11,27 +24,13 @@ import {
   DialogTitle,
   Divider,
   Grid,
-  IconButton,
-  Paper,
-  Typography,
-  Avatar,
   List,
   ListItem,
   ListItemAvatar,
   ListItemText,
-  CircularProgress,
-  Alert
+  Paper,
+  Typography
 } from '@mui/material'
-import {
-  Visibility as VisibilityIcon,
-  Payment as PaymentIcon,
-  LocalShipping as ShippingIcon,
-  Receipt as ReceiptIcon,
-  AccessTime as TimeIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Pending as PendingIcon
-} from '@mui/icons-material'
 import dayjs from 'dayjs'
 import { useRouter } from 'next/router'
 import qs from 'qs'
@@ -44,15 +43,14 @@ import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import {
   getListOrders,
-  retryPayOrder,
   getOrderDetail,
   getOrderStatuses,
   getOrderStatusHistories,
-  OrderStatusHistoryItem
+  OrderStatusHistoryItem,
+  retryPayOrder
 } from 'src/services/order'
-import { getStatusColor, getStatusText } from 'src/utils/status-style'
+import { getStatusColor } from 'src/utils/status-style'
 import ReviewModal from '../components/ReviewModal'
-import StarIcon from '@mui/icons-material/Star'
 
 const OrderHistoryPage = () => {
   const router = useRouter()
@@ -148,7 +146,6 @@ const OrderHistoryPage = () => {
   const handleOpenReview = async (order: any) => {
     try {
       setSelectedOrder(order)
-      // Ensure details loaded
       if (!orderDetails || orderDetails.id !== order.id) {
         setLoadingDetails(true)
         try {
@@ -192,12 +189,12 @@ const OrderHistoryPage = () => {
         paramsSerializer: params => qs.stringify(params, { arrayFormat: 'repeat', encode: false })
       })
 
-      if (response.status === 'success') {
+      if (response?.orders) {
         setOrders({
-          data: response?.data || [],
-          total: response.meta?.totalItems || 0,
-          totalPages: response.meta?.totalPages || 0,
-          currentPage: response.meta?.currentPage || 1
+          data: response.orders.items || [],
+          total: response.orders.totalItems || 0,
+          totalPages: response.orders.totalPages || 0,
+          currentPage: response.orders.page || 1
         })
       }
     } catch (error: any) {
@@ -210,7 +207,9 @@ const OrderHistoryPage = () => {
   const handleGetOrderStatuses = async () => {
     try {
       const response = await getOrderStatuses()
-      if (response?.orderStatuses?.rows) {
+      if (response?.orderStatuses?.items) {
+        setOrderStatuses(response.orderStatuses.items)
+      } else if (response?.orderStatuses?.rows) {
         setOrderStatuses(response.orderStatuses.rows)
       }
     } catch (error) {
@@ -220,6 +219,7 @@ const OrderHistoryPage = () => {
 
   const getStatusInfo = (statusId: string) => {
     const status = orderStatuses.find(s => s.id === statusId)
+
     return status || { name: 'Không xác định', hex_code: '#9e9e9e' }
   }
 
@@ -241,11 +241,13 @@ const OrderHistoryPage = () => {
 
   const getStatusColorValue = (statusId: string) => {
     const status = getStatusInfo(statusId)
+
     return status.hex_code
   }
 
   const getStatusText = (statusId: string) => {
     const status = getStatusInfo(statusId)
+
     return status.name
   }
 
@@ -323,11 +325,11 @@ const OrderHistoryPage = () => {
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {getStatusIcon(order.status)}
+                        {getStatusIcon(order.current_status_id)}
                         <Chip
-                          label={getStatusText(order.status)}
+                          label={getStatusText(order.current_status_id)}
                           sx={{
-                            backgroundColor: getStatusColorValue(order.status),
+                            backgroundColor: getStatusColorValue(order.current_status_id),
                             color: 'white',
                             fontWeight: 'bold',
                             fontSize: '0.75rem'
@@ -343,7 +345,7 @@ const OrderHistoryPage = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <ReceiptIcon sx={{ color: '#666', fontSize: 20 }} />
                           <Typography variant='body2' color='text.secondary'>
-                            Người nhận: <strong>{order.name}</strong>
+                            Người nhận: <strong>{order.guess_name}</strong>
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -355,7 +357,7 @@ const OrderHistoryPage = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <PaymentIcon sx={{ color: '#666', fontSize: 20 }} />
                           <Typography variant='body2' color='text.secondary'>
-                            {order.phone}
+                            {order.guess_phone}
                           </Typography>
                         </Box>
                       </Grid>

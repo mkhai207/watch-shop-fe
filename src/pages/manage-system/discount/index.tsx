@@ -492,19 +492,17 @@ const DiscountPage: NextPage = () => {
             )}
           </TableBody>
         </Table>
+        <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <CustomPagination
+            page={page}
+            pageSize={pageSize}
+            rowLength={filtered.length}
+            totalPages={totalPages}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            onChangePagination={handleChangePagination}
+          />
+        </Box>
       </TableContainer>
-
-      {/* Custom Pagination */}
-      <Box sx={{ mt: 3 }}>
-        <CustomPagination
-          page={page}
-          pageSize={pageSize}
-          rowLength={filtered.length}
-          totalPages={totalPages}
-          pageSizeOptions={PAGE_SIZE_OPTION}
-          onChangePagination={handleChangePagination}
-        />
-      </Box>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='sm'>

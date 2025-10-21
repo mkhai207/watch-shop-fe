@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import type { NextPage } from 'next'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import {
   Box,
   Button,
@@ -22,28 +24,24 @@ import {
 } from '@mui/material'
 import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
-import { Card, CardContent } from '@mui/material'
-import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import AddIcon from '@mui/icons-material/Add'
-import VisibilityIcon from '@mui/icons-material/Visibility'
-import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryById } from 'src/services/category'
-import type {
-  TCategory,
-  TCreateCategory,
-  TUpdateCategory,
-  GetCategorysResponse,
-  GetCategoryResponse
-} from 'src/types/category/manage'
-import { uploadImage } from 'src/services/file'
-import Spinner from 'src/components/spinner'
-import { formatCompactVN } from 'src/utils/date'
+import type { NextPage } from 'next'
+import React, { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
+import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { createCategory, deleteCategory, getCategories, getCategoryById, updateCategory } from 'src/services/category'
+import { uploadImage } from 'src/services/file'
+import type {
+  GetCategoryResponse,
+  GetCategorysResponse,
+  TCategory,
+  TCreateCategory,
+  TUpdateCategory
+} from 'src/types/category/manage'
+import { formatCompactVN } from 'src/utils/date'
+import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 
 const CategoryPage: NextPage = () => {
   const [categories, setCategories] = useState<TCategory[]>([])
@@ -100,12 +98,6 @@ const CategoryPage: NextPage = () => {
       sort: 'created_at_desc'
     }
   })
-
-  const totalCategories = categories.length
-  const totalProducts = 0
-  const avgRating = undefined as number | undefined
-  const newCategories = undefined as number | undefined
-
   const fetchData = async () => {
     setLoading(true)
     try {
@@ -318,7 +310,7 @@ const CategoryPage: NextPage = () => {
         </Button>
       </Stack>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      {/* <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={3}>
           <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
             <CardContent>
@@ -382,7 +374,7 @@ const CategoryPage: NextPage = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+      </Grid> */}
 
       {/* Advanced Filter */}
       <AdvancedFilter
@@ -489,19 +481,17 @@ const CategoryPage: NextPage = () => {
             )}
           </TableBody>
         </Table>
+        <Box sx={{ mt: 3, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <CustomPagination
+            page={page}
+            pageSize={pageSize}
+            rowLength={filtered.length}
+            totalPages={totalPages}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            onChangePagination={handleChangePagination}
+          />
+        </Box>
       </TableContainer>
-
-      {/* Custom Pagination */}
-      <Box sx={{ mt: 3 }}>
-        <CustomPagination
-          page={page}
-          pageSize={pageSize}
-          rowLength={filtered.length}
-          totalPages={totalPages}
-          pageSizeOptions={PAGE_SIZE_OPTION}
-          onChangePagination={handleChangePagination}
-        />
-      </Box>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>

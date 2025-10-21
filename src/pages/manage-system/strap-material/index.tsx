@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import type { NextPage } from 'next'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import {
   Box,
   Button,
@@ -20,39 +22,35 @@ import {
   TextField,
   Typography
 } from '@mui/material'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
 import Chip from '@mui/material/Chip'
-import { Card, CardContent } from '@mui/material'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import AddIcon from '@mui/icons-material/Add'
-import SearchIcon from '@mui/icons-material/Search'
-import VisibilityIcon from '@mui/icons-material/Visibility'
-import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
+import type { NextPage } from 'next'
+import React, { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import CustomPagination from 'src/components/custom-pagination'
+import Spinner from 'src/components/spinner'
+import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import {
-  getStrapMaterials,
   createStrapMaterial,
-  updateStrapMaterial,
   deleteStrapMaterial,
-  getStrapMaterialById
+  getStrapMaterialById,
+  getStrapMaterials,
+  updateStrapMaterial
 } from 'src/services/strapMaterial'
 import type {
-  TStrapMaterial,
-  TCreateStrapMaterial,
-  TUpdateStrapMaterial,
+  GetStrapMaterialResponse,
   GetStrapMaterialsResponse,
-  GetStrapMaterialResponse
+  TCreateStrapMaterial,
+  TStrapMaterial,
+  TUpdateStrapMaterial
 } from 'src/types/strapMaterial'
-import Spinner from 'src/components/spinner'
-import toast from 'react-hot-toast'
 import { formatCompactVN } from 'src/utils/date'
+import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 
 const StrapMaterialPage: NextPage = () => {
   const [items, setItems] = useState<TStrapMaterial[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
-  const [search, setSearch] = useState<string>('')
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [openView, setOpenView] = useState<boolean>(false)
@@ -63,7 +61,56 @@ const StrapMaterialPage: NextPage = () => {
   const [extraMoneyInput, setExtraMoneyInput] = useState<string>('')
   const [descriptionInput, setDescriptionInput] = useState<string>('')
 
-  const total = items.length
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+
+  const filterConfig: FilterConfig = React.useMemo(() => {
+    return {
+      searchFields: [
+        { key: 'name', label: 'Tên vật liệu', type: 'string' },
+        { key: 'code', label: 'Mã vật liệu', type: 'string' }
+      ],
+      filterFields: [
+        {
+          key: 'del_flag',
+          label: 'Trạng thái',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: '0', label: 'Hoạt động' },
+            { value: '1', label: 'Đã xóa' }
+          ]
+        }
+      ],
+      sortOptions: [
+        { value: 'name_asc', label: 'Tên A-Z' },
+        { value: 'name_desc', label: 'Tên Z-A' },
+        { value: 'code_asc', label: 'Mã A-Z' },
+        { value: 'code_desc', label: 'Mã Z-A' },
+        { value: 'extra_money_asc', label: 'Phụ thu thấp đến cao' },
+        { value: 'extra_money_desc', label: 'Phụ thu cao đến thấp' },
+        { value: 'created_at_desc', label: 'Mới nhất' },
+        { value: 'created_at_asc', label: 'Cũ nhất' }
+      ],
+      dateRangeFields: [
+        { key: 'created_at', label: 'Ngày tạo' },
+        { key: 'updated_at', label: 'Ngày cập nhật' }
+      ]
+    }
+  }, [])
+
+  const {
+    values: filterValues,
+    setValues: setFilterValues,
+    reset: resetFilter
+  } = useAdvancedFilter({
+    config: filterConfig,
+    initialValues: {
+      search: '',
+      filters: {},
+      sort: 'created_at_desc'
+    }
+  })
 
   const fetchData = async () => {
     setLoading(true)
@@ -82,24 +129,79 @@ const StrapMaterialPage: NextPage = () => {
     fetchData()
   }, [])
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deleted'>('all')
   const filtered = useMemo(() => {
-    const bySearch = items.filter(it => {
-      if (!search) return true
-      const lower = search.toLowerCase().trim()
-      return (
-        it.name.toLowerCase().includes(lower) ||
-        it.code.toLowerCase().includes(lower) ||
-        it.id.toLowerCase().includes(lower)
+    let result = [...items]
+
+    if (filterValues.search) {
+      const searchLower = filterValues.search.toLowerCase().trim()
+      result = result.filter(
+        it =>
+          it.name.toLowerCase().includes(searchLower) ||
+          it.code.toLowerCase().includes(searchLower) ||
+          (it.description && it.description.toLowerCase().includes(searchLower))
       )
+    }
+
+    Object.entries(filterValues.filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '' && value !== null) {
+        if (key === 'del_flag') {
+          result = result.filter(it => it.del_flag === value)
+        }
+      }
     })
-    const byStatus = bySearch.filter(it => {
-      if (statusFilter === 'all') return true
-      const deleted = it.del_flag === '1'
-      return statusFilter === 'deleted' ? deleted : !deleted
-    })
-    return byStatus
-  }, [items, search, statusFilter])
+
+    if (filterValues.sort) {
+      const [field, direction] = filterValues.sort.split('_')
+      result.sort((a, b) => {
+        let aValue: any
+        let bValue: any
+
+        switch (field) {
+          case 'name':
+            aValue = a.name?.toLowerCase() || ''
+            bValue = b.name?.toLowerCase() || ''
+            break
+          case 'code':
+            aValue = a.code?.toLowerCase() || ''
+            bValue = b.code?.toLowerCase() || ''
+            break
+          case 'extra':
+            aValue = a.extra_money || 0
+            bValue = b.extra_money || 0
+            break
+          case 'created':
+            aValue = new Date(a.created_at || 0)
+            bValue = new Date(b.created_at || 0)
+            break
+          default:
+            aValue = a.name?.toLowerCase() || ''
+            bValue = b.name?.toLowerCase() || ''
+        }
+
+        if (direction === 'desc') {
+          return aValue < bValue ? 1 : -1
+        }
+
+        return aValue > bValue ? 1 : -1
+      })
+    }
+
+    return result
+  }, [items, filterValues])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+
+    return filtered.slice(startIndex, endIndex)
+  }, [filtered, page, pageSize])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+
+  const handleChangePagination = (newPage: number, newPageSize: number) => {
+    setPage(newPage)
+    setPageSize(newPageSize)
+  }
 
   const resetForm = () => {
     setNameInput('')
@@ -115,6 +217,7 @@ const StrapMaterialPage: NextPage = () => {
 
   const parseMoney = (value: string): number => {
     const num = Number((value || '').replace(/[^0-9.-]/g, ''))
+
     return isNaN(num) ? 0 : num
   }
 
@@ -233,49 +336,14 @@ const StrapMaterialPage: NextPage = () => {
         </Button>
       </Stack>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <Card elevation={0} sx={{ borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}` }}>
-            <CardContent>
-              <Typography variant='body2' color='text.secondary'>
-                Tổng vật liệu
-              </Typography>
-              <Typography variant='h5' fontWeight={700} sx={{ my: 1 }}>
-                {total || 'N/A'}
-              </Typography>
-              <Typography variant='caption' color='text.secondary'>
-                Đang quản lý
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mb: 3 }}>
-        <Stack direction='row' spacing={2}>
-          <TextField
-            size='small'
-            placeholder='Tìm theo tên, mã hoặc ID...'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: (<SearchIcon fontSize='small' />) as any }}
-            sx={{ maxWidth: 360 }}
-          />
-          <Select
-            size='small'
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value='all'>Tất cả trạng thái</MenuItem>
-            <MenuItem value='active'>Hoạt động</MenuItem>
-            <MenuItem value='deleted'>Đã xóa</MenuItem>
-          </Select>
-          <Button variant='outlined' onClick={fetchData} disabled={loading}>
-            Làm mới
-          </Button>
-        </Stack>
-      </Paper>
+      {/* Advanced Filter */}
+      <AdvancedFilter
+        config={filterConfig}
+        values={filterValues}
+        onChange={setFilterValues}
+        onReset={resetFilter}
+        loading={loading}
+      />
 
       <TableContainer
         component={Paper}
@@ -285,7 +353,17 @@ const StrapMaterialPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90}>ID</TableCell>
+              <TableCell
+                width={80}
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  backgroundColor: 'background.paper'
+                }}
+              >
+                STT
+              </TableCell>
               <TableCell width={140}>Mã</TableCell>
               <TableCell>Tên vật liệu</TableCell>
               <TableCell width={160} align='right'>
@@ -298,9 +376,19 @@ const StrapMaterialPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(row => (
+            {paginatedData.map((row, index) => (
               <TableRow key={row.id} hover sx={{ opacity: row.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.id}</TableCell>
+                <TableCell
+                  sx={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 1,
+                    backgroundColor: 'background.paper',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {(page - 1) * pageSize + index + 1}
+                </TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>{row.code}</TableCell>
                 <TableCell sx={{ textDecoration: row.del_flag === '1' ? 'line-through' : 'none' }}>
                   {row.name}
@@ -333,7 +421,7 @@ const StrapMaterialPage: NextPage = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {paginatedData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
@@ -342,6 +430,16 @@ const StrapMaterialPage: NextPage = () => {
             )}
           </TableBody>
         </Table>
+        <Box sx={{ mt: 3, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <CustomPagination
+            page={page}
+            pageSize={pageSize}
+            rowLength={filtered.length}
+            totalPages={totalPages}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            onChangePagination={handleChangePagination}
+          />
+        </Box>
       </TableContainer>
 
       {/* Create Dialog */}
@@ -442,56 +540,61 @@ const StrapMaterialPage: NextPage = () => {
         <DialogContent>
           {selected ? (
             <Box sx={{ mt: 1 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Mã
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant='h6'>{selected.name}</Typography>
+                  <Typography variant='body2' color='text.secondary' sx={{ fontFamily: 'monospace' }}>
+                    {selected.code}
                   </Typography>
-                  <Typography sx={{ mt: 0.5, fontFamily: 'monospace' }}>{selected.code}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                  <Chip
+                    label={selected.del_flag === '1' ? 'Đã xóa' : 'Hoạt động'}
+                    color={selected.del_flag === '1' ? 'error' : 'success'}
+                    size='small'
+                    variant='outlined'
+                    sx={{ mt: 1 }}
+                  />
+                </Box>
+                <Box>
                   <Typography variant='subtitle2' color='text.secondary'>
-                    Tên
+                    Mô tả
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{selected.name}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                  <Typography sx={{ mt: 0.5 }}>{selected.description || '-'}</Typography>
+                </Box>
+                <Box>
                   <Typography variant='subtitle2' color='text.secondary'>
                     Phụ thu
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{(selected.extra_money || 0).toLocaleString('vi-VN')} đ</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Trạng thái
+                  <Typography sx={{ mt: 0.5, fontWeight: 600, fontSize: '1.1rem' }}>
+                    {(selected.extra_money || 0).toLocaleString('vi-VN')} đ
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{selected.del_flag === '1' ? 'Đã xóa' : 'Hoạt động'}</Typography>
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant='subtitle2' color='text.secondary'>
+                      Tạo lúc
+                    </Typography>
+                    <Typography sx={{ mt: 0.5 }}>{formatCompactVN(selected.created_at) || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant='subtitle2' color='text.secondary'>
+                      Cập nhật lúc
+                    </Typography>
+                    <Typography sx={{ mt: 0.5 }}>{formatCompactVN(selected.updated_at) || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant='subtitle2' color='text.secondary'>
+                      Tạo bởi
+                    </Typography>
+                    <Typography sx={{ mt: 0.5 }}>{selected.created_by || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant='subtitle2' color='text.secondary'>
+                      Cập nhật bởi
+                    </Typography>
+                    <Typography sx={{ mt: 0.5 }}>{selected.updated_by || '-'}</Typography>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(selected.created_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(selected.updated_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{selected.created_by || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{selected.updated_by || '-'}</Typography>
-                </Grid>
-              </Grid>
+              </Stack>
             </Box>
           ) : null}
         </DialogContent>

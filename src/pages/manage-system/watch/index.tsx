@@ -236,7 +236,7 @@ const WatchPage: NextPage = () => {
       setBrands((b as any)?.brands?.rows || [])
       setCategories((c as any)?.categorys?.rows || [])
       setMovementTypes((m as any)?.movementTypes?.rows || [])
-      setColors((cl as any)?.colors?.rows || [])
+      setColors((cl as any)?.colors?.items || [])
       setStrapMaterials((sm as any)?.strapMaterials?.rows || [])
     } catch {}
   }

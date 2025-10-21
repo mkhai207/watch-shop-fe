@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight, ArrowForward } from '@mui/icons-material'
-import { Box, Button, Container, Grid, IconButton, Typography, useTheme, Card, CardContent, Chip } from '@mui/material'
+import { Box, Button, Container, Grid, IconButton, Typography, Card, CardContent, Chip } from '@mui/material'
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { useEffect, useState, useCallback } from 'react'
+
 import { useTranslation } from 'react-i18next'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
@@ -18,7 +18,6 @@ import CardProduct from '../../../components/card-product/CardProduct'
 type TProps = {}
 
 const HomePage: NextPage<TProps> = () => {
-  const theme = useTheme()
   const { t } = useTranslation()
   const router = useRouter()
   const { user } = useAuth()
@@ -57,9 +56,9 @@ const HomePage: NextPage<TProps> = () => {
   const handleGetBrands = async () => {
     try {
       const response = await getBrands()
-      const rows: TBrand[] = response?.brands?.rows || []
-      const visible = rows.filter(item => item.del_flag !== '1')
-      setBrands(visible.length ? visible : rows)
+      const items: TBrand[] = response?.brands?.items || response?.brands?.rows || []
+      const visible = items.filter(item => item.del_flag !== '1')
+      setBrands(visible.length ? visible : items)
     } catch (error: any) {}
   }
 
@@ -72,11 +71,18 @@ const HomePage: NextPage<TProps> = () => {
     } catch (error: any) {}
   }
 
-  const handleGetProductRecommend = async () => {
+  const handleGetProductRecommend = useCallback(async () => {
     try {
       const response = await getProductRecommend(user?.id.toString() || '')
 
-      if (response.status === 'success') {
+      if (response?.products?.items) {
+        setProductFavourite({
+          data: response.products.items || [],
+          total: response.products.totalItems || 0,
+          totalPages: response.products.totalPages || 0,
+          currentPage: response.products.page || 1
+        })
+      } else if (response.status === 'success') {
         setProductFavourite({
           data: response.data || [],
           total: response.data.total || 0,
@@ -85,7 +91,7 @@ const HomePage: NextPage<TProps> = () => {
         })
       }
     } catch (error: any) {}
-  }
+  }, [user?.id])
 
   useEffect(() => {
     setIsLoaded(true)
@@ -97,7 +103,7 @@ const HomePage: NextPage<TProps> = () => {
     if (user?.id) {
       handleGetProductRecommend()
     }
-  }, [user?.id])
+  }, [user?.id, handleGetProductRecommend])
 
   useEffect(() => {
     const len = brands?.length || 0
@@ -204,14 +210,15 @@ const HomePage: NextPage<TProps> = () => {
         {/* Hero Section */}
         <Box
           sx={{
-            height: '100vh',
+            minHeight: { xs: '80vh', md: '90vh', lg: '100vh' },
             width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
             overflow: 'hidden',
-            px: { xs: 2, sm: 3, lg: 4 }
+            px: { xs: 2, sm: 3, lg: 4 },
+            py: { xs: 4, md: 6 }
           }}
         >
           <Container maxWidth='lg'>
@@ -230,7 +237,7 @@ const HomePage: NextPage<TProps> = () => {
                   fontWeight: 'bold',
                   color: 'text.primary',
                   mb: 3,
-                  fontSize: { xs: '2.5rem', md: '4rem', lg: '5rem' },
+                  fontSize: { xs: '2rem', sm: '2.5rem', md: '3.5rem', lg: '4.5rem' },
                   lineHeight: 1.2
                 }}
               >
@@ -246,9 +253,9 @@ const HomePage: NextPage<TProps> = () => {
                 sx={{
                   color: 'text.secondary',
                   mb: 4,
-                  maxWidth: '600px',
+                  maxWidth: { xs: '90%', sm: '600px' },
                   mx: 'auto',
-                  fontSize: { xs: '1rem', md: '1.25rem' },
+                  fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem', lg: '1.25rem' },
                   lineHeight: 1.6
                 }}
               >
@@ -256,7 +263,17 @@ const HomePage: NextPage<TProps> = () => {
                 dành cho những người sành điệu.
               </Typography>
 
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: { xs: 2, sm: 3 },
+                  justifyContent: 'center',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  alignItems: 'center',
+                  maxWidth: { xs: '300px', sm: 'none' },
+                  mx: 'auto'
+                }}
+              >
                 <Button
                   variant='contained'
                   size='large'
@@ -265,12 +282,13 @@ const HomePage: NextPage<TProps> = () => {
                   sx={{
                     backgroundColor: 'primary.main',
                     color: 'primary.contrastText',
-                    px: 4,
-                    py: 1.5,
-                    fontSize: '1.1rem',
+                    px: { xs: 3, sm: 4 },
+                    py: { xs: 1.2, sm: 1.5 },
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
                     textTransform: 'none',
                     fontWeight: 600,
                     borderRadius: 2,
+                    minWidth: { xs: '200px', sm: 'auto' },
                     '&:hover': {
                       backgroundColor: 'primary.dark',
                       transform: 'translateY(-2px)',
@@ -287,12 +305,13 @@ const HomePage: NextPage<TProps> = () => {
                   sx={{
                     borderColor: 'primary.main',
                     color: 'primary.main',
-                    px: 4,
-                    py: 1.5,
-                    fontSize: '1.1rem',
+                    px: { xs: 3, sm: 4 },
+                    py: { xs: 1.2, sm: 1.5 },
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
                     textTransform: 'none',
                     fontWeight: 600,
                     borderRadius: 2,
+                    minWidth: { xs: '200px', sm: 'auto' },
                     '&:hover': {
                       backgroundColor: 'primary.main',
                       color: 'primary.contrastText',
@@ -320,15 +339,15 @@ const HomePage: NextPage<TProps> = () => {
             <Box
               sx={{
                 position: 'relative',
-                height: { xs: 300, md: 500 },
-                borderRadius: 3,
+                height: { xs: 250, sm: 350, md: 450, lg: 500 },
+                borderRadius: { xs: 2, md: 3 },
                 overflow: 'hidden',
-                mb: 8,
-                boxShadow: 3,
+                mb: { xs: 4, sm: 6, md: 8 },
+                boxShadow: { xs: 2, md: 3 },
                 cursor: 'pointer',
                 backgroundColor: 'background.default',
                 '&:hover': {
-                  transform: 'scale(1.02)',
+                  transform: { xs: 'none', md: 'scale(1.01)' },
                   transition: 'transform 0.3s ease'
                 }
               }}
@@ -574,7 +593,7 @@ const HomePage: NextPage<TProps> = () => {
               </Typography>
             </Box>
 
-            <Grid container spacing={4}>
+            <Grid container spacing={{ xs: 3, md: 4 }}>
               {[
                 {
                   title: 'Chất lượng cao cấp',
@@ -592,31 +611,42 @@ const HomePage: NextPage<TProps> = () => {
                   icon: '🚚'
                 }
               ].map((feature, index) => (
-                <Grid item xs={12} md={4} key={index}>
+                <Grid item xs={12} sm={6} md={4} key={index}>
                   <Card
                     sx={{
                       height: '100%',
-                      p: 3,
+                      p: { xs: 2, md: 3 },
                       textAlign: 'center',
-                      borderRadius: 3,
+                      borderRadius: { xs: 2, md: 3 },
                       border: '1px solid',
                       borderColor: 'grey.200',
                       backgroundColor: 'background.default',
                       '&:hover': {
-                        boxShadow: 4,
-                        transform: 'translateY(-4px)',
+                        boxShadow: { xs: 3, md: 4 },
+                        transform: { xs: 'none', md: 'translateY(-4px)' },
                         transition: 'all 0.3s ease'
                       }
                     }}
                   >
-                    <CardContent>
-                      <Typography variant='h3' sx={{ mb: 2 }}>
+                    <CardContent sx={{ p: { xs: 2, md: 3 }, '&:last-child': { pb: { xs: 2, md: 3 } } }}>
+                      <Typography variant='h3' sx={{ mb: 2, fontSize: { xs: '2rem', md: '3rem' } }}>
                         {feature.icon}
                       </Typography>
-                      <Typography variant='h5' fontWeight='600' sx={{ mb: 2 }}>
+                      <Typography
+                        variant='h5'
+                        fontWeight='600'
+                        sx={{
+                          mb: 2,
+                          fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.5rem' }
+                        }}
+                      >
                         {feature.title}
                       </Typography>
-                      <Typography variant='body1' color='text.secondary'>
+                      <Typography
+                        variant='body1'
+                        color='text.secondary'
+                        sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}
+                      >
                         {feature.description}
                       </Typography>
                     </CardContent>
@@ -748,8 +778,16 @@ const HomePage: NextPage<TProps> = () => {
                         </Box>
                       )
                     }
+
                     return renderList.map((watch, idx) => (
-                      <Box key={`${watch.id}-${idx}`} sx={{ flex: '0 0 25%', boxSizing: 'border-box', p: 1.5 }}>
+                      <Box
+                        key={`${watch.id}-${idx}`}
+                        sx={{
+                          flex: { xs: '0 0 50%', sm: '0 0 33.333%', md: '0 0 25%' },
+                          boxSizing: 'border-box',
+                          p: { xs: 1, md: 1.5 }
+                        }}
+                      >
                         <CardProduct
                           item={
                             {
@@ -835,9 +873,9 @@ const HomePage: NextPage<TProps> = () => {
                 <Chip label='Dành riêng cho bạn' color='primary' variant='outlined' sx={{ fontWeight: 600 }} />
               </Box>
 
-              <Grid container spacing={3}>
-                {productFavourite.data.map((product: TProduct) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+              <Grid container spacing={{ xs: 2, sm: 3 }}>
+                {productFavourite.data.slice(0, 8).map((product: TProduct) => (
+                  <Grid item xs={6} sm={4} md={3} key={product.id}>
                     <CardProduct item={product} />
                   </Grid>
                 ))}

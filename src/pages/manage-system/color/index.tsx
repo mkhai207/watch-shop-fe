@@ -458,19 +458,17 @@ const ColorPage: NextPage = () => {
             )}
           </TableBody>
         </Table>
+        <Box sx={{ mt: 3, mb: 3, display: 'flex', justifyContent: 'center' }}>
+          <CustomPagination
+            page={page}
+            pageSize={pageSize}
+            rowLength={displayTotalItems}
+            totalPages={displayTotalPages}
+            pageSizeOptions={PAGE_SIZE_OPTION}
+            onChangePagination={handleChangePagination}
+          />
+        </Box>
       </TableContainer>
-
-      {/* Custom Pagination */}
-      <Box sx={{ mt: 3 }}>
-        <CustomPagination
-          page={page}
-          pageSize={pageSize}
-          rowLength={displayTotalItems}
-          totalPages={displayTotalPages}
-          pageSizeOptions={PAGE_SIZE_OPTION}
-          onChangePagination={handleChangePagination}
-        />
-      </Box>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>

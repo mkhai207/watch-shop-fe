@@ -30,13 +30,13 @@ import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION_MIN } from 'src/configs/gridConfig'
 import { useAuth } from 'src/hooks/useAuth'
 import { getDetailsProductPublic, getSimilarProducts } from 'src/services/product'
-import { getWatchById } from 'src/services/watch'
-import type { TWatch } from 'src/types/watch'
 import { fetchReviewsByProductId, getReviewsByWatchIdV1 } from 'src/services/review'
+import { getWatchById } from 'src/services/watch'
 import { AppDispatch, RootState } from 'src/stores'
 import { resetCart } from 'src/stores/apps/cart'
 import { addToCartAsync } from 'src/stores/apps/cart/action'
 import { TProduct, TProductDetail } from 'src/types/product'
+import type { TWatch } from 'src/types/watch'
 import { parseSlider } from 'src/utils/parseSlider'
 import TabPanel from '../components/TabPanel'
 
@@ -137,13 +137,6 @@ const DetailProductPage: NextPage<TProps> = () => {
     const initLookups = async () => {
       if (!watchDetail) return
       try {
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('accessToken') || localStorage.getItem('token') || ''
-            : ''
-
-        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
-
         const watchWithVariants = watchDetail as any
         const activeVariants = (watchWithVariants.variants || []).filter((v: any) => String(v.del_flag) !== '1')
 
@@ -183,42 +176,23 @@ const DetailProductPage: NextPage<TProps> = () => {
           }))
         )
 
+        setColorOptions(
+          availableColors.map((c: any) => ({
+            id: String(c.id),
+            name: c.name,
+            hex_code: c.hex_code
+          }))
+        )
+
+        setStrapOptions(
+          availableStraps.map((s: any) => ({
+            id: String(s.id),
+            name: s.name
+          }))
+        )
+
         setSelectedColor(null)
         setSelectedStrapId(null)
-
-        const [colorsRes, strapsRes] = await Promise.all([
-          fetch('http://localhost:8080/v1/colors?page=1&limit=1000', { headers }),
-          fetch('http://localhost:8080/v1/strap-materials?page=1&limit=1000', { headers })
-        ])
-
-        if (colorsRes.ok) {
-          const data = await colorsRes.json()
-          console.log('Colors API response:', data)
-          console.log('All colors from API:', data?.colors?.rows)
-          console.log(
-            'Color IDs from API:',
-            data?.colors?.rows?.map((r: any) => ({ id: r.id, type: typeof r.id }))
-          )
-
-          const rows = (data?.colors?.rows || []).filter((r: any) => uniqueColorIds.includes(String(r.id)))
-
-          if (rows.length === 0) {
-            const allColors = data?.colors?.rows || []
-            setColorOptions(allColors.map((r: any) => ({ id: String(r.id), name: r.name, hex_code: r.hex_code })))
-          } else {
-            setColorOptions(rows.map((r: any) => ({ id: String(r.id), name: r.name, hex_code: r.hex_code })))
-          }
-        } else {
-          console.error('Failed to fetch colors:', colorsRes.status)
-        }
-
-        if (strapsRes.ok) {
-          const data = await strapsRes.json()
-          const rows = (data?.strapMaterials?.rows || []).filter((r: any) => uniqueStrapIds.includes(String(r.id)))
-          setStrapOptions(rows.map((r: any) => ({ id: String(r.id), name: r.name })))
-        } else {
-          console.error('Failed to fetch straps:', strapsRes.status)
-        }
 
         const first = activeVariants?.[0]
         if (first) {
@@ -238,15 +212,16 @@ const DetailProductPage: NextPage<TProps> = () => {
 
       return
     }
+
     const watchWithVariants = watchDetail as any
-    const allowedIds = Array.from(
-      new Set(
-        (watchWithVariants.variants || [])
-          .filter((v: any) => String(v.del_flag) !== '1' && String(v.color_id) === selectedColor)
-          .map((v: any) => String(v.strap_material_id))
-      )
+    const validVariants = (watchWithVariants.variants || []).filter(
+      (v: any) => String(v.del_flag) !== '1' && String(v.color_id) === selectedColor
     )
+
+    const allowedIds = Array.from(new Set(validVariants.map((v: any) => String(v.strap_material_id))))
+
     const nextOptions = strapOptions.filter(s => allowedIds.includes(s.id))
+
     setFilteredStrapOptions(nextOptions)
 
     if (selectedStrapId && !allowedIds.includes(selectedStrapId)) {
@@ -258,8 +233,6 @@ const DetailProductPage: NextPage<TProps> = () => {
     const productId = router?.query?.productId as string
 
     if (!productId) {
-      console.log('Product ID not available yet')
-
       return
     }
 
@@ -489,6 +462,7 @@ const DetailProductPage: NextPage<TProps> = () => {
 
       return stock
     }
+
     return getSelectedSizeStock()
   }
 
@@ -500,7 +474,6 @@ const DetailProductPage: NextPage<TProps> = () => {
 
   useEffect(() => {
     if (message) {
-      console.log('message', message)
       if (isError) {
         toast.error(message)
       } else {

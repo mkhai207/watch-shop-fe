@@ -490,7 +490,7 @@ const OrderManagementPage: NextPage = () => {
       />
 
       {/* Orders Table */}
-      <Card>
+      <Card sx={{ borderRadius: 2, mt: 3 }}>
         <CardHeader
           title='Danh sách đơn hàng'
           action={
@@ -824,7 +824,7 @@ const OrderManagementPage: NextPage = () => {
             </Table>
           </TableContainer>
         </CardContent>
-        <Box sx={{ mt: 4, mb: 4, width: '100%' }} display='flex' justifyContent='center' alignItems='center'>
+        <Box sx={{ mt: 3, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
           <CustomPagination
             onChangePagination={handleOnchangePagination}
             pageSizeOptions={PAGE_SIZE_OPTION}

@@ -7,6 +7,11 @@ interface FilterState {
   sortBy: string
   categories?: string[]
   brands?: string[]
+  brandId?: string
+  categoryId?: string
+  movementTypeId?: string
+  colorId?: string
+  strapMaterialId?: string
 }
 
 interface FilterContextType {
@@ -16,6 +21,7 @@ interface FilterContextType {
   updatePriceRanges: (priceRanges: string[]) => void
   updateRatings: (ratings: number[]) => void
   updateSortBy: (sortBy: string) => void
+  updateSingleFilter: (key: keyof FilterState, value: any) => void
   resetFilters: () => void
   resetAllFilters: () => void
 }
@@ -26,7 +32,12 @@ const initialFilters: FilterState = {
   ratings: [],
   sortBy: '',
   categories: [],
-  brands: []
+  brands: [],
+  brandId: '',
+  categoryId: '',
+  movementTypeId: '',
+  colorId: '',
+  strapMaterialId: ''
 }
 
 const FilterContext = createContext<FilterContextType | null>(null)
@@ -50,6 +61,10 @@ export const FilterProvider = ({ children }: { children: ReactNode }) => {
     setFilters(prev => ({ ...prev, sortBy }))
   }
 
+  const updateSingleFilter = (key: keyof FilterState, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
   const resetFilters = () => {
     setFilters(prev => ({
       ...initialFilters,
@@ -69,6 +84,7 @@ export const FilterProvider = ({ children }: { children: ReactNode }) => {
     updatePriceRanges,
     updateRatings,
     updateSortBy,
+    updateSingleFilter,
     resetFilters,
     resetAllFilters
   }

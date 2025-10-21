@@ -1,13 +1,13 @@
 import instanceAxios from 'src/helpers/axios'
 import { CONFIG_API } from 'src/configs/api'
-import { TOrder, TCreateOrderSystem, TParams } from 'src/types/order'
+import { TCreateOrderSystem, TParams } from 'src/types/order'
 
-export type Order = TOrder
+// export type Order = TOrder
 export interface CreateOrderResponse {
   status: string
   statusCode: number
   message: string
-  data: Order
+  data: any
   error: null
 }
 
@@ -18,38 +18,7 @@ export const getListOrders = async (data: { params: TParams; paramsSerializer?: 
       paramsSerializer: data.paramsSerializer
     })
 
-    const raw = res.data
-    const rows = raw?.orders?.rows || []
-    const count = raw?.orders?.count ?? rows.length
-
-    const normalized = rows.map((item: any) => ({
-      id: item.id,
-      code: item.code,
-      name: item.guess_name || item.name || '',
-      email: item.guess_email || '',
-      phone: item.guess_phone || '',
-      shipping_address: item.shipping_address,
-      total_amount: item.total_amount,
-      discount_code: item.discount_code,
-      discount_amount: item.discount_amount,
-      final_amount: item.final_amount,
-      shipping_fee: item.shipping_fee,
-      note: item.note,
-      created_at: item.created_at,
-      status: item.status || item.current_status_id || 'PENDING',
-      review_flag: item.review_flag,
-      payment_method: item.payment_method || item.paymentMethod || '0'
-    }))
-
-    return {
-      status: 'success',
-      data: normalized,
-      meta: {
-        totalItems: count,
-        totalPages: 1,
-        currentPage: 1
-      }
-    }
+    return res.data
   } catch (error) {
     return error
   }
