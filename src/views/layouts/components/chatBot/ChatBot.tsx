@@ -42,6 +42,7 @@ interface ProductCardItem {
 interface QuickButton {
   title: string
   payload: string
+  id?: string
 }
 
 interface Message {
@@ -113,7 +114,7 @@ const ChatBot = () => {
     }
   }, [open, messages, isLoading])
 
-  const handleSend = async (messageText?: string, displayText?: string) => {
+  const handleSend = async (messageText?: string, displayText?: string, metadata?: any) => {
     const textToSend = messageText || input
     if (!textToSend.trim()) return
 
@@ -136,6 +137,15 @@ const ChatBot = () => {
       // Lấy token từ localStorage
       const token = localStorage.getItem('accessToken')
 
+      // Tạo request body
+      const requestBody = {
+        sender: sessionId,
+        message: textToSend,
+        ...(token ? { metadata: { token, ...metadata } } : metadata ? { metadata } : {})
+      }
+
+      console.log('Sending request to Rasa:', requestBody)
+
       // Gửi tin nhắn đến Rasa server
       const response = await fetch('http://localhost:5005/webhooks/rest/webhook', {
         method: 'POST',
@@ -143,11 +153,7 @@ const ChatBot = () => {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` })
         },
-        body: JSON.stringify({
-          sender: sessionId,
-          message: textToSend,
-          ...(token ? { metadata: { token } } : {})
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
@@ -513,8 +519,11 @@ const ChatBot = () => {
                           size='small'
                           variant='outlined'
                           onClick={() => {
-                            console.log('Button clicked:', { payload: btn.payload, title: btn.title })
-                            handleSend(btn.payload)
+                            console.log('Button clicked:', { payload: btn.payload, title: btn.title, id: btn.id })
+                            // Always include brand_id if button has id, otherwise send empty metadata
+                            const metadata = btn.id ? { brand_id: btn.id } : {}
+                            console.log('Sending metadata:', metadata)
+                            handleSend(btn.payload, undefined, metadata)
                           }}
                           sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25, px: 1 }}
                         >

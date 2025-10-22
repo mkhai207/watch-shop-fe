@@ -19,7 +19,7 @@ export const getListOrders = async (data: { params: TParams; paramsSerializer?: 
     })
 
     const raw = res.data
-    const rows = raw?.orders?.rows || []
+    const rows = raw?.orders?.items || []
     const count = raw?.orders?.count ?? rows.length
 
     const normalized = rows.map((item: any) => ({
