@@ -179,8 +179,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const handleLoadMovementTypes = async () => {
     try {
       const response = await getMovementTypes()
-      if (response && response.movementTypes && response.movementTypes.rows) {
-        setMovementTypes(response.movementTypes.rows)
+      if (response && response.movementTypes && response.movementTypes.items) {
+        setMovementTypes(response.movementTypes.items)
       }
     } catch (error) {
       console.error('Error loading movement types:', error)

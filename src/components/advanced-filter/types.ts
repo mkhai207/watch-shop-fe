@@ -1,4 +1,4 @@
-export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'select'
+export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' | 'multiselect'
 
 export type OperatorType =
   | 'eq' // equal

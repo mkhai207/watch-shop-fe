@@ -180,6 +180,62 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
             </FormControl>
           )
 
+        case 'multiselect':
+          return (
+            <FormControl fullWidth size='small' key={field.key} sx={commonSx} {...commonProps}>
+              <InputLabel>{field.label}</InputLabel>
+              <Select
+                multiple
+                value={Array.isArray(currentValue) ? currentValue : []}
+                onChange={e => handleFilterChange(field.key, e.target.value)}
+                label={field.label}
+                disableCloseOnSelect
+                sx={{
+                  height: '40px',
+                  minHeight: '40px',
+                  '& .MuiSelect-select': {
+                    height: '40px !important',
+                    minHeight: '40px !important',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }
+                }}
+                renderValue={selected => (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                      maxHeight: '32px',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {selected.map(value => (
+                      <Chip
+                        key={value}
+                        label={value}
+                        size='small'
+                        sx={{
+                          height: '20px',
+                          fontSize: '0.7rem',
+                          '& .MuiChip-deleteIcon': {
+                            fontSize: '14px'
+                          }
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
+              >
+                {field.options?.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )
+
         case 'number':
           return (
             <TextField

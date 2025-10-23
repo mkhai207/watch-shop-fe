@@ -63,6 +63,7 @@ import type {
   TWatchVariant
 } from 'src/types/watch'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
+import MLFields from 'src/components/ml-fields/MLFields'
 
 const WatchPage: NextPage = () => {
   const [items, setItems] = useState<TWatch[]>([])
@@ -155,6 +156,120 @@ const WatchPage: NextPage = () => {
           label: 'Giá đến (VNĐ)',
           type: 'number',
           operator: 'lte'
+        },
+        // ML Filters
+        {
+          key: 'price_tier',
+          label: 'Phân khúc giá',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: 'budget', label: 'Budget' },
+            { value: 'mid_range', label: 'Mid Range' },
+            { value: 'premium', label: 'Premium' },
+            { value: 'luxury', label: 'Luxury' }
+          ]
+        },
+        {
+          key: 'gender_target',
+          label: 'Đối tượng giới tính',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: 'M', label: 'Nam' },
+            { value: 'F', label: 'Nữ' },
+            { value: 'U', label: 'Unisex' }
+          ]
+        },
+        {
+          key: 'size_category',
+          label: 'Phân loại kích thước',
+          type: 'select',
+          operator: 'eq',
+          options: [
+            { value: 'small', label: 'Nhỏ (< 38mm)' },
+            { value: 'medium', label: 'Trung bình (38-42mm)' },
+            { value: 'large', label: 'Lớn (> 42mm)' }
+          ]
+        },
+        {
+          key: 'style_tags',
+          label: 'Thẻ phong cách',
+          type: 'multiselect',
+          operator: 'in',
+          options: [
+            'sport',
+            'dress',
+            'casual',
+            'luxury',
+            'vintage',
+            'modern',
+            'classic',
+            'chronograph',
+            'diving',
+            'pilot',
+            'military',
+            'professional',
+            'elegant'
+          ].map(tag => ({ value: tag, label: tag }))
+        },
+        {
+          key: 'material_tags',
+          label: 'Thẻ vật liệu',
+          type: 'multiselect',
+          operator: 'in',
+          options: [
+            'stainless_steel',
+            'titanium',
+            'gold',
+            'platinum',
+            'ceramic',
+            'carbon_fiber',
+            'leather',
+            'rubber',
+            'fabric',
+            'metal_bracelet',
+            'sapphire_crystal',
+            'mineral_crystal'
+          ].map(tag => ({ value: tag, label: tag }))
+        },
+        {
+          key: 'color_tags',
+          label: 'Thẻ màu sắc',
+          type: 'multiselect',
+          operator: 'in',
+          options: [
+            'black',
+            'white',
+            'silver',
+            'gold',
+            'blue',
+            'green',
+            'red',
+            'brown',
+            'gray',
+            'rose_gold',
+            'yellow_gold',
+            'platinum',
+            'two_tone'
+          ].map(tag => ({ value: tag, label: tag }))
+        },
+        {
+          key: 'movement_type_tags',
+          label: 'Thẻ loại máy',
+          type: 'multiselect',
+          operator: 'in',
+          options: [
+            'mechanical',
+            'automatic',
+            'manual_wind',
+            'quartz',
+            'solar',
+            'kinetic',
+            'spring_drive',
+            'tourbillon',
+            'chronometer'
+          ].map(tag => ({ value: tag, label: tag }))
         }
       ],
       sortOptions: [
@@ -213,6 +328,14 @@ const WatchPage: NextPage = () => {
     category_id: '' as any,
     brand_id: '' as any,
     movement_type_id: '' as any,
+    // ML Fields
+    price_tier: '',
+    gender_target: '',
+    size_category: '',
+    style_tags: [],
+    material_tags: [],
+    color_tags: [],
+    movement_type_tags: [],
     variants: []
   })
 
@@ -235,7 +358,7 @@ const WatchPage: NextPage = () => {
       ])
       setBrands((b as any)?.brands?.items || [])
       setCategories((c as any)?.categorys?.items || [])
-      setMovementTypes((m as any)?.movementTypes?.rows || [])
+      setMovementTypes((m as any)?.movementTypes?.items || [])
       setColors((cl as any)?.colors?.items || [])
       setStrapMaterials((sm as any)?.strapMaterials?.rows || [])
     } catch {}
@@ -299,6 +422,40 @@ const WatchPage: NextPage = () => {
       if (filters.base_price_min && Number(it.base_price) < Number(filters.base_price_min)) return false
       if (filters.base_price_max && Number(it.base_price) > Number(filters.base_price_max)) return false
 
+      // ML Filters
+      if (filters.price_tier && (it as any).price_tier !== filters.price_tier) return false
+      if (filters.gender_target && (it as any).gender_target !== filters.gender_target) return false
+      if (filters.size_category && (it as any).size_category !== filters.size_category) return false
+
+      // Tag filters (check if any of the selected tags exist in the watch's tags)
+      if (filters.style_tags && Array.isArray(filters.style_tags) && filters.style_tags.length > 0) {
+        const watchStyleTags = (it as any).style_tags || []
+        const hasMatchingTag = filters.style_tags.some((tag: string) => watchStyleTags.includes(tag))
+        if (!hasMatchingTag) return false
+      }
+
+      if (filters.material_tags && Array.isArray(filters.material_tags) && filters.material_tags.length > 0) {
+        const watchMaterialTags = (it as any).material_tags || []
+        const hasMatchingTag = filters.material_tags.some((tag: string) => watchMaterialTags.includes(tag))
+        if (!hasMatchingTag) return false
+      }
+
+      if (filters.color_tags && Array.isArray(filters.color_tags) && filters.color_tags.length > 0) {
+        const watchColorTags = (it as any).color_tags || []
+        const hasMatchingTag = filters.color_tags.some((tag: string) => watchColorTags.includes(tag))
+        if (!hasMatchingTag) return false
+      }
+
+      if (
+        filters.movement_type_tags &&
+        Array.isArray(filters.movement_type_tags) &&
+        filters.movement_type_tags.length > 0
+      ) {
+        const watchMovementTags = (it as any).movement_type_tags || []
+        const hasMatchingTag = filters.movement_type_tags.some((tag: string) => watchMovementTags.includes(tag))
+        if (!hasMatchingTag) return false
+      }
+
       return true
     })
 
@@ -356,6 +513,14 @@ const WatchPage: NextPage = () => {
       category_id: '' as any,
       brand_id: '' as any,
       movement_type_id: '' as any,
+      // ML Fields
+      price_tier: '',
+      gender_target: '',
+      size_category: '',
+      style_tags: [],
+      material_tags: [],
+      color_tags: [],
+      movement_type_tags: [],
       variants: []
     })
     setVariantDraft({ color_id: '' as any, strap_material_id: '' as any, stock_quantity: 0 } as any)
@@ -454,6 +619,14 @@ const WatchPage: NextPage = () => {
     category_id: '' as any,
     brand_id: '' as any,
     movement_type_id: '' as any,
+    // ML Fields
+    price_tier: '',
+    gender_target: '',
+    size_category: '',
+    style_tags: [],
+    material_tags: [],
+    color_tags: [],
+    movement_type_tags: [],
     variants: []
   })
   const [editUploadingThumb, setEditUploadingThumb] = useState(false)
@@ -635,6 +808,14 @@ const WatchPage: NextPage = () => {
                             category_id: (w.category_id as any) || '',
                             brand_id: (w.brand_id as any) || '',
                             movement_type_id: (w.movement_type_id as any) || '',
+                            // ML Fields
+                            price_tier: (w as any).price_tier || '',
+                            gender_target: (w as any).gender_target || '',
+                            size_category: (w as any).size_category || '',
+                            style_tags: (w as any).style_tags || [],
+                            material_tags: (w as any).material_tags || [],
+                            color_tags: (w as any).color_tags || [],
+                            movement_type_tags: (w as any).movement_type_tags || [],
                             variants: []
                           })
                           setSelected(w)
@@ -964,6 +1145,22 @@ const WatchPage: NextPage = () => {
               </Select>
             </Grid>
 
+            {/* ML Fields */}
+            <Grid item xs={12}>
+              <MLFields
+                values={{
+                  price_tier: form.price_tier || '',
+                  gender_target: form.gender_target || '',
+                  size_category: form.size_category || '',
+                  style_tags: form.style_tags || [],
+                  material_tags: form.material_tags || [],
+                  color_tags: form.color_tags || [],
+                  movement_type_tags: form.movement_type_tags || []
+                }}
+                onChange={(field, value) => setForm(prev => ({ ...prev, [field]: value }))}
+              />
+            </Grid>
+
             {/* Variant builder */}
             <Grid item xs={12}>
               <Typography variant='subtitle1' sx={{ mt: 1, mb: 1 }}>
@@ -1247,6 +1444,102 @@ const WatchPage: NextPage = () => {
                       <Typography>{viewingWatch.status ? 'Đang bán' : 'Ngừng bán'}</Typography>
                     </Grid>
                   </Grid>
+
+                  {/* ML Fields Display */}
+                  {((viewingWatch as any).price_tier ||
+                    (viewingWatch as any).gender_target ||
+                    (viewingWatch as any).size_category ||
+                    (viewingWatch as any).style_tags?.length ||
+                    (viewingWatch as any).material_tags?.length ||
+                    (viewingWatch as any).color_tags?.length ||
+                    (viewingWatch as any).movement_type_tags?.length) && (
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant='subtitle1' sx={{ mb: 2, color: 'primary.main' }}>
+                        🎯 Thông tin ML
+                      </Typography>
+                      <Grid container spacing={2}>
+                        {(viewingWatch as any).price_tier && (
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant='subtitle2' color='text.secondary'>
+                              Phân khúc giá
+                            </Typography>
+                            <Typography>{(viewingWatch as any).price_tier}</Typography>
+                          </Grid>
+                        )}
+                        {(viewingWatch as any).gender_target && (
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant='subtitle2' color='text.secondary'>
+                              Đối tượng giới tính
+                            </Typography>
+                            <Typography>{(viewingWatch as any).gender_target}</Typography>
+                          </Grid>
+                        )}
+                        {(viewingWatch as any).size_category && (
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant='subtitle2' color='text.secondary'>
+                              Phân loại kích thước
+                            </Typography>
+                            <Typography>{(viewingWatch as any).size_category}</Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+
+                      {/* Tags Display */}
+                      <Box sx={{ mt: 2 }}>
+                        {(viewingWatch as any).style_tags?.length > 0 && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                              Thẻ phong cách:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(viewingWatch as any).style_tags.map((tag: string) => (
+                                <Chip key={tag} label={tag} color='primary' size='small' />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+
+                        {(viewingWatch as any).material_tags?.length > 0 && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                              Thẻ vật liệu:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(viewingWatch as any).material_tags.map((tag: string) => (
+                                <Chip key={tag} label={tag} color='secondary' size='small' />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+
+                        {(viewingWatch as any).color_tags?.length > 0 && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                              Thẻ màu sắc:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(viewingWatch as any).color_tags.map((tag: string) => (
+                                <Chip key={tag} label={tag} color='success' size='small' />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+
+                        {(viewingWatch as any).movement_type_tags?.length > 0 && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                              Thẻ loại máy:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {(viewingWatch as any).movement_type_tags.map((tag: string) => (
+                                <Chip key={tag} label={tag} color='warning' size='small' />
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
                 </Grid>
               </Grid>
               <Typography variant='subtitle1' sx={{ mt: 3 }}>
@@ -1616,6 +1909,20 @@ const WatchPage: NextPage = () => {
                   ))}
               </Select>
             </Grid>
+
+            {/* ML Fields */}
+            <MLFields
+              values={{
+                price_tier: editForm.price_tier || '',
+                gender_target: editForm.gender_target || '',
+                size_category: editForm.size_category || '',
+                style_tags: editForm.style_tags || [],
+                material_tags: editForm.material_tags || [],
+                color_tags: editForm.color_tags || [],
+                movement_type_tags: editForm.movement_type_tags || []
+              }}
+              onChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
+            />
           </Grid>
         </DialogContent>
         <DialogActions>
