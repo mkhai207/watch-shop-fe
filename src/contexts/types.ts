@@ -26,13 +26,62 @@ export type UserDataType = {
   date_of_birth: string
   address: string
   status: string
+  age_group: string
+  gender_preference: string
+  price_range_preference: string
+  brand_preferences: string[]
+  category_preferences: string[]
+  style_preferences: string[]
   created_at: string
+  created_by: string | null
+  updated_at: string
+  updated_by: string | null
   role_id: number
   role: {
-    id: string
+    id: number
     name: string
     code: string
   }
+}
+
+export type CreateUserType = {
+  email: string
+  password: string
+  username: string
+  first_name: string
+  last_name: string
+  phone_number: string
+  gender: string
+  date_of_birth: string
+  address: string
+  role_id: number
+  age_group: string
+  gender_preference: string
+  price_range_preference: string
+  brand_preferences: string[]
+  category_preferences: string[]
+  style_preferences: string[]
+}
+
+export type UpdateUserType = {
+  first_name: string
+  last_name: string
+  phone_number: string
+  gender: string
+  date_of_birth: string
+  address: string
+  status: string
+  role_id: number
+  age_group: string
+  gender_preference: string
+  price_range_preference: string
+  brand_preferences: string[]
+  category_preferences: string[]
+  style_preferences: string[]
+}
+
+export type GetUserResponse = {
+  user: UserDataType
 }
 
 export type AuthValuesType = {

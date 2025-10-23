@@ -5,11 +5,21 @@ export type TLoginAuth = {
 
 export type TRegisterAuth = {
   email: string
-  userName: string
   password: string
-  fistName: string
-  lastName: string
-  roleId: number
+  username: string
+  first_name: string
+  last_name: string
+  phone_number: string
+  gender: string
+  date_of_birth: string
+  address: string
+  role_id: number
+  age_group: string
+  gender_preference: string
+  price_range_preference: string
+  brand_preferences: string[]
+  category_preferences: string[]
+  style_preferences: string[]
 }
 
 export type TPermission = {
@@ -21,24 +31,32 @@ export type TPermission = {
 }
 
 export type TUserRole = {
-  id: string
-  code: string
+  id: number
   name: string
 }
 
 export type TUser = {
-  id: string
+  id: number
+  code: string
+  username: string
+  email: string
+  phone_number: string
+  first_name: string
+  last_name: string
+  gender: string
+  date_of_birth: string
+  address: string
+  status: string
+  age_group: string
+  gender_preference: string
+  price_range_preference: string
+  brand_preferences: string[]
+  category_preferences: string[]
+  style_preferences: string[]
   created_at: string
   created_by: string | null
   updated_at: string
   updated_by: string | null
-  active: boolean
-  avatar: string | null
-  birthday: string | null
-  email: string
-  full_name: string
-  gender: string | null
-  phone: string
   role: TUserRole
   permissions?: TPermission[]
 }

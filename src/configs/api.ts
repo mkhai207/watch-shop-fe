@@ -4,7 +4,9 @@ export const AI_URL = 'http://localhost:8000'
 export const CONFIG_API = {
   AUTH: {
     INDEX: `${BASE_URL}/auth`,
-    AUTH_ME: `${BASE_URL}/auth/me`
+    AUTH_ME: `${BASE_URL}/auth/me`,
+    UPDATE_USER: `${BASE_URL}/users`,
+    CHANGE_PASSWORD: `${BASE_URL}/auth/change-password`
   },
   USER: {
     INDEX: `${BASE_URL}/users`,

@@ -22,13 +22,20 @@ export const useAuth = () => {
     async (
       id: string,
       userData: {
-        fullname?: string
-        phone?: string
-        avatar?: string
-        birthday?: string
+        first_name?: string
+        last_name?: string
+        phone_number?: string
         gender?: string
-        active?: boolean
+        date_of_birth?: string
+        address?: string
+        status?: string
         role_id?: number
+        age_group?: string
+        gender_preference?: string
+        price_range_preference?: string
+        brand_preferences?: string[]
+        category_preferences?: string[]
+        style_preferences?: string[]
       }
     ) => {
       return await updateUser(id, userData)
