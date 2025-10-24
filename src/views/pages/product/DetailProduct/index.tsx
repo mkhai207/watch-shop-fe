@@ -40,6 +40,7 @@ import { addToCartAsync } from 'src/stores/apps/cart/action'
 import { TProduct, TProductDetail } from 'src/types/product'
 import { parseSlider } from 'src/utils/parseSlider'
 import TabPanel from '../components/TabPanel'
+import { useFormatPrice } from 'src/utils/formatNumber'
 
 type TProps = {}
 
@@ -89,6 +90,7 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION_MIN[0])
   const [page, setPage] = useState(1)
+  const formattedPrice = useFormatPrice(displayPrice)
 
   const handleTabChange = (event: SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
@@ -682,7 +684,7 @@ const DetailProductPage: NextPage<TProps> = () => {
               {/* Price */}
               <Box mb={3}>
                 <Typography variant='h3' color='error' fontWeight='bold' sx={{ mb: 1 }}>
-                  {displayPrice.toLocaleString('vi-VN')} VNĐ
+                  {formattedPrice} VNĐ
                 </Typography>
                 <Typography variant='body1' color='success.main' fontWeight='medium'>
                   <Box component='span' fontWeight='bold'>

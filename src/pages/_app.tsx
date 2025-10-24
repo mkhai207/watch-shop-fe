@@ -40,6 +40,8 @@ import ThemeComponent from 'src/theme/ThemeComponent'
 import UserLayout from 'src/views/layouts/UserLayout'
 import { AxiosInterceptor } from 'src/helpers/axios'
 import ChatBot from 'src/views/layouts/components/chatBot/ChatBot'
+import NoSSR from 'src/components/NoSSR'
+import HydrationBoundary from 'src/components/HydrationBoundary'
 
 type ExtendedAppProps = AppProps & {
   Component: NextPage
@@ -128,8 +130,10 @@ export default function App(props: ExtendedAppProps) {
                     <FilterProvider>
                       <Guard authGuard={authGuard} guestGuard={guestGuard}>
                         <AclGuard aclAbilities={aclAbilities} guestGuard={guestGuard} authGuard={authGuard}>
-                          {getLayout(<Component {...pageProps} />)}
-                          <ChatBot />
+                          <HydrationBoundary>{getLayout(<Component {...pageProps} />)}</HydrationBoundary>
+                          <NoSSR>
+                            <ChatBot />
+                          </NoSSR>
                         </AclGuard>
                       </Guard>
                     </FilterProvider>
@@ -144,6 +148,5 @@ export default function App(props: ExtendedAppProps) {
         </AxiosInterceptor>
       </AuthProvider>
     </Provider>
-    
   )
 }

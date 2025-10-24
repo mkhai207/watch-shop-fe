@@ -6,6 +6,7 @@ import { ROUTE_CONFIG } from 'src/configs/route'
 import { TProduct } from 'src/types/product'
 // removed old user interaction API; detail tracking handled in detail page
 import { useAuth } from 'src/hooks/useAuth'
+import { useFormatPrice } from 'src/utils/formatNumber'
 
 const StyledCard = styled(Card)(({ theme }) => ({
   height: '100%',
@@ -31,6 +32,7 @@ const CardProduct = (props: TCardProduct) => {
   const theme = useTheme()
   const router = useRouter()
   const { user } = useAuth()
+  const formattedPrice = useFormatPrice(item?.price || 0)
 
   const handleNavigateDetailProduct = (id: string) => {
     router.push(`${ROUTE_CONFIG.PRODUCT}/${id}`)
@@ -103,7 +105,7 @@ const CardProduct = (props: TCardProduct) => {
                 fontSize: '16px'
               }}
             >
-              {item?.price ? `${item.price.toLocaleString()} VND` : '0 VNĐ'}
+              {formattedPrice} VND
             </Typography>
           </Box>
 

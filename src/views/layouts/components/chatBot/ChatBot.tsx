@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import CloseIcon from '@mui/icons-material/Close'
 import SendIcon from '@mui/icons-material/Send'
+import { useSuppressHydrationWarning } from 'src/utils/suppressHydrationWarning'
 
 interface ProductCardItem {
   id: string
@@ -79,22 +80,30 @@ export const clearChatHistory = () => {
 
 const ChatBot = () => {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (typeof window !== 'undefined' && localStorage) {
-      try {
-        const savedMessages = localStorage.getItem('rasaChatMessages')
-        return savedMessages ? JSON.parse(savedMessages) : []
-      } catch (error) {
-        console.error('Lỗi khi đọc localStorage:', error)
-        return []
-      }
-    }
-    return []
-  })
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(() => `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isClient, setIsClient] = useState(false)
+
+  // Tắt hydration warnings
+  useSuppressHydrationWarning()
+
+  // Chỉ load messages sau khi component đã mount trên client
+  useEffect(() => {
+    setIsClient(true)
+    if (typeof window !== 'undefined' && localStorage) {
+      try {
+        const savedMessages = localStorage.getItem('rasaChatMessages')
+        if (savedMessages) {
+          setMessages(JSON.parse(savedMessages))
+        }
+      } catch (error) {
+        console.error('Lỗi khi đọc localStorage:', error)
+      }
+    }
+  }, [])
 
   // Lưu messages vào localStorage khi thay đổi
   useEffect(() => {
@@ -411,8 +420,13 @@ const ChatBot = () => {
     )
   }
 
+  // Chỉ render khi đã ở client-side để tránh hydration mismatch
+  if (!isClient) {
+    return null
+  }
+
   return (
-    <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10000 }}>
+    <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10000 }} suppressHydrationWarning>
       {open ? (
         <Paper
           sx={{

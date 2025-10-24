@@ -27,6 +27,7 @@ import { getCategories } from 'src/services/category'
 import { getMovementTypes } from 'src/services/movementType'
 import { search } from 'src/services/watch'
 import { TProduct } from 'src/types/product'
+import { useFormatPrice } from 'src/utils/formatNumber'
 
 type TProps = {}
 
@@ -54,6 +55,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const [movementTypes, setMovementTypes] = useState<any[]>([])
 
   const [loading, setLoading] = useState(false)
+  const formattedPriceRange = useFormatPrice(priceRange[0])
+  const formattedPriceRangeMax = useFormatPrice(priceRange[1])
   const [productsPublic, setProductsPublic] = useState<{
     data: any[]
     total: number
@@ -319,7 +322,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
             <Box mb={3}>
               <Typography variant='body2' mb={1}>
-                Khoảng giá: {priceRange[0].toLocaleString()} - {priceRange[1].toLocaleString()} VND
+                Khoảng giá: {formattedPriceRange} - {formattedPriceRangeMax} VND
               </Typography>
               <Slider
                 value={priceRange}
