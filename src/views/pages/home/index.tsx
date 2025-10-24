@@ -10,6 +10,7 @@ import { useAuth } from 'src/hooks/useAuth'
 import { getProductRecommend } from 'src/services/product'
 import { getWatches } from 'src/services/watch'
 import { getBrands } from 'src/services/brand'
+import { getPublicRecommendations, getPersonalizedRecommendations } from 'src/services/recommendation'
 import { TBrand } from 'src/types/brand'
 import { TProduct } from 'src/types/product'
 import { TWatch } from 'src/types/watch'
@@ -41,6 +42,21 @@ const HomePage: NextPage<TProps> = () => {
     router.push(`${ROUTE_CONFIG.PRODUCT}`)
   }
 
+  // Helper function to get image URL with fallback
+  const getImageUrl = (recommendation: any) => {
+    // Try to get image from different sources
+    if (recommendation?.images && recommendation.images.length > 0) {
+      return recommendation.images[0]
+    }
+    if (recommendation?.brand?.logo_url) {
+      return recommendation.brand.logo_url
+    }
+    if (recommendation?.category?.image_url) {
+      return recommendation.category.image_url
+    }
+    return '/images/luxury-rolex-submariner.png'
+  }
+
   const [brands, setBrands] = useState<TBrand[]>([])
   const [brandSlide, setBrandSlide] = useState(0)
   const [dragStartX, setDragStartX] = useState<number | null>(null)
@@ -53,6 +69,14 @@ const HomePage: NextPage<TProps> = () => {
   const [isWatchDragging, setIsWatchDragging] = useState(false)
   const [isWatchTransitioning, setIsWatchTransitioning] = useState(true)
   const [watchAutoPausedUntil, setWatchAutoPausedUntil] = useState(0)
+
+  // Recommendation states
+  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [recommendationSlide, setRecommendationSlide] = useState(0)
+  const [recommendationDragStartX, setRecommendationDragStartX] = useState<number | null>(null)
+  const [isRecommendationDragging, setIsRecommendationDragging] = useState(false)
+  const [isRecommendationTransitioning, setIsRecommendationTransitioning] = useState(true)
+  const [recommendationAutoPausedUntil, setRecommendationAutoPausedUntil] = useState(0)
 
   const handleGetBrands = async () => {
     try {
@@ -87,16 +111,58 @@ const HomePage: NextPage<TProps> = () => {
     } catch (error: any) {}
   }
 
+  const handleGetRecommendations = async () => {
+    try {
+      let response
+      if (user?.id) {
+        // Get personalized recommendations for logged in users
+        response = await getPersonalizedRecommendations({ limit: 5 })
+      } else {
+        // Get public recommendations for anonymous users
+        response = await getPublicRecommendations({ limit: 5 })
+      }
+
+      if (response?.success && response?.data?.recommendations) {
+        console.log('✅ Recommendations loaded successfully:', response.data.recommendations)
+        console.log('📊 Total recommendations:', response.data.recommendations.length)
+        response.data.recommendations.forEach((rec: any, index: number) => {
+          console.log(`📦 Recommendation ${index + 1}:`, {
+            name: rec.name,
+            watch_id: rec.watch_id,
+            hasImages: rec.images && rec.images.length > 0,
+            images: rec.images,
+            brandLogo: rec.brand?.logo_url,
+            categoryImage: rec.category?.image_url,
+            selectedImage: getImageUrl(rec)
+          })
+        })
+        setRecommendations(response.data.recommendations)
+      } else {
+        console.log('❌ No recommendations data:', response)
+        console.log('Response structure:', {
+          success: response?.success,
+          hasData: !!response?.data,
+          hasRecommendations: !!response?.data?.recommendations,
+          dataKeys: response?.data ? Object.keys(response.data) : 'no data'
+        })
+      }
+    } catch (error: any) {
+      console.error('Error fetching recommendations:', error)
+    }
+  }
+
   useEffect(() => {
     setIsLoaded(true)
     handleGetBrands()
     handleGetWatches()
+    handleGetRecommendations()
   }, [])
 
   useEffect(() => {
     if (user?.id) {
       handleGetProductRecommend()
     }
+    handleGetRecommendations()
   }, [user?.id])
 
   useEffect(() => {
@@ -124,6 +190,19 @@ const HomePage: NextPage<TProps> = () => {
 
     return () => clearInterval(timer)
   }, [watches, watchAutoPausedUntil])
+
+  useEffect(() => {
+    const len = recommendations?.length || 0
+    if (len <= 1) return
+    const timer = setInterval(() => {
+      if (Date.now() >= recommendationAutoPausedUntil) {
+        setIsRecommendationTransitioning(true)
+        setRecommendationSlide(prev => prev + 1)
+      }
+    }, 4000)
+
+    return () => clearInterval(timer)
+  }, [recommendations, recommendationAutoPausedUntil])
 
   const handleBrandDragStart = (clientX: number) => {
     setDragStartX(clientX)
@@ -188,6 +267,39 @@ const HomePage: NextPage<TProps> = () => {
     }
     setWatchDragStartX(null)
     setIsWatchDragging(false)
+  }
+
+  const handleRecommendationDragStart = (clientX: number) => {
+    setRecommendationDragStartX(clientX)
+    setIsRecommendationDragging(true)
+    setRecommendationAutoPausedUntil(Date.now() + 4000)
+  }
+
+  const handleRecommendationDragEnd = (clientX: number) => {
+    if (recommendationDragStartX === null) return
+    const delta = clientX - recommendationDragStartX
+    const threshold = 40
+    const len = recommendations?.length || 0
+    if (len > 0) {
+      if (delta > threshold) {
+        if (recommendationSlide === 0) {
+          setIsRecommendationTransitioning(false)
+          setRecommendationSlide(len)
+          setTimeout(() => {
+            setIsRecommendationTransitioning(true)
+            setRecommendationSlide(len - 1)
+          }, 0)
+        } else {
+          setIsRecommendationTransitioning(true)
+          setRecommendationSlide(prev => prev - 1)
+        }
+      } else if (delta < -threshold) {
+        setIsRecommendationTransitioning(true)
+        setRecommendationSlide(prev => prev + 1)
+      }
+    }
+    setRecommendationDragStartX(null)
+    setIsRecommendationDragging(false)
   }
 
   return (
@@ -627,7 +739,7 @@ const HomePage: NextPage<TProps> = () => {
           </Container>
         </Box>
 
-        {/* Best Sellers Section - Watches Carousel */}
+        {/* Featured Recommendations Section */}
         <Box
           sx={{
             py: { xs: 6, sm: 8, md: 10, lg: 12 },
@@ -638,22 +750,24 @@ const HomePage: NextPage<TProps> = () => {
           <Container maxWidth='lg'>
             <Box textAlign='center' mb={6}>
               <Typography variant='h3' component='h2' fontWeight='bold' sx={{ mb: 2 }}>
-                {t('best-seller')}
+                {user?.id ? 'Gợi ý dành riêng cho bạn' : 'Sản phẩm nổi bật'}
               </Typography>
               <Typography variant='h6' color='text.secondary' sx={{ fontStyle: 'italic' }}>
-                {t('top-trending')}
+                {user?.id
+                  ? 'Được AI cá nhân hóa dựa trên sở thích của bạn'
+                  : 'Khám phá những mẫu đồng hồ được yêu thích nhất'}
               </Typography>
             </Box>
 
-            {/* Watches smooth carousel (3 per view, step 1) */}
+            {/* Recommendations smooth carousel (4 per view, step 1) */}
             <Box
               position='relative'
-              onMouseDown={e => handleWatchDragStart(e.clientX)}
-              onMouseUp={e => handleWatchDragEnd(e.clientX)}
-              onMouseLeave={() => setIsWatchDragging(false)}
-              onTouchStart={e => handleWatchDragStart(e.touches[0].clientX)}
-              onTouchEnd={e => handleWatchDragEnd(e.changedTouches[0].clientX)}
-              sx={{ cursor: isWatchDragging ? 'grabbing' : 'grab' }}
+              onMouseDown={e => handleRecommendationDragStart(e.clientX)}
+              onMouseUp={e => handleRecommendationDragEnd(e.clientX)}
+              onMouseLeave={() => setIsRecommendationDragging(false)}
+              onTouchStart={e => handleRecommendationDragStart(e.touches[0].clientX)}
+              onTouchEnd={e => handleRecommendationDragEnd(e.changedTouches[0].clientX)}
+              sx={{ cursor: isRecommendationDragging ? 'grabbing' : 'grab' }}
             >
               <IconButton
                 sx={{
@@ -668,20 +782,20 @@ const HomePage: NextPage<TProps> = () => {
                   transition: 'all 0.3s ease'
                 }}
                 onClick={() => {
-                  const len = watches?.length || 0
+                  const len = recommendations?.length || 0
                   if (len > 0) {
-                    if (watchSlide === 0) {
-                      setIsWatchTransitioning(false)
-                      setWatchSlide(len)
+                    if (recommendationSlide === 0) {
+                      setIsRecommendationTransitioning(false)
+                      setRecommendationSlide(len)
                       setTimeout(() => {
-                        setIsWatchTransitioning(true)
-                        setWatchSlide(len - 1)
+                        setIsRecommendationTransitioning(true)
+                        setRecommendationSlide(len - 1)
                       }, 0)
                     } else {
-                      setIsWatchTransitioning(true)
-                      setWatchSlide(prev => prev - 1)
+                      setIsRecommendationTransitioning(true)
+                      setRecommendationSlide(prev => prev - 1)
                     }
-                    setWatchAutoPausedUntil(Date.now() + 4000)
+                    setRecommendationAutoPausedUntil(Date.now() + 4000)
                   }
                 }}
               >
@@ -701,11 +815,11 @@ const HomePage: NextPage<TProps> = () => {
                   transition: 'all 0.3s ease'
                 }}
                 onClick={() => {
-                  const len = watches?.length || 0
+                  const len = recommendations?.length || 0
                   if (len > 0) {
-                    setIsWatchTransitioning(true)
-                    setWatchSlide(prev => prev + 1)
-                    setWatchAutoPausedUntil(Date.now() + 4000)
+                    setIsRecommendationTransitioning(true)
+                    setRecommendationSlide(prev => prev + 1)
+                    setRecommendationAutoPausedUntil(Date.now() + 4000)
                   }
                 }}
               >
@@ -717,26 +831,26 @@ const HomePage: NextPage<TProps> = () => {
                   sx={{
                     display: 'flex',
                     gap: 0,
-                    transform: `translateX(-${watchSlide * (100 / 4)}%)`,
-                    transition: isWatchTransitioning ? 'transform 600ms ease' : 'none'
+                    transform: `translateX(-${recommendationSlide * (100 / 4)}%)`,
+                    transition: isRecommendationTransitioning ? 'transform 600ms ease' : 'none'
                   }}
                   onTransitionEnd={() => {
-                    const len = watches.length
+                    const len = recommendations.length
                     if (len > 0) {
-                      if (watchSlide >= len) {
-                        setIsWatchTransitioning(false)
-                        setWatchSlide(watchSlide % len)
-                        setTimeout(() => setIsWatchTransitioning(true), 0)
-                      } else if (watchSlide < 0) {
-                        setIsWatchTransitioning(false)
-                        setWatchSlide(((watchSlide % len) + len) % len)
-                        setTimeout(() => setIsWatchTransitioning(true), 0)
+                      if (recommendationSlide >= len) {
+                        setIsRecommendationTransitioning(false)
+                        setRecommendationSlide(recommendationSlide % len)
+                        setTimeout(() => setIsRecommendationTransitioning(true), 0)
+                      } else if (recommendationSlide < 0) {
+                        setIsRecommendationTransitioning(false)
+                        setRecommendationSlide(((recommendationSlide % len) + len) % len)
+                        setTimeout(() => setIsRecommendationTransitioning(true), 0)
                       }
                     }
                   }}
                 >
                   {(() => {
-                    const base = watches
+                    const base = recommendations
                     const clonesHead = base.slice(0, Math.min(4, base.length))
                     const renderList = [...base, ...clonesHead]
                     if (base.length === 0) {
@@ -748,27 +862,46 @@ const HomePage: NextPage<TProps> = () => {
                         </Box>
                       )
                     }
-                    return renderList.map((watch, idx) => (
-                      <Box key={`${watch.id}-${idx}`} sx={{ flex: '0 0 25%', boxSizing: 'border-box', p: 1.5 }}>
-                        <CardProduct
-                          item={
-                            {
-                              id: watch.id,
-                              name: watch.name,
-                              thumbnail: watch.thumbnail || '',
-                              price: watch.base_price,
-                              sold: watch.sold || 0
-                            } as any
-                          }
-                        />
-                      </Box>
-                    ))
+                    return renderList.map((recommendation, idx) => {
+                      // Debug log for each recommendation
+                      console.log(`🎯 Rendering Recommendation ${idx}:`, {
+                        id: recommendation.watch_id,
+                        name: recommendation.name,
+                        hasImages: recommendation.images && recommendation.images.length > 0,
+                        images: recommendation.images,
+                        brandLogo: recommendation.brand?.logo_url,
+                        categoryImage: recommendation.category?.image_url,
+                        finalImage: getImageUrl(recommendation)
+                      })
+
+                      return (
+                        <Box
+                          key={`${recommendation.watch_id}-${idx}`}
+                          sx={{ flex: '0 0 25%', boxSizing: 'border-box', p: 1.5 }}
+                        >
+                          <CardProduct
+                            item={
+                              {
+                                id: recommendation.watch_id,
+                                name: recommendation.name,
+                                thumbnail: getImageUrl(recommendation),
+                                price: recommendation.base_price,
+                                sold: recommendation.sold || 0,
+                                brand: recommendation.brand?.name,
+                                category: recommendation.category?.name,
+                                rating: recommendation.rating || 0
+                              } as any
+                            }
+                          />
+                        </Box>
+                      )
+                    })
                   })()}
                 </Box>
               </Box>
 
               <Box display='flex' justifyContent='center' gap={1.5} mt={3}>
-                {Array.from({ length: Math.max(watches?.length || 0, 1) }).map((_, idx) => (
+                {Array.from({ length: Math.max(recommendations?.length || 0, 1) }).map((_, idx) => (
                   <Box
                     key={idx}
                     sx={{
@@ -776,12 +909,15 @@ const HomePage: NextPage<TProps> = () => {
                       height: 10,
                       borderRadius: '50%',
                       backgroundColor:
-                        (watches.length ? ((watchSlide % watches.length) + watches.length) % watches.length : 0) === idx
+                        (recommendations.length
+                          ? ((recommendationSlide % recommendations.length) + recommendations.length) %
+                            recommendations.length
+                          : 0) === idx
                           ? 'primary.main'
                           : 'grey.300',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setWatchSlide(idx)}
+                    onClick={() => setRecommendationSlide(idx)}
                   />
                 ))}
               </Box>
