@@ -90,6 +90,20 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION_MIN[0])
   const [page, setPage] = useState(1)
+
+  // Calculate displayPrice early to avoid temporal dead zone
+  const isWatch = !!watchDetail
+  const selectedVariant = isWatch
+    ? ((watchDetail as any)?.variants || [])
+        .filter((v: any) => String(v.del_flag) !== '1')
+        .find((v: any) => String(v.color_id) === selectedColor && String(v.strap_material_id) === selectedStrapId)
+    : null
+  const displayPrice = isWatch
+    ? (selectedVariant?.price || 0) > 0
+      ? selectedVariant?.price
+      : watchDetail?.base_price || 0
+    : (productDetail as any)?.price || 0
+
   const formattedPrice = useFormatPrice(displayPrice)
 
   const handleTabChange = (event: SyntheticEvent, newValue: number) => {
@@ -557,20 +571,8 @@ const DetailProductPage: NextPage<TProps> = () => {
     }
   }, [productDetail, watchDetail, page, pageSize])
 
-  const isWatch = !!watchDetail
   const mainImages = parseSlider((isWatch ? watchDetail?.slider : (productDetail as any)?.slider) || '')
   const displayName = (isWatch ? watchDetail?.name : productDetail?.name) || ''
-
-  const selectedVariant = isWatch
-    ? ((watchDetail as any)?.variants || [])
-        .filter((v: any) => String(v.del_flag) !== '1')
-        .find((v: any) => String(v.color_id) === selectedColor && String(v.strap_material_id) === selectedStrapId)
-    : null
-  const displayPrice = isWatch
-    ? (selectedVariant?.price || 0) > 0
-      ? selectedVariant?.price
-      : watchDetail?.base_price || 0
-    : (productDetail as any)?.price || 0
   const displayStatus = isWatch
     ? watchDetail?.status
       ? 'Còn hàng'
