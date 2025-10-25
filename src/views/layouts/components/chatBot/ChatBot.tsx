@@ -65,6 +65,19 @@ interface OrderCardItem {
   buttons: QuickButton[]
 }
 
+interface PromotionCardItem {
+  id: string
+  code: string
+  name: string
+  description: string
+  discount_value: string
+  min_order_value: string
+  max_discount_amount: string
+  effective_date: string
+  valid_until: string
+  discount_type: string
+}
+
 interface Message {
   sender: 'user' | 'bot'
   text: string
@@ -74,6 +87,7 @@ interface Message {
     type?: string
     cards?: ProductCardItem[]
     orders?: OrderCardItem[]
+    promotions?: PromotionCardItem[]
   }
 }
 
@@ -85,6 +99,7 @@ interface RasaResponse {
     type?: string
     cards?: ProductCardItem[]
     orders?: OrderCardItem[]
+    promotions?: PromotionCardItem[]
   }
 }
 
@@ -202,11 +217,7 @@ const ChatBot = () => {
           setTimeout(() => {
             const botMsg: Message = {
               sender: 'bot',
-              text:
-                item.text ||
-                (item.custom?.type === 'cards' || item.custom?.type === 'order_cards'
-                  ? ''
-                  : 'Không có phản hồi từ hệ thống.'),
+              text: item.text || '',
               buttons: item.buttons,
               custom: item.custom,
               timestamp: new Date()
@@ -286,7 +297,129 @@ const ChatBot = () => {
     // Bot message: styled variants
     const text = msg.text || ''
 
-    // 0) Order cards payload from Rasa custom
+    // 0) Promotion cards payload from Rasa custom
+    if (
+      msg.custom?.type === 'promotion_cards' &&
+      Array.isArray(msg.custom.promotions) &&
+      msg.custom.promotions.length > 0
+    ) {
+      const formatDate = (dateString: string) => {
+        try {
+          return new Date(dateString).toLocaleDateString('vi-VN')
+        } catch {
+          return dateString
+        }
+      }
+
+      const getDiscountTypeColor = (type: string) => {
+        switch (type.toLowerCase()) {
+          case 'giảm phần trăm':
+            return '#4caf50'
+          case 'giảm cố định':
+            return '#2196f3'
+          default:
+            return '#757575'
+        }
+      }
+
+      return (
+        <>
+          {text ? (
+            <Typography variant='body2' sx={{ mb: 1 }}>
+              {text}
+            </Typography>
+          ) : null}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {msg.custom.promotions.slice(0, 10).map(promotion => (
+              <Paper
+                key={promotion.id}
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  border: '1px solid #e0e0e0',
+                  width: '100%',
+                  transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                  '&:hover': { bgcolor: '#fafafa', boxShadow: 1 }
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Box>
+                    <Typography variant='body2' sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      {promotion.name}
+                    </Typography>
+                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                      Mã: {promotion.code}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography
+                      variant='body2'
+                      sx={{
+                        fontWeight: 700,
+                        color: getDiscountTypeColor(promotion.discount_type),
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      {promotion.discount_type}
+                    </Typography>
+                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                      {formatDate(promotion.valid_until)}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Typography variant='body2' sx={{ mb: 1, color: 'text.primary' }}>
+                  {promotion.description}
+                </Typography>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Giá trị giảm:
+                    </Typography>
+                    <Typography variant='caption' sx={{ fontWeight: 700, color: 'success.main' }}>
+                      {promotion.discount_value}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Đơn tối thiểu:
+                    </Typography>
+                    <Typography variant='caption' sx={{ fontWeight: 700 }}>
+                      {promotion.min_order_value}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Giảm tối đa:
+                    </Typography>
+                    <Typography variant='caption' sx={{ fontWeight: 700 }}>
+                      {promotion.max_discount_amount}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Áp dụng từ: {formatDate(promotion.effective_date)}
+                  </Typography>
+                  <Typography variant='caption' color='text.secondary'>
+                    Đến: {formatDate(promotion.valid_until)}
+                  </Typography>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+          {msg.timestamp ? (
+            <Typography variant='caption' sx={{ display: 'block', mt: 0.5, color: 'text.disabled' }}>
+              {formatTime(msg.timestamp)}
+            </Typography>
+          ) : null}
+        </>
+      )
+    }
+
+    // 1) Order cards payload from Rasa custom
     if (msg.custom?.type === 'order_cards' && Array.isArray(msg.custom.orders) && msg.custom.orders.length > 0) {
       const getStatusColor = (color: string) => {
         switch (color.toLowerCase()) {
