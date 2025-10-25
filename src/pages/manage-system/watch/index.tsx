@@ -374,7 +374,7 @@ const WatchPage: NextPage = () => {
       const allItems = watchData?.items || watchData?.rows || []
       setItems(allItems)
 
-      const vrows = (vRes as any)?.variants?.rows || []
+      const vrows = (vRes as any)?.variants?.items || []
       const counts: Record<string, number> = {}
       vrows.forEach((v: any) => {
         const id = String(v.watch_id)
@@ -683,7 +683,7 @@ const WatchPage: NextPage = () => {
           } else {
             // Fallback: fetch variants separately
             const vRes = await getWatchVariants()
-            const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+            const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
             setViewVariants(all.filter(i => String(i.watch_id) === createdWatchId))
           }
         }
@@ -789,7 +789,7 @@ const WatchPage: NextPage = () => {
                           } else {
                             // Fallback: fetch variants separately
                             const vRes = await getWatchVariants()
-                            const all = ((vRes as any)?.variants?.rows || []) as any[]
+                            const all = ((vRes as any)?.variants?.items || []) as any[]
                             setViewVariants(all.filter(v => String(v.watch_id) === String(row.id)) as any)
                           }
                           setOpenViewWatch(true)
@@ -1373,7 +1373,7 @@ const WatchPage: NextPage = () => {
                   } else {
                     // Fallback: fetch variants separately
                     const vRes = await getWatchVariants()
-                    const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+                    const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
                     setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id)))
                   }
                 }
@@ -1663,7 +1663,7 @@ const WatchPage: NextPage = () => {
                                   } else {
                                     // Fallback: fetch variants separately
                                     const vRes = await getWatchVariants()
-                                    const all = ((vRes as any)?.variants?.rows || []) as TWatchVariant[]
+                                    const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
                                     setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id)))
                                   }
                                 }

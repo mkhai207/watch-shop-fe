@@ -278,6 +278,33 @@ const OrderHistoryPage = () => {
     handleGetOrderStatuses()
   }, [])
 
+  // Check for order detail opening from chatbot
+  useEffect(() => {
+    const shouldOpenDetail = localStorage.getItem('openOrderDetail')
+    const selectedOrderId = localStorage.getItem('selectedOrderId')
+
+    console.log('Checking for order detail opening:', { shouldOpenDetail, selectedOrderId, ordersData: orders.data })
+
+    if (shouldOpenDetail === 'true' && selectedOrderId && orders.data.length > 0) {
+      // Find the order in the current list
+      const order = orders.data.find(o => String(o.id) === selectedOrderId)
+      console.log('Found order:', order)
+
+      if (order) {
+        // Add a small delay to ensure the page is fully loaded
+        setTimeout(() => {
+          console.log('Opening detail dialog for order:', order.id)
+          handleViewDetails(order)
+        }, 500)
+      }
+
+      // Clear the flags
+      localStorage.removeItem('openOrderDetail')
+      localStorage.removeItem('selectedOrderId')
+      localStorage.removeItem('selectedOrderCode')
+    }
+  }, [orders.data])
+
   return (
     <>
       {loading && <Spinner />}

@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import CloseIcon from '@mui/icons-material/Close'
 import SendIcon from '@mui/icons-material/Send'
 import { useSuppressHydrationWarning } from 'src/utils/suppressHydrationWarning'
@@ -44,6 +45,24 @@ interface QuickButton {
   title: string
   payload: string
   id?: string
+  metadata?: {
+    order_id?: string
+    order_code?: string
+    status_name?: string
+    status_color?: string
+    intent?: string
+  }
+}
+
+interface OrderCardItem {
+  id: string
+  code: string
+  customer_name: string
+  total_amount: string
+  status: string
+  status_color: string
+  created_date: string
+  buttons: QuickButton[]
 }
 
 interface Message {
@@ -54,6 +73,7 @@ interface Message {
   custom?: {
     type?: string
     cards?: ProductCardItem[]
+    orders?: OrderCardItem[]
   }
 }
 
@@ -64,6 +84,7 @@ interface RasaResponse {
   custom?: {
     type?: string
     cards?: ProductCardItem[]
+    orders?: OrderCardItem[]
   }
 }
 
@@ -79,6 +100,7 @@ export const clearChatHistory = () => {
 }
 
 const ChatBot = () => {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -107,14 +129,15 @@ const ChatBot = () => {
 
   // Lưu messages vào localStorage khi thay đổi
   useEffect(() => {
-    if (typeof window !== 'undefined' && localStorage) {
+    if (typeof window !== 'undefined' && localStorage && isClient) {
       try {
         localStorage.setItem('rasaChatMessages', JSON.stringify(messages))
+        console.log('Saved chat messages to localStorage:', messages.length, 'messages')
       } catch (error) {
         console.error('Lỗi khi lưu localStorage:', error)
       }
     }
-  }, [messages])
+  }, [messages, isClient])
 
   // Cuộn xuống cuối khi mở khung chat hoặc có tin nhắn mới
   useEffect(() => {
@@ -179,7 +202,11 @@ const ChatBot = () => {
           setTimeout(() => {
             const botMsg: Message = {
               sender: 'bot',
-              text: item.text || (item.custom?.type === 'cards' ? '' : 'Không có phản hồi từ hệ thống.'),
+              text:
+                item.text ||
+                (item.custom?.type === 'cards' || item.custom?.type === 'order_cards'
+                  ? ''
+                  : 'Không có phản hồi từ hệ thống.'),
               buttons: item.buttons,
               custom: item.custom,
               timestamp: new Date()
@@ -213,6 +240,25 @@ const ChatBot = () => {
     clearChatHistory()
   }
 
+  const handleOrderButtonClick = (btn: QuickButton) => {
+    console.log('Order button clicked:', { payload: btn.payload, title: btn.title, metadata: btn.metadata })
+
+    // Store order detail info for dialog opening BEFORE navigation
+    if (btn.metadata?.order_id) {
+      // Store order info in localStorage for the order history page to use
+      localStorage.setItem('selectedOrderId', btn.metadata.order_id)
+      localStorage.setItem('selectedOrderCode', btn.metadata.order_code || '')
+      localStorage.setItem('openOrderDetail', 'true')
+      console.log('Stored order info:', { orderId: btn.metadata.order_id, orderCode: btn.metadata.order_code })
+    }
+
+    // Navigate to order history page
+    router.push('/order/order-history')
+
+    // Don't close chatbot immediately - let user see the navigation
+    // setOpen(false)
+  }
+
   const formatTime = (date: Date | string | number) => {
     const dateObj = new Date(date)
     return dateObj.toLocaleTimeString('vi-VN', {
@@ -240,7 +286,114 @@ const ChatBot = () => {
     // Bot message: styled variants
     const text = msg.text || ''
 
-    // 0) Product cards payload from Rasa custom
+    // 0) Order cards payload from Rasa custom
+    if (msg.custom?.type === 'order_cards' && Array.isArray(msg.custom.orders) && msg.custom.orders.length > 0) {
+      const getStatusColor = (color: string) => {
+        switch (color.toLowerCase()) {
+          case 'green':
+            return '#4caf50'
+          case 'red':
+            return '#f44336'
+          case 'orange':
+            return '#ff9800'
+          case 'blue':
+            return '#2196f3'
+          default:
+            return '#757575'
+        }
+      }
+
+      return (
+        <>
+          {text ? (
+            <Typography variant='body2' sx={{ mb: 1 }}>
+              {text}
+            </Typography>
+          ) : null}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {msg.custom.orders.slice(0, 10).map(order => (
+              <Paper
+                key={order.id}
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  border: '1px solid #e0e0e0',
+                  width: '100%',
+                  transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                  '&:hover': { bgcolor: '#fafafa', boxShadow: 1 }
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Box>
+                    <Typography variant='body2' sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      {order.code}
+                    </Typography>
+                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                      {order.customer_name}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography
+                      variant='body2'
+                      sx={{
+                        fontWeight: 700,
+                        color: getStatusColor(order.status_color),
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      {order.status}
+                    </Typography>
+                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                      {order.created_date}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                  <Typography variant='body2' sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    Tổng tiền: {order.total_amount}
+                  </Typography>
+                </Box>
+
+                {order.buttons && order.buttons.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {order.buttons.map((btn, i) => (
+                      <Button
+                        key={i}
+                        size='small'
+                        variant='outlined'
+                        onClick={() => handleOrderButtonClick(btn)}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '0.75rem',
+                          py: 0.5,
+                          px: 1.5,
+                          borderColor: 'primary.main',
+                          color: 'primary.main',
+                          '&:hover': {
+                            bgcolor: 'primary.main',
+                            color: 'white'
+                          }
+                        }}
+                      >
+                        {btn.title}
+                      </Button>
+                    ))}
+                  </Box>
+                )}
+              </Paper>
+            ))}
+          </Box>
+          {msg.timestamp ? (
+            <Typography variant='caption' sx={{ display: 'block', mt: 0.5, color: 'text.disabled' }}>
+              {formatTime(msg.timestamp)}
+            </Typography>
+          ) : null}
+        </>
+      )
+    }
+
+    // 1) Product cards payload from Rasa custom
     if (msg.custom?.type === 'cards' && Array.isArray(msg.custom.cards) && msg.custom.cards.length > 0) {
       const formatCurrency = (value?: number) => {
         if (typeof value !== 'number') return ''
