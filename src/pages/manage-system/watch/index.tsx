@@ -322,7 +322,7 @@ const WatchPage: NextPage = () => {
     release_date: '',
     base_price: 0,
     rating: 0,
-    status: '0',
+    status: '1',
     thumbnail: '',
     slider: '',
     category_id: '' as any,
@@ -507,7 +507,7 @@ const WatchPage: NextPage = () => {
       release_date: '',
       base_price: 0,
       rating: 0,
-      status: '0',
+      status: '1',
       thumbnail: '',
       slider: '',
       category_id: '' as any,
@@ -820,7 +820,7 @@ const WatchPage: NextPage = () => {
                             release_date: w.release_date || '',
                             base_price: (w.base_price as any) || 0,
                             rating: (w.rating as any) || 0,
-                            status: (w.status ? '1' : '0') as any,
+                            status: String(w.status || '1') as any,
                             thumbnail: w.thumbnail || '',
                             slider: w.slider || '',
                             category_id: (w.category_id as any) || '',
@@ -1985,7 +1985,7 @@ const WatchPage: NextPage = () => {
                   brand_id: Number(rest.brand_id),
                   category_id: Number(rest.category_id),
                   movement_type_id: Number(rest.movement_type_id),
-                  status: '0' as any
+                  status: String(editForm.status || '1') as any
                 }
                 await updateWatch(String(selected.id), payload as any)
                 toast.success('Cập nhật thành công')
