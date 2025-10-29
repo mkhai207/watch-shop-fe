@@ -308,6 +308,7 @@ const DetailProductPage: NextPage<TProps> = () => {
       } catch {}
     }
     sendView()
+
     return () => {
       cancelled = true
     }
