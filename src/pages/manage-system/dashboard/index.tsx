@@ -101,7 +101,7 @@ const DashboardPage: NextPage = () => {
       {/* Date Filter */}
       <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mb: 3 }}>
         <Typography variant='h6' fontWeight={600} sx={{ mb: 2 }}>
-          Lọc theo thời gian
+          Bộ lọc
         </Typography>
         <Grid container spacing={2} alignItems='center'>
           <Grid item xs={12} sm={4}>
@@ -419,7 +419,7 @@ const DashboardPage: NextPage = () => {
         <Grid container spacing={2}>
           {[
             {
-              href: '/manage-system/product',
+              href: '/manage-system/watch',
               icon: 'mdi:package-variant',
               label: 'Thêm sản phẩm'
             },

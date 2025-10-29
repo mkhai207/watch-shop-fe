@@ -324,7 +324,7 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
           sx={{
             p: 3,
             mb: 3,
-            borderRadius: 1,
+            borderRadius: 2,
             background: (theme: any) => theme.palette.background.paper,
             border: (theme: any) => `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
             transition: 'all 0.2s ease-in-out',

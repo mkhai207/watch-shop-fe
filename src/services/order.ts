@@ -1,13 +1,13 @@
 import instanceAxios from 'src/helpers/axios'
 import { CONFIG_API } from 'src/configs/api'
-import { TOrder, TCreateOrderSystem, TParams } from 'src/types/order'
+import { TCreateOrderSystem, TParams } from 'src/types/order'
 
-export type Order = TOrder
+// export type Order = TOrder
 export interface CreateOrderResponse {
   status: string
   statusCode: number
   message: string
-  data: Order
+  data: any
   error: null
 }
 

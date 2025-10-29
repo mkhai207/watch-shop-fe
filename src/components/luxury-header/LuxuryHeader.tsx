@@ -10,8 +10,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  useTheme,
-  useMediaQuery,
   Avatar,
   Menu,
   MenuItem,
@@ -20,9 +18,7 @@ import {
 import {
   Menu as MenuIcon,
   Close as CloseIcon,
-  ShoppingCart,
   Person,
-  Search,
   Settings,
   LocalMall,
   Favorite,
@@ -36,17 +32,17 @@ import InputSearch from 'src/components/input-search'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useFilter } from 'src/contexts/FilterContext'
 import Image from 'next/image'
+import MegaMenu from './MegaMenu'
 
 const LuxuryHeader: React.FC = () => {
-  const theme = useTheme()
   const router = useRouter()
   const { user, logout } = useAuth()
   const { filters, updateSearch } = useFilter()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   const [isLoaded, setIsLoaded] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null)
+  const [showMegaMenu, setShowMegaMenu] = useState(false)
 
   useEffect(() => {
     setIsLoaded(true)
@@ -154,30 +150,62 @@ const LuxuryHeader: React.FC = () => {
             sx={{
               display: { xs: 'none', md: 'flex' },
               alignItems: 'center',
-              gap: 4,
+              gap: 0,
               opacity: isLoaded ? 1 : 0,
               transform: isLoaded ? 'translateY(0)' : 'translateY(-30px)',
-              transition: 'all 0.8s ease-out 0.2s'
+              transition: 'all 0.8s ease-out 0.2s',
+              position: 'relative'
+            }}
+            onMouseLeave={() => {
+              setTimeout(() => {
+                setShowMegaMenu(false)
+              }, 150)
             }}
           >
             {navigationItems.map(item => (
               <Button
                 key={item.label}
                 onClick={() => router.push(item.href)}
+                onMouseEnter={() => {
+                  if (item.label === 'Sản phẩm' || item.label === 'Thương hiệu') {
+                    setShowMegaMenu(true)
+                  }
+                }}
                 sx={{
                   color: 'text.primary',
                   textTransform: 'none',
                   fontWeight: 500,
                   fontSize: '1rem',
+                  position: 'relative',
+                  px: 3,
+                  height: '64px',
+                  minHeight: '64px',
+                  borderRadius: 0,
+                  border: 'none',
+                  transition: 'all 0.3s ease',
                   '&:hover': {
-                    color: 'primary.light',
-                    backgroundColor: 'transparent'
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    boxShadow: 'none'
                   }
                 }}
               >
                 {item.label}
               </Button>
             ))}
+
+            <Box
+              className='mega-menu'
+              sx={{
+                position: 'absolute',
+                top: '100%',
+                left: '-200px',
+                width: '800px',
+                zIndex: 1300
+              }}
+            >
+              <MegaMenu show={showMegaMenu} onClose={() => setShowMegaMenu(false)} />
+            </Box>
           </Box>
 
           {/* Right side actions */}
@@ -220,9 +248,9 @@ const LuxuryHeader: React.FC = () => {
                   }}
                 >
                   <Avatar sx={{ width: 24, height: 24 }}>
-                    {user?.avatar ? (
+                    {(user as any)?.avatar ? (
                       <Image
-                        src={user.avatar}
+                        src={(user as any).avatar}
                         alt='User Avatar'
                         width={24}
                         height={24}
@@ -259,7 +287,7 @@ const LuxuryHeader: React.FC = () => {
                 >
                   <Box sx={{ px: 2, py: 1.5 }}>
                     <Typography variant='subtitle2' fontWeight='600'>
-                      {user.fullName || user.email}
+                      {(user as any).fullName || user.email}
                     </Typography>
                     <Typography variant='caption' color='text.secondary'>
                       {user.role?.name}
