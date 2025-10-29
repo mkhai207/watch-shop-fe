@@ -645,17 +645,17 @@ const LuxuryProductPage: NextPage<TProps> = () => {
               </Box>
             </Box>
             {loading ? (
-            <Box mb={3}>
-              <Typography variant='body2' mb={1}>
-                Khoảng giá: {formattedPriceRange} - {formattedPriceRangeMax} VND
-              </Typography>
-              <Slider
-                value={priceRange}
-                onChange={(_, v) => {
-                  const newRange = v as number[]
-                  setPriceRange(newRange)
-                }}
-              />
+              <Box mb={3}>
+                <Typography variant='body2' mb={1}>
+                  Khoảng giá: {formattedPriceRange} - {formattedPriceRangeMax} VND
+                </Typography>
+                <Slider
+                  value={priceRange}
+                  onChange={(_, v) => {
+                    const newRange = v as number[]
+                    setPriceRange(newRange)
+                  }}
+                />
               </Box>
             ) : productsPublic.data.length === 0 ? (
               <Box
