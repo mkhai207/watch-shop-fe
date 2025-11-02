@@ -54,7 +54,7 @@ const RegisterPage: NextPage<TProps> = () => {
     password: '',
     fistName: '',
     lastName: '',
-    roleId: 1
+    roleId: 2
   }
 
   const {
@@ -269,7 +269,7 @@ const RegisterPage: NextPage<TProps> = () => {
                 />
               </Box>
 
-              <Box sx={{ mt: 2, width: '300px' }}>
+              {/* <Box sx={{ mt: 2, width: '300px' }}>
                 <Controller
                   control={control}
                   rules={{
@@ -292,7 +292,7 @@ const RegisterPage: NextPage<TProps> = () => {
                   )}
                   name='roleId'
                 />
-              </Box>
+              </Box> */}
 
               <Button type='submit' fullWidth variant='contained' color='primary' sx={{ mt: 3, mb: 2 }}>
                 Register

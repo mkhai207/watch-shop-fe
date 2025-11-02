@@ -220,10 +220,11 @@ const LoginPage: NextPage<TProps> = () => {
                     userInfo: response.userInfo
                   })
 
-                  if (apiResponse.data.status === 'success') {
-                    const userData = apiResponse.data.data
-                    const accessToken = apiResponse.data.accessToken
-                    const refreshToken = apiResponse.data.refreshToken
+                  if (apiResponse.data.user.id) {
+                    console.log(apiResponse)
+                    const userData = apiResponse.data.user
+                    const accessToken = apiResponse.data.tokens.access.token
+                    const refreshToken = apiResponse.data.tokens.refresh.token
 
                     setLocalUserData(JSON.stringify(userData), accessToken, refreshToken)
                     setUser(userData)

@@ -41,9 +41,7 @@ const HomePage: NextPage<TProps> = () => {
     router.push(`${ROUTE_CONFIG.PRODUCT}`)
   }
 
-  // Helper function to get image URL with fallback
   const getImageUrl = (recommendation: any) => {
-    // Try to get image from different sources
     if (recommendation?.images && recommendation.images.length > 0) {
       return recommendation.images[0]
     }
@@ -53,6 +51,7 @@ const HomePage: NextPage<TProps> = () => {
     if (recommendation?.category?.image_url) {
       return recommendation.category.image_url
     }
+
     return '/images/luxury-rolex-submariner.png'
   }
 

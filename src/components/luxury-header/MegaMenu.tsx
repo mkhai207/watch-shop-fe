@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, Grid, Paper, CircularProgress, Fade, List, ListItem, ListItemText } from '@mui/material'
+import {
+  Box,
+  Typography,
+  Grid,
+  Paper,
+  CircularProgress,
+  Fade,
+  List,
+  ListItemText,
+  ListItemButton,
+  Container
+} from '@mui/material'
 import { useRouter } from 'next/router'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useFilter } from 'src/contexts/FilterContext'
@@ -18,6 +29,92 @@ interface MegaMenuProps {
   show: boolean
   onClose: () => void
 }
+
+type TBaseItem = {
+  id: string | number
+  name: string
+  hex_code?: string
+}
+
+interface SectionListProps {
+  title: string
+  items: TBaseItem[]
+  itemType: string
+  onNavigate: (type: string, value: string) => void
+  onShowMore: () => void
+}
+
+const SectionList: React.FC<SectionListProps> = ({ title, items, itemType, onNavigate, onShowMore }) => (
+  <Box sx={{ width: '100%' }}>
+    <Typography
+      variant='subtitle1'
+      sx={{
+        fontWeight: 700,
+        mb: 2,
+        color: 'text.primary',
+        fontSize: '1rem',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        pl: 1
+      }}
+    >
+      {title}
+    </Typography>
+
+    <List dense sx={{ p: 0, width: '100%' }}>
+      {items.map(item => (
+        <ListItemButton
+          key={item.id}
+          onClick={() => onNavigate(itemType, item.id.toString())}
+          sx={{ borderRadius: 1, mb: 0.5, px: 1, py: 0.5, width: '100%' }}
+        >
+          {itemType === 'colorId' && (
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                backgroundColor: item.hex_code || '#ccc',
+                border: '1px solid #ddd',
+                mr: 1.5,
+                flexShrink: 0
+              }}
+            />
+          )}
+          <ListItemText
+            primary={item.name}
+            primaryTypographyProps={{
+              fontSize: '0.875rem',
+              color: 'text.secondary',
+              fontWeight: 400,
+              noWrap: true,
+              sx: {
+                transition: 'color 0.2s ease',
+                '&:hover': {
+                  color: 'primary.main'
+                }
+              }
+            }}
+          />
+        </ListItemButton>
+      ))}
+
+      {items.length >= 8 && (
+        <ListItemButton onClick={onShowMore} sx={{ borderRadius: 1, px: 1, py: 0.5, mt: 1 }}>
+          <ListItemText
+            primary='Xem thêm...'
+            primaryTypographyProps={{
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              color: 'primary.main',
+              fontStyle: 'italic'
+            }}
+          />
+        </ListItemButton>
+      )}
+    </List>
+  </Box>
+)
 
 const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
   const router = useRouter()
@@ -44,26 +141,14 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
         getColors(),
         getStrapMaterials()
       ])
-
-      if (brandsRes?.brands?.items) {
-        setBrands(brandsRes.brands.items.filter((item: any) => item.del_flag !== '1'))
-      }
-
-      if (categoriesRes?.categorys?.items) {
-        setCategories(categoriesRes.categorys.items.filter((item: any) => item.del_flag !== '1'))
-      }
-
-      if (movementTypesRes?.movementTypes?.items) {
-        setMovementTypes(movementTypesRes.movementTypes.items.filter((item: any) => item.del_flag !== '1'))
-      }
-
-      if (colorsRes?.colors?.items) {
-        setColors(colorsRes.colors.items.filter((item: any) => item.del_flag !== '1'))
-      }
-
-      if (strapMaterialsRes?.strapMaterials?.rows) {
-        setStrapMaterials(strapMaterialsRes.strapMaterials.rows.filter((item: any) => item.del_flag !== '1'))
-      }
+      const filterDeleted = (item: any) => item.del_flag !== '1'
+      if (brandsRes?.brands?.items) setBrands(brandsRes.brands.items.filter(filterDeleted))
+      if (categoriesRes?.categorys?.items) setCategories(categoriesRes.categorys.items.filter(filterDeleted))
+      if (movementTypesRes?.movementTypes?.items)
+        setMovementTypes(movementTypesRes.movementTypes.items.filter(filterDeleted))
+      if (colorsRes?.colors?.items) setColors(colorsRes.colors.items.filter(filterDeleted))
+      if (strapMaterialsRes?.strapMaterials?.rows)
+        setStrapMaterials(strapMaterialsRes.strapMaterials.rows.filter(filterDeleted))
     } catch (error) {
       console.error('Error fetching mega menu data:', error)
     } finally {
@@ -78,14 +163,12 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
     onClose()
   }
 
-  if (!show) return null
+  const handleShowMore = () => {
+    router.push(ROUTE_CONFIG.PRODUCT)
+    onClose()
+  }
 
-  const sections = [
-    { title: 'Thương hiệu', data: brands.slice(0, 8), type: 'brandId' },
-    { title: 'Danh mục', data: categories.slice(0, 8), type: 'categoryId' },
-    { title: 'Bộ máy', data: movementTypes.slice(0, 8), type: 'movementTypeId' },
-    { title: 'Màu sắc', data: colors.slice(0, 8), type: 'colorId' }
-  ]
+  if (!show) return null
 
   return (
     <Fade in={show} timeout={250}>
@@ -98,115 +181,72 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
           left: 0,
           right: 0,
           zIndex: 1300,
-          borderRadius: '0 0 16px 16px',
+          borderRadius: 0,
           boxShadow: '0 8px 40px rgba(0,0,0,0.1)',
           bgcolor: 'background.paper',
-          minWidth: 600,
-          maxWidth: 800,
           minHeight: 300
         }}
       >
         {loading ? (
-          <Box display='flex' alignItems='center' justifyContent='center' height={200}>
+          <Box display='flex' alignItems='center' justifyContent='center' minHeight={300}>
             <CircularProgress />
           </Box>
         ) : (
-          <Grid container>
-            {sections.map((section, sectionIndex) => (
-              <Grid item xs={6} md={3} key={section.title}>
-                <Box
-                  sx={{
-                    p: 3,
-                    borderRight: sectionIndex < sections.length - 1 ? '1px solid' : 'none',
-                    borderColor: 'divider',
-                    height: '100%'
-                  }}
-                >
-                  <Typography
-                    variant='subtitle2'
-                    sx={{
-                      fontWeight: 600,
-                      mb: 2,
-                      color: 'text.secondary',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5
-                    }}
-                  >
-                    {section.title}
-                  </Typography>
-
-                  <List dense sx={{ p: 0 }}>
-                    {section.data.map((item, index) => (
-                      <ListItem
-                        key={index}
-                        onClick={() => handleNavigate(section.type, item.id.toString())}
-                        sx={{
-                          px: 0,
-                          py: 0.5,
-                          cursor: 'pointer',
-                          borderRadius: 1,
-                          transition: 'all 0.2s ease',
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                            color: 'primary.main'
-                          }
-                        }}
-                      >
-                        {section.type === 'colorId' && (
-                          <Box
-                            sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              backgroundColor: (item as any).hex_code || '#ccc',
-                              border: '1px solid #ddd',
-                              mr: 1,
-                              flexShrink: 0
-                            }}
-                          />
-                        )}
-                        <ListItemText
-                          primary={item.name}
-                          primaryTypographyProps={{
-                            fontSize: '0.875rem',
-                            fontWeight: 400,
-                            color: 'text.primary'
-                          }}
-                        />
-                      </ListItem>
-                    ))}
-
-                    {section.data.length >= 8 && (
-                      <ListItem
-                        onClick={() => router.push(ROUTE_CONFIG.PRODUCT)}
-                        sx={{
-                          px: 0,
-                          py: 0.5,
-                          cursor: 'pointer',
-                          borderRadius: 1,
-                          transition: 'all 0.2s ease',
-                          '&:hover': {
-                            color: 'primary.main'
-                          }
-                        }}
-                      >
-                        <ListItemText
-                          primary='Xem thêm...'
-                          primaryTypographyProps={{
-                            fontSize: '0.75rem',
-                            fontWeight: 500,
-                            color: 'primary.main',
-                            fontStyle: 'italic'
-                          }}
-                        />
-                      </ListItem>
-                    )}
-                  </List>
+          <Container maxWidth='lg' sx={{ py: 4 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Box sx={{ height: '100%' }}>
+                  <SectionList
+                    title='Thương hiệu'
+                    items={brands.slice(0, 8)}
+                    itemType='brandId'
+                    onNavigate={handleNavigate}
+                    onShowMore={handleShowMore}
+                  />
+                  <Box sx={{ mt: 3 }} />
+                  <SectionList
+                    title='Danh mục'
+                    items={categories.slice(0, 8)}
+                    itemType='categoryId'
+                    onNavigate={handleNavigate}
+                    onShowMore={handleShowMore}
+                  />
                 </Box>
               </Grid>
-            ))}
-          </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Box sx={{ height: '100%' }}>
+                  <SectionList
+                    title='Bộ máy'
+                    items={movementTypes.slice(0, 8)}
+                    itemType='movementTypeId'
+                    onNavigate={handleNavigate}
+                    onShowMore={handleShowMore}
+                  />
+                  <Box sx={{ mt: 3 }} />
+                  <SectionList
+                    title='Chất liệu dây'
+                    items={strapMaterials.slice(0, 8)}
+                    itemType='strapMaterialId'
+                    onNavigate={handleNavigate}
+                    onShowMore={handleShowMore}
+                  />
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Box sx={{ height: '100%' }}>
+                  <SectionList
+                    title='Màu sắc'
+                    items={colors.slice(0, 8)}
+                    itemType='colorId'
+                    onNavigate={handleNavigate}
+                    onShowMore={handleShowMore}
+                  />
+                </Box>
+              </Grid>
+            </Grid>
+          </Container>
         )}
       </Paper>
     </Fade>

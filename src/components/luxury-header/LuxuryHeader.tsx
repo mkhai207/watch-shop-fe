@@ -169,6 +169,8 @@ const LuxuryHeader: React.FC = () => {
                 onMouseEnter={() => {
                   if (item.label === 'Sản phẩm' || item.label === 'Thương hiệu') {
                     setShowMegaMenu(true)
+                  } else {
+                    setShowMegaMenu(false)
                   }
                 }}
                 sx={{
@@ -413,7 +415,6 @@ const LuxuryHeader: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Mobile Menu Drawer */}
       <Drawer
         anchor='right'
         open={isMenuOpen}
@@ -438,12 +439,10 @@ const LuxuryHeader: React.FC = () => {
             </IconButton>
           </Box>
 
-          {/* Mobile Search */}
           <Box sx={{ mb: 3 }}>
             <InputSearch value={filters.search || ''} onChange={handleSearch} expandable={false} />
           </Box>
 
-          {/* Navigation Items */}
           <List>
             {navigationItems.map(item => (
               <ListItem
@@ -474,7 +473,6 @@ const LuxuryHeader: React.FC = () => {
             ))}
           </List>
 
-          {/* User Actions */}
           <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
             {!user && (
               <Button
