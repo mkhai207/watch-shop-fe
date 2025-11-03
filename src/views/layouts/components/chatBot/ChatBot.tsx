@@ -820,8 +820,23 @@ const ChatBot = () => {
                           variant='outlined'
                           onClick={() => {
                             console.log('Button clicked:', { payload: btn.payload, title: btn.title, id: btn.id })
-                            // Always include brand_id if button has id, otherwise send empty metadata
-                            const metadata = btn.id ? { brand_id: btn.id } : {}
+                            // Prefer metadata from button (may include category_id, intent, etc.)
+                            // Fallback: if no metadata provided, infer brand_id from id
+                            const metadataFromBtn = btn.metadata ? { ...btn.metadata } : {}
+                            // Normalize: material_id -> strap_material_id
+                            if (
+                              metadataFromBtn &&
+                              (metadataFromBtn as any).material_id &&
+                              !(metadataFromBtn as any).strap_material_id
+                            ) {
+                              ;(metadataFromBtn as any).strap_material_id = (metadataFromBtn as any).material_id
+                              delete (metadataFromBtn as any).material_id
+                            }
+                            const metadata = Object.keys(metadataFromBtn).length
+                              ? metadataFromBtn
+                              : btn.id
+                              ? { brand_id: btn.id }
+                              : {}
                             console.log('Sending metadata:', metadata)
                             handleSend(btn.payload, undefined, metadata)
                           }}

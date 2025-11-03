@@ -145,9 +145,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const handleLoadCategories = async () => {
     try {
       const response = await getCategories()
-      if (response && response.categories && response.categories.items) {
-        setCategories(response.categories.items)
-      }
+      const items = response?.categories?.items || response?.categorys?.items || []
+      setCategories(items)
     } catch (error) {
       console.error('Error loading categories:', error)
     }
