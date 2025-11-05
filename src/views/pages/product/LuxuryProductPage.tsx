@@ -189,7 +189,27 @@ const LuxuryProductPage: NextPage<TProps> = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [
+    page,
+    pageSize,
+    filters.search,
+    filters.sortBy,
+    filters.priceRanges,
+    filters.ratings,
+    filters.brandId,
+    filters.categoryId,
+    filters.movementTypeId,
+    filters.colorId,
+    filters.strapMaterialId,
+    statusSelected,
+    priceRange,
+    selectedBrands,
+    selectedCategories,
+    selectedMovementTypes,
+    selectedGenders,
+    selectedRatings,
+    t
+  ])
 
   const clearAll = () => {
     setPriceRange([0, 50_000_000])
