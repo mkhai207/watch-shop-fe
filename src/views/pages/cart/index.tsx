@@ -209,11 +209,13 @@ const CartPage: NextPage<TProps> = () => {
     const now = dayjs()
     const start = dayjs(d.effective_date, ['YYYYMMDDHHmmss', 'YYYY-MM-DDTHH:mm:ssZ'])
     const end = dayjs(d.valid_until, ['YYYYMMDDHHmmss', 'YYYY-MM-DDTHH:mm:ssZ'])
+
     return now.isAfter(start) && now.isBefore(end)
   }
 
   const isDiscountEligibleForSubtotal = (d: any, amount: number) => {
     const minOrder = Number(d.min_order_value || 0)
+
     return amount >= minOrder
   }
 
@@ -234,6 +236,7 @@ const CartPage: NextPage<TProps> = () => {
       // fixed amount
       discount = Number(value)
     }
+
     return Math.max(0, Math.min(amount, discount))
   }
 
@@ -243,6 +246,7 @@ const CartPage: NextPage<TProps> = () => {
       setIsPromoApplied(false)
       setAppliedDiscount(null)
       setDiscountAmount(0)
+
       return
     }
     const found = discounts.find(d => String(d.code || '').toLowerCase() === code)
@@ -251,14 +255,17 @@ const CartPage: NextPage<TProps> = () => {
       setIsPromoApplied(false)
       setAppliedDiscount(null)
       setDiscountAmount(0)
+
       return
     }
     if (!isDiscountInDate(found)) {
       toast.error('Mã giảm giá chưa hiệu lực hoặc đã hết hạn')
+
       return
     }
     if (!isDiscountEligibleForSubtotal(found, selectedSubtotal)) {
       toast.error(`Đơn tối thiểu ${formatPrice(Number(found.min_order_value || 0))}`)
+
       return
     }
     setAppliedDiscount(found)
