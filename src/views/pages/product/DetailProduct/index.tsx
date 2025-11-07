@@ -46,7 +46,6 @@ type TProps = {}
 
 const DetailProductPage: NextPage<TProps> = () => {
   const theme = useTheme()
-  const { t } = useTranslation()
   const { user } = useAuth()
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
