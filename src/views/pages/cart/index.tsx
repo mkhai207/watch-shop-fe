@@ -5,6 +5,10 @@ import {
   CardMedia,
   Checkbox,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControlLabel,
   Grid,
@@ -12,30 +16,21 @@ import {
   Paper,
   TextField,
   Typography,
-  useTheme,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
+  useTheme
 } from '@mui/material'
+import dayjs from 'dayjs'
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { useEffect, useMemo, useState } from 'react'
-import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 import { useDispatch, useSelector } from 'react-redux'
-import Spinner from 'src/components/spinner'
 import ConfirmDialog from 'src/components/confirm-dialog/ConfirmDialog'
 import InfoDialog from 'src/components/info-dialog/InfoDialog'
+import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
-import { AppDispatch, RootState } from 'src/stores'
 import { deleteCartItemsByIds } from 'src/services/cart'
-import {
-  deleteCartItemAsync,
-  deleteCartItemsAsync,
-  getCartItemsAsync,
-  updateCartItemAsync
-} from 'src/stores/apps/cart/action'
+import { AppDispatch, RootState } from 'src/stores'
+import { deleteCartItemAsync, getCartItemsAsync, updateCartItemAsync } from 'src/stores/apps/cart/action'
 
 type TProps = {}
 
@@ -74,6 +69,7 @@ const CartPage: NextPage<TProps> = () => {
         itemId,
         message: 'Số lượng không thể nhỏ hơn 1. Bạn có muốn xóa sản phẩm này?'
       })
+
       return
     }
 
@@ -83,6 +79,7 @@ const CartPage: NextPage<TProps> = () => {
       setInfoState({ open: true, title: 'Không thể cập nhật', message })
       setLocalQuantities(prev => ({ ...prev, [itemId]: maxQuantity }))
       dispatch(updateCartItemAsync({ itemId, data: { quantity: maxQuantity } }))
+
       return
     }
 
@@ -112,30 +109,23 @@ const CartPage: NextPage<TProps> = () => {
   }
 
   const getItemPrice = (it: any) => (it?.variant?.product?.price ?? it?.variant?.price ?? 0) as number
-  const handleCalculateTotalCart = () =>
-    items?.reduce((acc: number, it: any) => acc + getItemPrice(it) * (it?.quantity || 0), 0) || 0
   const handleCalculateSelectedTotal = () =>
     items?.reduce(
       (acc: number, it: any) => (selectedIds.has(it.id) ? acc + getItemPrice(it) * (it?.quantity || 0) : acc),
       0
     ) || 0
-  const subtotal = useMemo(() => handleCalculateTotalCart(), [items])
   const selectedSubtotal = useMemo(() => handleCalculateSelectedTotal(), [items, selectedIds])
 
   const formatPrice = (price: number) => `${price.toLocaleString('vi-VN')} đ`
   const shipping = 0
-  const total = subtotal + shipping
   const selectedTotalAfterDiscount = Math.max(0, selectedSubtotal - discountAmount) + shipping
-
-  const handleNavigateHome = () => {
-    router.push(ROUTE_CONFIG.HOME)
-  }
 
   const handleNavigateCheckout = () => {
     try {
       const ids = Array.from(selectedIds)
       if (ids.length === 0) {
         toast.error('Vui lòng chọn ít nhất 1 sản phẩm để thanh toán')
+
         return
       }
       localStorage.setItem('selectedCartItemIds', JSON.stringify(ids))
@@ -156,6 +146,7 @@ const CartPage: NextPage<TProps> = () => {
       const next = new Set(prev)
       if (checked) next.add(id)
       else next.delete(id)
+
       return next
     })
   }
@@ -199,6 +190,7 @@ const CartPage: NextPage<TProps> = () => {
   useEffect(() => {
     if (!appliedDiscount) {
       setDiscountAmount(0)
+
       return
     }
     const amount = computeDiscountAmount(selectedSubtotal, appliedDiscount)
@@ -560,6 +552,7 @@ const CartPage: NextPage<TProps> = () => {
                                   const current =
                                     (item as any)?.variant?.product?.price || (item as any)?.variant?.price || 0
                                   const base = (item as any)?.variant?.watch?.base_price || 0
+
                                   return (
                                     <>
                                       <Typography variant='h6' color='error' fontWeight='bold'>
@@ -677,6 +670,7 @@ const CartPage: NextPage<TProps> = () => {
               .map(d => {
                 const eligible = isDiscountEligibleForSubtotal(d, selectedSubtotal)
                 const amount = computeDiscountAmount(selectedSubtotal, d)
+
                 return (
                   <Paper key={d.id} variant='outlined' sx={{ p: 1.5, opacity: eligible ? 1 : 0.6 }}>
                     <Box display='flex' justifyContent='space-between' alignItems='center'>
