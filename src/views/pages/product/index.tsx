@@ -29,7 +29,7 @@ const ProductPage: NextPage<TProps> = () => {
   const [page, setPage] = useState(1)
 
   // Filter states
-  const [statusSelected, setStatusSelected] = useState<string[]>([])
+  const [statusSelected] = useState<string[]>([])
 
   // Data states
   const [loading, setLoading] = useState(false)
