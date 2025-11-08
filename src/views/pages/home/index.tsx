@@ -3,6 +3,12 @@ import { Box, Button, Container, Grid, IconButton, Typography, Card, CardContent
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { useEffect, useState, useCallback } from 'react'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { Navigation, Autoplay } from 'swiper/modules'
+import type { Swiper as SwiperType } from 'swiper'
+import 'swiper/css'
+import 'swiper/css/navigation'
+import 'swiper/css/autoplay'
 
 import { useTranslation } from 'react-i18next'
 import { ROUTE_CONFIG } from 'src/configs/route'
@@ -56,11 +62,7 @@ const HomePage: NextPage<TProps> = () => {
   }
 
   const [brands, setBrands] = useState<TBrand[]>([])
-  const [brandSlide, setBrandSlide] = useState(0)
-  const [dragStartX, setDragStartX] = useState<number | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [isBrandTransitioning, setIsBrandTransitioning] = useState(true)
-  const [brandAutoPausedUntil, setBrandAutoPausedUntil] = useState(0)
+  const [brandSwiper, setBrandSwiper] = useState<SwiperType | null>(null)
   const [watches, setWatches] = useState<TWatch[]>([])
   const [watchSlide, setWatchSlide] = useState(0)
   const [watchDragStartX, setWatchDragStartX] = useState<number | null>(null)
@@ -70,11 +72,7 @@ const HomePage: NextPage<TProps> = () => {
 
   // Recommendation states
   const [recommendations, setRecommendations] = useState<any[]>([])
-  const [recommendationSlide, setRecommendationSlide] = useState(0)
-  const [recommendationDragStartX, setRecommendationDragStartX] = useState<number | null>(null)
-  const [isRecommendationDragging, setIsRecommendationDragging] = useState(false)
-  const [isRecommendationTransitioning, setIsRecommendationTransitioning] = useState(true)
-  const [recommendationAutoPausedUntil, setRecommendationAutoPausedUntil] = useState(0)
+  const [recommendationSwiper, setRecommendationSwiper] = useState<SwiperType | null>(null)
 
   const handleGetBrands = async () => {
     try {
@@ -171,19 +169,6 @@ const HomePage: NextPage<TProps> = () => {
   }, [user?.id])
 
   useEffect(() => {
-    const len = brands?.length || 0
-    if (len <= 1) return
-    const timer = setInterval(() => {
-      if (Date.now() >= brandAutoPausedUntil) {
-        setIsBrandTransitioning(true)
-        setBrandSlide(prev => prev + 1)
-      }
-    }, 4000)
-
-    return () => clearInterval(timer)
-  }, [brands, brandAutoPausedUntil])
-
-  useEffect(() => {
     const len = watches?.length || 0
     if (len <= 1) return
     const timer = setInterval(() => {
@@ -195,52 +180,6 @@ const HomePage: NextPage<TProps> = () => {
 
     return () => clearInterval(timer)
   }, [watches, watchAutoPausedUntil])
-
-  useEffect(() => {
-    const len = recommendations?.length || 0
-    if (len <= 1) return
-    const timer = setInterval(() => {
-      if (Date.now() >= recommendationAutoPausedUntil) {
-        setIsRecommendationTransitioning(true)
-        setRecommendationSlide(prev => prev + 1)
-      }
-    }, 4000)
-
-    return () => clearInterval(timer)
-  }, [recommendations, recommendationAutoPausedUntil])
-
-  const handleBrandDragStart = (clientX: number) => {
-    setDragStartX(clientX)
-    setIsDragging(true)
-    setBrandAutoPausedUntil(Date.now() + 4000)
-  }
-
-  const handleBrandDragEnd = (clientX: number) => {
-    if (dragStartX === null) return
-    const delta = clientX - dragStartX
-    const threshold = 40
-    const len = brands?.length || 0
-    if (len > 0) {
-      if (delta > threshold) {
-        if (brandSlide === 0) {
-          setIsBrandTransitioning(false)
-          setBrandSlide(len)
-          setTimeout(() => {
-            setIsBrandTransitioning(true)
-            setBrandSlide(len - 1)
-          }, 0)
-        } else {
-          setIsBrandTransitioning(true)
-          setBrandSlide(prev => prev - 1)
-        }
-      } else if (delta < -threshold) {
-        setIsBrandTransitioning(true)
-        setBrandSlide(prev => prev + 1)
-      }
-    }
-    setDragStartX(null)
-    setIsDragging(false)
-  }
 
   const handleWatchDragStart = (clientX: number) => {
     setWatchDragStartX(clientX)
@@ -272,39 +211,6 @@ const HomePage: NextPage<TProps> = () => {
     }
     setWatchDragStartX(null)
     setIsWatchDragging(false)
-  }
-
-  const handleRecommendationDragStart = (clientX: number) => {
-    setRecommendationDragStartX(clientX)
-    setIsRecommendationDragging(true)
-    setRecommendationAutoPausedUntil(Date.now() + 4000)
-  }
-
-  const handleRecommendationDragEnd = (clientX: number) => {
-    if (recommendationDragStartX === null) return
-    const delta = clientX - recommendationDragStartX
-    const threshold = 40
-    const len = recommendations?.length || 0
-    if (len > 0) {
-      if (delta > threshold) {
-        if (recommendationSlide === 0) {
-          setIsRecommendationTransitioning(false)
-          setRecommendationSlide(len)
-          setTimeout(() => {
-            setIsRecommendationTransitioning(true)
-            setRecommendationSlide(len - 1)
-          }, 0)
-        } else {
-          setIsRecommendationTransitioning(true)
-          setRecommendationSlide(prev => prev - 1)
-        }
-      } else if (delta < -threshold) {
-        setIsRecommendationTransitioning(true)
-        setRecommendationSlide(prev => prev + 1)
-      }
-    }
-    setRecommendationDragStartX(null)
-    setIsRecommendationDragging(false)
   }
 
   return (
@@ -514,113 +420,52 @@ const HomePage: NextPage<TProps> = () => {
               </Typography>
             </Box>
 
-            {/* Carousel Slider for Brands (auto + drag + smooth) */}
-            <Box
-              position='relative'
-              mb={8}
-              onMouseDown={e => handleBrandDragStart(e.clientX)}
-              onMouseUp={e => handleBrandDragEnd(e.clientX)}
-              onMouseLeave={() => setIsDragging(false)}
-              onTouchStart={e => handleBrandDragStart(e.touches[0].clientX)}
-              onTouchEnd={e => handleBrandDragEnd(e.changedTouches[0].clientX)}
-              sx={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-            >
-              <IconButton
-                sx={{
-                  position: 'absolute',
-                  left: -20,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 2,
-                  backgroundColor: 'white',
-                  boxShadow: 2,
-                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
-                  transition: 'all 0.3s ease'
+            {/* Brands Carousel using Swiper */}
+            <Box position='relative' mb={8} sx={{ '& .swiper': { overflow: 'hidden', px: { xs: 2, sm: 3, md: 4 } } }}>
+              <Swiper
+                modules={[Navigation, Autoplay]}
+                spaceBetween={16}
+                slidesPerView={3}
+                slidesPerGroup={1}
+                loop={brands.length > 3}
+                autoplay={{
+                  delay: 5000,
+                  disableOnInteraction: false,
+                  pauseOnMouseEnter: true
                 }}
-                onClick={() => {
-                  const len = brands?.length || 0
-                  if (len > 0) {
-                    if (brandSlide === 0) {
-                      setIsBrandTransitioning(false)
-                      setBrandSlide(len)
-                      setTimeout(() => {
-                        setIsBrandTransitioning(true)
-                        setBrandSlide(len - 1)
-                      }, 0)
-                    } else {
-                      setIsBrandTransitioning(true)
-                      setBrandSlide(prev => prev - 1)
-                    }
+                navigation={{
+                  prevEl: '.brand-prev',
+                  nextEl: '.brand-next'
+                }}
+                breakpoints={{
+                  0: {
+                    slidesPerView: 1,
+                    spaceBetween: 8
+                  },
+                  600: {
+                    slidesPerView: 2,
+                    spaceBetween: 12
+                  },
+                  960: {
+                    slidesPerView: 3,
+                    spaceBetween: 16
                   }
                 }}
+                onSwiper={setBrandSwiper}
+                className='brand-swiper'
               >
-                <ChevronLeft />
-              </IconButton>
-
-              <IconButton
-                sx={{
-                  position: 'absolute',
-                  right: -20,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 2,
-                  backgroundColor: 'white',
-                  boxShadow: 2,
-                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
-                  transition: 'all 0.3s ease'
-                }}
-                onClick={() => {
-                  const len = brands?.length || 0
-                  if (len > 0) {
-                    setIsBrandTransitioning(true)
-                    setBrandSlide(prev => prev + 1)
-                    setBrandAutoPausedUntil(Date.now() + 4000)
-                  }
-                }}
-              >
-                <ChevronRight />
-              </IconButton>
-
-              {/* Smooth sliding track forward-only clones for perfect alignment */}
-              <Box sx={{ overflow: 'hidden', position: 'relative' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    gap: 0,
-                    transform: `translateX(-${brandSlide * (100 / 3)}%)`,
-                    transition: isBrandTransitioning ? 'transform 600ms ease' : 'none'
-                  }}
-                  onTransitionEnd={() => {
-                    const len = brands.length
-                    if (len > 0) {
-                      if (brandSlide >= len) {
-                        setIsBrandTransitioning(false)
-                        setBrandSlide(brandSlide % len)
-                        setTimeout(() => setIsBrandTransitioning(true), 0)
-                      } else if (brandSlide < 0) {
-                        setIsBrandTransitioning(false)
-                        setBrandSlide(((brandSlide % len) + len) % len)
-                        setTimeout(() => setIsBrandTransitioning(true), 0)
-                      }
-                    }
-                  }}
-                >
-                  {(() => {
-                    const base = brands
-                    const clonesHead = base.slice(0, Math.min(3, base.length))
-                    const renderList = [...base, ...clonesHead]
-                    if (base.length === 0) {
-                      return (
-                        <Box sx={{ width: '100%' }}>
-                          <Typography textAlign='center' variant='h6' color='text.secondary'>
-                            {t('no_products')}
-                          </Typography>
-                        </Box>
-                      )
-                    }
-
-                    return renderList.map((brand, idx) => (
-                      <Box key={`${brand.id}-${idx}`} sx={{ flex: '0 0 33.3333%', boxSizing: 'border-box', p: 1.5 }}>
+                {brands.length === 0 ? (
+                  <SwiperSlide>
+                    <Box sx={{ width: '100%', textAlign: 'center', py: 4 }}>
+                      <Typography variant='h6' color='text.secondary'>
+                        {t('no_products')}
+                      </Typography>
+                    </Box>
+                  </SwiperSlide>
+                ) : (
+                  brands.map(brand => (
+                    <SwiperSlide key={brand.id}>
+                      <Box sx={{ p: 1.5, height: '100%' }}>
                         <Box
                           sx={{
                             position: 'relative',
@@ -660,28 +505,53 @@ const HomePage: NextPage<TProps> = () => {
                           </Box>
                         </Box>
                       </Box>
-                    ))
-                  })()}
-                </Box>
-              </Box>
-              <Box display='flex' justifyContent='center' gap={1.5} mt={3}>
-                {Array.from({ length: Math.max(brands?.length || 0, 1) }).map((_, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      backgroundColor:
-                        (brands.length ? ((brandSlide % brands.length) + brands.length) % brands.length : 0) === idx
-                          ? 'primary.main'
-                          : 'grey.300',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setBrandSlide(idx)}
-                  />
-                ))}
-              </Box>
+                    </SwiperSlide>
+                  ))
+                )}
+              </Swiper>
+
+              {/* Custom Navigation Buttons */}
+              <IconButton
+                className='brand-prev'
+                sx={{
+                  position: 'absolute',
+                  left: -20,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 2,
+                  backgroundColor: 'white',
+                  boxShadow: 2,
+                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
+                  transition: 'all 0.3s ease',
+                  '&.swiper-button-disabled': {
+                    opacity: 0.35,
+                    cursor: 'not-allowed'
+                  }
+                }}
+              >
+                <ChevronLeft />
+              </IconButton>
+
+              <IconButton
+                className='brand-next'
+                sx={{
+                  position: 'absolute',
+                  right: -20,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 2,
+                  backgroundColor: 'white',
+                  boxShadow: 2,
+                  '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
+                  transition: 'all 0.3s ease',
+                  '&.swiper-button-disabled': {
+                    opacity: 0.35,
+                    cursor: 'not-allowed'
+                  }
+                }}
+              >
+                <ChevronRight />
+              </IconButton>
             </Box>
           </Container>
         </Box>
@@ -788,17 +658,79 @@ const HomePage: NextPage<TProps> = () => {
               </Typography>
             </Box>
 
-            {/* Recommendations smooth carousel (4 per view, step 1) */}
-            <Box
-              position='relative'
-              onMouseDown={e => handleRecommendationDragStart(e.clientX)}
-              onMouseUp={e => handleRecommendationDragEnd(e.clientX)}
-              onMouseLeave={() => setIsRecommendationDragging(false)}
-              onTouchStart={e => handleRecommendationDragStart(e.touches[0].clientX)}
-              onTouchEnd={e => handleRecommendationDragEnd(e.changedTouches[0].clientX)}
-              sx={{ cursor: isRecommendationDragging ? 'grabbing' : 'grab' }}
-            >
+            {/* Recommendations carousel using Swiper */}
+            <Box position='relative' sx={{ '& .swiper': { overflow: 'hidden', px: { xs: 2, sm: 3, md: 4 } } }}>
+              <Swiper
+                modules={[Navigation, Autoplay]}
+                spaceBetween={16}
+                slidesPerView={4}
+                slidesPerGroup={1}
+                loop={recommendations.length > 4}
+                autoplay={{
+                  delay: 5000,
+                  disableOnInteraction: false,
+                  pauseOnMouseEnter: true
+                }}
+                navigation={{
+                  prevEl: '.recommendation-prev',
+                  nextEl: '.recommendation-next'
+                }}
+                breakpoints={{
+                  0: {
+                    slidesPerView: 1,
+                    spaceBetween: 8
+                  },
+                  600: {
+                    slidesPerView: 2,
+                    spaceBetween: 12
+                  },
+                  960: {
+                    slidesPerView: 3,
+                    spaceBetween: 16
+                  },
+                  1280: {
+                    slidesPerView: 4,
+                    spaceBetween: 16
+                  }
+                }}
+                onSwiper={setRecommendationSwiper}
+                className='recommendation-swiper'
+              >
+                {recommendations.length === 0 ? (
+                  <SwiperSlide>
+                    <Box sx={{ width: '100%', textAlign: 'center', py: 4 }}>
+                      <Typography variant='h6' color='text.secondary'>
+                        {t('no_products')}
+                      </Typography>
+                    </Box>
+                  </SwiperSlide>
+                ) : (
+                  recommendations.map(recommendation => (
+                    <SwiperSlide key={recommendation.watch_id}>
+                      <Box sx={{ p: 1.5, height: '100%' }}>
+                        <CardProduct
+                          item={
+                            {
+                              id: recommendation.watch_id,
+                              name: recommendation.name,
+                              thumbnail: getImageUrl(recommendation),
+                              price: recommendation.base_price,
+                              sold: recommendation.sold || 0,
+                              brand: recommendation.brand?.name,
+                              category: recommendation.category?.name,
+                              rating: recommendation.rating || 0
+                            } as any
+                          }
+                        />
+                      </Box>
+                    </SwiperSlide>
+                  ))
+                )}
+              </Swiper>
+
+              {/* Custom Navigation Buttons */}
               <IconButton
+                className='recommendation-prev'
                 sx={{
                   position: 'absolute',
                   left: -20,
@@ -808,23 +740,10 @@ const HomePage: NextPage<TProps> = () => {
                   backgroundColor: 'white',
                   boxShadow: 2,
                   '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
-                  transition: 'all 0.3s ease'
-                }}
-                onClick={() => {
-                  const len = recommendations?.length || 0
-                  if (len > 0) {
-                    if (recommendationSlide === 0) {
-                      setIsRecommendationTransitioning(false)
-                      setRecommendationSlide(len)
-                      setTimeout(() => {
-                        setIsRecommendationTransitioning(true)
-                        setRecommendationSlide(len - 1)
-                      }, 0)
-                    } else {
-                      setIsRecommendationTransitioning(true)
-                      setRecommendationSlide(prev => prev - 1)
-                    }
-                    setRecommendationAutoPausedUntil(Date.now() + 4000)
+                  transition: 'all 0.3s ease',
+                  '&.swiper-button-disabled': {
+                    opacity: 0.35,
+                    cursor: 'not-allowed'
                   }
                 }}
               >
@@ -832,6 +751,7 @@ const HomePage: NextPage<TProps> = () => {
               </IconButton>
 
               <IconButton
+                className='recommendation-next'
                 sx={{
                   position: 'absolute',
                   right: -20,
@@ -841,115 +761,15 @@ const HomePage: NextPage<TProps> = () => {
                   backgroundColor: 'white',
                   boxShadow: 2,
                   '&:hover': { backgroundColor: 'grey.100', transform: 'translateY(-50%) scale(1.1)' },
-                  transition: 'all 0.3s ease'
-                }}
-                onClick={() => {
-                  const len = recommendations?.length || 0
-                  if (len > 0) {
-                    setIsRecommendationTransitioning(true)
-                    setRecommendationSlide(prev => prev + 1)
-                    setRecommendationAutoPausedUntil(Date.now() + 4000)
+                  transition: 'all 0.3s ease',
+                  '&.swiper-button-disabled': {
+                    opacity: 0.35,
+                    cursor: 'not-allowed'
                   }
                 }}
               >
                 <ChevronRight />
               </IconButton>
-
-              <Box sx={{ overflow: 'hidden', position: 'relative' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    gap: 0,
-                    transform: `translateX(-${recommendationSlide * (100 / 4)}%)`,
-                    transition: isRecommendationTransitioning ? 'transform 600ms ease' : 'none'
-                  }}
-                  onTransitionEnd={() => {
-                    const len = recommendations.length
-                    if (len > 0) {
-                      if (recommendationSlide >= len) {
-                        setIsRecommendationTransitioning(false)
-                        setRecommendationSlide(recommendationSlide % len)
-                        setTimeout(() => setIsRecommendationTransitioning(true), 0)
-                      } else if (recommendationSlide < 0) {
-                        setIsRecommendationTransitioning(false)
-                        setRecommendationSlide(((recommendationSlide % len) + len) % len)
-                        setTimeout(() => setIsRecommendationTransitioning(true), 0)
-                      }
-                    }
-                  }}
-                >
-                  {(() => {
-                    const base = recommendations
-                    const clonesHead = base.slice(0, Math.min(4, base.length))
-                    const renderList = [...base, ...clonesHead]
-                    if (base.length === 0) {
-                      return (
-                        <Box sx={{ width: '100%' }}>
-                          <Typography textAlign='center' variant='h6' color='text.secondary'>
-                            {t('no_products')}
-                          </Typography>
-                        </Box>
-                      )
-                    }
-                    return renderList.map((recommendation, idx) => {
-                      // Debug log for each recommendation
-                      console.log(`🎯 Rendering Recommendation ${idx}:`, {
-                        id: recommendation.watch_id,
-                        name: recommendation.name,
-                        hasImages: recommendation.images && recommendation.images.length > 0,
-                        images: recommendation.images,
-                        brandLogo: recommendation.brand?.logo_url,
-                        categoryImage: recommendation.category?.image_url,
-                        finalImage: getImageUrl(recommendation)
-                      })
-
-                      return (
-                        <Box
-                          key={`${recommendation.watch_id}-${idx}`}
-                          sx={{ flex: '0 0 25%', boxSizing: 'border-box', p: 1.5 }}
-                        >
-                          <CardProduct
-                            item={
-                              {
-                                id: recommendation.watch_id,
-                                name: recommendation.name,
-                                thumbnail: getImageUrl(recommendation),
-                                price: recommendation.base_price,
-                                sold: recommendation.sold || 0,
-                                brand: recommendation.brand?.name,
-                                category: recommendation.category?.name,
-                                rating: recommendation.rating || 0
-                              } as any
-                            }
-                          />
-                        </Box>
-                      )
-                    })
-                  })()}
-                </Box>
-              </Box>
-
-              <Box display='flex' justifyContent='center' gap={1.5} mt={3}>
-                {Array.from({ length: Math.max(recommendations?.length || 0, 1) }).map((_, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      backgroundColor:
-                        (recommendations.length
-                          ? ((recommendationSlide % recommendations.length) + recommendations.length) %
-                            recommendations.length
-                          : 0) === idx
-                          ? 'primary.main'
-                          : 'grey.300',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => setRecommendationSlide(idx)}
-                  />
-                ))}
-              </Box>
             </Box>
 
             {/* View More Button */}
