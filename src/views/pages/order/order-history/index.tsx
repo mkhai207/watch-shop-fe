@@ -189,12 +189,12 @@ const OrderHistoryPage = () => {
         paramsSerializer: params => qs.stringify(params, { arrayFormat: 'repeat', encode: false })
       })
 
-      if (response?.orders) {
+      if (response && typeof response === 'object' && 'data' in response && response.data) {
         setOrders({
-          data: response.orders.items || [],
-          total: response.orders.totalItems || 0,
-          totalPages: response.orders.totalPages || 0,
-          currentPage: response.orders.page || 1
+          data: Array.isArray(response.data) ? response.data : [],
+          total: (response as any).meta?.totalItems || 0,
+          totalPages: (response as any).meta?.totalPages || 0,
+          currentPage: (response as any).meta?.currentPage || 1
         })
       }
     } catch (error: any) {

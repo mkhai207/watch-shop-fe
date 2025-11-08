@@ -42,6 +42,8 @@ export type UserDataType = {
     name: string
     code: string
   }
+  permissions?: Permission[]
+  avatar?: string | null
 }
 
 export type CreateUserType = {

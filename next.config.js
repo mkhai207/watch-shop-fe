@@ -10,11 +10,6 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2
   },
-
-  // Suppress hydration warnings
-  experimental: {
-    suppressHydrationWarning: true
-  },
   eslint: {
     // Cảnh báo: cho phép build thành công
     // kể cả khi project của bạn có lỗi ESLint.

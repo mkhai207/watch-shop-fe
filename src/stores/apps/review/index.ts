@@ -59,12 +59,12 @@ export const reviewSlice = createSlice({
         state.error = ''
       })
       .addCase(getReviewsAsync.fulfilled, (state, action) => {
-        state.reviews = action.payload?.data || []
+        state.reviews = Array.isArray(action.payload?.data) ? action.payload.data : []
         state.isLoading = false
         state.isSuccess = action.payload.status === 'success'
         state.isError = action.payload.status !== 'success'
-        state.message = action.payload?.message
-        state.error = action.payload?.error
+        state.message = action.payload?.message || ''
+        state.error = ''
       })
       .addCase(getReviewsAsync.rejected, (state, action) => {
         state.reviews = []
@@ -176,10 +176,11 @@ export const reviewSlice = createSlice({
         state.isSuccess = action.payload.status === 'success'
         state.isError = action.payload.status !== 'success'
         state.message = action.payload?.message
-        state.error = action.payload?.error
+        state.error = ''
         if (action.payload.status === 'success' && action.payload.data?.id) {
-          state.reviews = state.reviews.filter(review => review.id !== action.payload.data.id)
-          if (state.currentReview?.id === action.payload.data.id) {
+          const idToRemove = String(action.payload.data.id)
+          state.reviews = state.reviews.filter(review => review.id !== idToRemove)
+          if (state.currentReview?.id === idToRemove) {
             state.currentReview = null
           }
         }

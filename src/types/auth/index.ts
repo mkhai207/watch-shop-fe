@@ -33,6 +33,7 @@ export type TPermission = {
 export type TUserRole = {
   id: number
   name: string
+  code?: string
 }
 
 export type TUser = {

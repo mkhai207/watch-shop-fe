@@ -102,7 +102,7 @@ const AddressPage = () => {
       // If setting as default, first remove default status from all other addresses
       if (data.is_default) {
         const updatePromises = addresses
-          .filter(addr => addr.is_default === '1' && addr.id !== editingAddress?.id)
+          .filter(addr => addr.is_default === true && addr.id !== editingAddress?.id)
           .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
 
         // Wait for all updates to complete
@@ -184,7 +184,7 @@ const AddressPage = () => {
       try {
         // First, remove default status from all other addresses
         const updatePromises = addresses
-          .filter(addr => addr.is_default === '1' && addr.id !== address.id)
+          .filter(addr => addr.is_default === true && addr.id !== address.id)
           .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
 
         // Wait for all updates to complete
@@ -290,7 +290,7 @@ const AddressPage = () => {
                     {/* Tags and Actions */}
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        {address.is_default === '1' && (
+                        {address.is_default === true && (
                           <Chip
                             label='Mặc định'
                             size='small'
@@ -312,7 +312,7 @@ const AddressPage = () => {
                         >
                           Cập nhật
                         </Typography>
-                        {address.is_default !== '1' && (
+                        {address.is_default !== true && (
                           <Typography
                             variant='caption'
                             sx={{ color: '#f44336', cursor: 'pointer' }}
@@ -321,7 +321,7 @@ const AddressPage = () => {
                             Xóa
                           </Typography>
                         )}
-                        {address.is_default !== '1' && (
+                        {address.is_default !== true && (
                           <Button
                             variant='outlined'
                             size='small'

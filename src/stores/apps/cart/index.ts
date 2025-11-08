@@ -47,8 +47,8 @@ export const cartSlice = createSlice({
       state.isLoading = false
       state.isSuccess = !!action.payload?.data?.id
       state.isError = !action.payload?.data?.id
-      state.message = action.payload?.message
-      state.error = action.payload?.error
+      state.message = action.payload?.message || ''
+      state.error = ''
     })
     builder.addCase(addToCartAsync.rejected, (state, action) => {
       state.isLoading = false
@@ -73,8 +73,8 @@ export const cartSlice = createSlice({
         state.isLoading = false
         state.isSuccess = action.payload.status === 'success'
         state.isError = action.payload.status !== 'success'
-        state.message = action.payload?.message
-        state.error = action.payload?.error
+        state.message = action.payload?.message || ''
+        state.error = ''
       })
       .addCase(getCartItemsAsync.rejected, (state, action) => {
         state.isLoading = false

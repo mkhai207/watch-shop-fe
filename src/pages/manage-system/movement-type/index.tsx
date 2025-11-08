@@ -114,7 +114,7 @@ const MovementTypePage: NextPage = () => {
     try {
       const res = await getMovementTypes()
       const data = res as GetMovementTypesResponse
-      setItems(data?.movementTypes?.items || [])
+      setItems(data?.movementTypes?.rows || [])
     } catch (err: any) {
       toast.error(err?.message || 'Lỗi tải dữ liệu')
     } finally {

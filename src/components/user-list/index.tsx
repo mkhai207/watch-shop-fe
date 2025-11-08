@@ -81,35 +81,41 @@ const UserList: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <Avatar src={user.avatar || undefined}>
-                      {user.full_name.charAt(0)}
-                    </Avatar>
-                  </TableCell>
-                  <TableCell>{user.full_name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.phone}</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={user.role.name} 
-                      color={user.role.code === 'ADMIN' ? 'primary' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={user.active ? 'Hoạt động' : 'Không hoạt động'} 
-                      color={user.active ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString('vi-VN')}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((user) => {
+                const fullName = `${user.first_name} ${user.last_name}`.trim()
+                const initials = fullName ? fullName.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()
+                const isActive = user.status === 'ACTIVE' || user.status === 'active'
+                
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <Avatar src={undefined}>
+                        {initials}
+                      </Avatar>
+                    </TableCell>
+                    <TableCell>{fullName || user.username}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.phone_number}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={user.role.name} 
+                        color={user.role.code === 'ADMIN' ? 'primary' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={isActive ? 'Hoạt động' : 'Không hoạt động'} 
+                        color={isActive ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {new Date(user.created_at).toLocaleDateString('vi-VN')}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </TableContainer>

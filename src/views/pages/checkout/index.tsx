@@ -57,6 +57,7 @@ import { RootState } from 'src/stores'
 import { TDiscount } from 'src/types/discount'
 import { TCreateOrder, TCreateOrderForm } from 'src/types/order'
 import { TAddress } from 'src/types/address'
+import { TCartItem } from 'src/types/cart'
 import * as yup from 'yup'
 
 type TProps = {}
@@ -72,6 +73,7 @@ interface BuyNowItem {
   color_name: string
   size_name: string
   product_variant_id: string
+  strap_material_name?: string
 }
 
 const CheckoutPage: NextPage<TProps> = () => {
@@ -144,7 +146,7 @@ const CheckoutPage: NextPage<TProps> = () => {
   const defaultValues: TCreateOrderForm = {
     paymentMethod: 'VNPAY',
     shipping_address: '',
-    name: user?.fullName || '',
+    name: user ? `${user.first_name} ${user.last_name}`.trim() || user.username : '',
     phone: ''
   }
 
@@ -332,7 +334,7 @@ const CheckoutPage: NextPage<TProps> = () => {
   const handleAddressSelect = (addressId: string) => {
     if (String(addressId) === 'NEW') {
       // Open dialog for new address
-      setAddrRecipient(user?.fullName || '')
+      setAddrRecipient(user ? `${user.first_name} ${user.last_name}`.trim() || user.username : '')
       setAddrPhone('')
       setAddrStreet('')
       setAddrWard('')
@@ -356,7 +358,7 @@ const CheckoutPage: NextPage<TProps> = () => {
       }
     } else {
       // reset
-      setValue('name', user?.fullName || '')
+      setValue('name', user ? `${user.first_name} ${user.last_name}`.trim() || user.username : '')
       setValue('phone', '')
       setValue('shipping_address', '')
     }
@@ -372,7 +374,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
     return (
       list?.reduce((total, item) => {
-        const price = item?.variant?.product?.price ?? item?.variant?.price ?? 0
+        const price = item?.variant?.product?.price ?? 0
         const qty = item?.quantity ?? 0
         return total + price * qty
       }, 0) || 0
@@ -463,12 +465,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || item?.variant?.watch?.name,
-                    thumbnail: item?.variant?.product?.thumbnail || item?.variant?.watch?.thumbnail,
+                    name: item?.variant?.product?.name || '',
+                    thumbnail: item?.variant?.product?.thumbnail || '',
                     color: item?.variant?.color?.name || 'Không xác định',
-                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
+                    strapMaterial: 'Không xác định',
                     quantity: item.quantity,
-                    price: item?.variant?.product?.price ?? item?.variant?.price ?? 0
+                    price: item?.variant?.product?.price ?? 0
                   })
                 ),
             subtotal: orderTotal,
@@ -497,12 +499,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || item?.variant?.watch?.name,
-                    thumbnail: item?.variant?.product?.thumbnail || item?.variant?.watch?.thumbnail,
+                    name: item?.variant?.product?.name || '',
+                    thumbnail: item?.variant?.product?.thumbnail || '',
                     color: item?.variant?.color?.name || 'Không xác định',
-                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
+                    strapMaterial: 'Không xác định',
                     quantity: item.quantity,
-                    price: item?.variant?.product?.price ?? item?.variant?.price ?? 0
+                    price: item?.variant?.product?.price ?? 0
                   })
                 ),
             subtotal: orderTotal,
@@ -639,8 +641,11 @@ const CheckoutPage: NextPage<TProps> = () => {
         : items
 
     const variants = isBuyNowMode
-      ? sourceItems.map(item => ({ variant_id: parseInt(item.product_variant_id, 10), quantity: item.quantity }))
-      : sourceItems.map(item => ({ variant_id: parseInt(item.variant.id, 10), quantity: item.quantity }))
+      ? sourceItems.map(item => ({
+          variant_id: parseInt((item as BuyNowItem).product_variant_id, 10),
+          quantity: item.quantity
+        }))
+      : sourceItems.map(item => ({ variant_id: parseInt((item as TCartItem).variant.id, 10), quantity: item.quantity }))
 
     const payload = {
       shipping_address: data.shipping_address,
@@ -1091,7 +1096,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                         <Box sx={{ ml: 2, flex: 1 }}>
                           <Typography variant='subtitle2'>{name}</Typography>
                           <Typography variant='body2' color='text.secondary'>
-                            {colorName} / Dây: {item?.variant?.strapMaterial?.name || 'Không xác định'}
+                            {colorName} / Dây: Không xác định
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
                             {!!code && (

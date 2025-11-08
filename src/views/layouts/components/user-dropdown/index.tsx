@@ -124,7 +124,7 @@ const UserDropdown = () => {
                 whiteSpace: 'nowrap'
               }}
             >
-              {user?.fullName || 'Người dùng'}
+              {user ? `${user.first_name} ${user.last_name}`.trim() || user.username : 'Người dùng'}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Chip

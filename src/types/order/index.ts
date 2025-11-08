@@ -5,7 +5,7 @@ type TOrderDetail = {
 
 export type TCreateOrderForm = {
   paymentMethod: string
-  shipping_address: string
+  shipping_address?: string | null
   name: string
   phone: string
 }

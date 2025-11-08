@@ -189,7 +189,13 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = React.memo(
                 value={Array.isArray(currentValue) ? currentValue : []}
                 onChange={e => handleFilterChange(field.key, e.target.value)}
                 label={field.label}
-                disableCloseOnSelect
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 300
+                    }
+                  }
+                }}
                 sx={{
                   height: '40px',
                   minHeight: '40px',
