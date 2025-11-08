@@ -194,7 +194,7 @@ const ChatBot = () => {
       console.log('Sending request to Rasa:', requestBody)
 
       // Gửi tin nhắn đến Rasa server
-      const response = await fetch('http://localhost:5005/webhooks/rest/webhook', {
+      const response = await fetch('https://rasa-server-qbmc.onrender.com/webhooks/rest/webhook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -835,8 +835,8 @@ const ChatBot = () => {
                             const metadata = Object.keys(metadataFromBtn).length
                               ? metadataFromBtn
                               : btn.id
-                              ? { brand_id: btn.id }
-                              : {}
+                                ? { brand_id: btn.id }
+                                : {}
                             console.log('Sending metadata:', metadata)
                             handleSend(btn.payload, undefined, metadata)
                           }}
