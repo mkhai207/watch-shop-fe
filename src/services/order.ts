@@ -38,7 +38,8 @@ export const getListOrders = async (data: { params: TParams; paramsSerializer?: 
       created_at: item.created_at,
       status: item.status || item.current_status_id || 'PENDING',
       review_flag: item.review_flag,
-      payment_method: item.payment_method || item.paymentMethod || '0'
+      payment_method: item.payment_method || item.paymentMethod || '0',
+      currentStatus: item.currentStatus
     }))
 
     return {

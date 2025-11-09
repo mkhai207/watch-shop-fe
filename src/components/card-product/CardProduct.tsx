@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import IconifyIcon from 'src/components/Icon'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { TProduct } from 'src/types/product'
-// removed old user interaction API; detail tracking handled in detail page
 import { useAuth } from 'src/hooks/useAuth'
 import { useFormatPrice } from 'src/utils/formatNumber'
 

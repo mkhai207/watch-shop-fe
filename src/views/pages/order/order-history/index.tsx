@@ -109,17 +109,13 @@ const OrderHistoryPage = () => {
 
       console.log('Retry payment response:', response)
 
-      // Kiểm tra cả 2 format response
       let url = null
 
       if (response?.status === 'success' && response?.data) {
-        // Format có wrapper
         url = response?.data?.rePaymentUrl || response?.data?.vnpayUrl
       } else if (response?.rePaymentUrl) {
-        // Format trực tiếp
         url = response.rePaymentUrl
       } else if (response?.vnpayUrl) {
-        // Format cũ
         url = response.vnpayUrl
       }
 
@@ -137,10 +133,6 @@ const OrderHistoryPage = () => {
       console.error('Payment retry error:', error)
       toast.error(error?.message || 'Có lỗi xảy ra khi thực hiện thanh toán')
     }
-  }
-
-  const handleViewOrder = (orderId: string) => {
-    router.push(`${ROUTE_CONFIG.ORDER}/${orderId}`)
   }
 
   const handleOpenReview = async (order: any) => {
@@ -223,28 +215,6 @@ const OrderHistoryPage = () => {
     return status || { name: 'Không xác định', hex_code: '#9e9e9e' }
   }
 
-  const getStatusIcon = (statusId: string) => {
-    const status = getStatusInfo(statusId)
-    switch (status.code) {
-      case 'PENDING':
-        return <PendingIcon sx={{ color: status.hex_code }} />
-      case 'PENDINGPAYMENT':
-        return <TimeIcon sx={{ color: status.hex_code }} />
-      case 'PAID':
-        return <CheckCircleIcon sx={{ color: status.hex_code }} />
-      case 'PREPARING':
-        return <ShippingIcon sx={{ color: status.hex_code }} />
-      default:
-        return <TimeIcon sx={{ color: status.hex_code }} />
-    }
-  }
-
-  const getStatusColorValue = (statusId: string) => {
-    const status = getStatusInfo(statusId)
-
-    return status.hex_code
-  }
-
   const getStatusText = (statusId: string) => {
     const status = getStatusInfo(statusId)
 
@@ -284,8 +254,6 @@ const OrderHistoryPage = () => {
   useEffect(() => {
     const shouldOpenDetail = localStorage.getItem('openOrderDetail')
     const selectedOrderId = localStorage.getItem('selectedOrderId')
-
-    console.log('Checking for order detail opening:', { shouldOpenDetail, selectedOrderId, ordersData: orders.data })
 
     if (shouldOpenDetail === 'true' && selectedOrderId && orders.data.length > 0) {
       // Find the order in the current list
@@ -352,11 +320,11 @@ const OrderHistoryPage = () => {
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {getStatusIcon(order.current_status_id)}
+                        <ShippingIcon sx={{ color: order.currentStatus?.hex_code }} />
                         <Chip
-                          label={getStatusText(order.current_status_id)}
+                          label={order.currentStatus?.name || 'Trạng thái'}
                           sx={{
-                            backgroundColor: getStatusColorValue(order.current_status_id),
+                            backgroundColor: order.currentStatus?.hex_code || '#991919ff',
                             color: 'white',
                             fontWeight: 'bold',
                             fontSize: '0.75rem'
