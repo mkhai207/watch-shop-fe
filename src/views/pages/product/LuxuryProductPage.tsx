@@ -77,7 +77,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
     }
   }
 
-  const formatFiltersForAPI = () => {
+  const formatFiltersForAPI = useCallback(() => {
     const params: Record<string, any> = {
       page: page || 1,
       limit: pageSize || 10
@@ -129,7 +129,26 @@ const LuxuryProductPage: NextPage<TProps> = () => {
     if (filters.strapMaterialId) params['strap_material_id'] = filters.strapMaterialId
 
     return params
-  }
+  }, [
+    page,
+    pageSize,
+    filters.search,
+    filters.priceRanges,
+    filters.ratings,
+    filters.sortBy,
+    filters.brandId,
+    filters.categoryId,
+    filters.movementTypeId,
+    filters.colorId,
+    filters.strapMaterialId,
+    statusSelected,
+    priceRange,
+    selectedBrands,
+    selectedCategories,
+    selectedMovementTypes,
+    selectedGenders,
+    selectedRatings
+  ])
 
   const handleLoadBrands = async () => {
     try {
@@ -189,27 +208,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
     } finally {
       setLoading(false)
     }
-  }, [
-    page,
-    pageSize,
-    filters.search,
-    filters.sortBy,
-    filters.priceRanges,
-    filters.ratings,
-    filters.brandId,
-    filters.categoryId,
-    filters.movementTypeId,
-    filters.colorId,
-    filters.strapMaterialId,
-    statusSelected,
-    priceRange,
-    selectedBrands,
-    selectedCategories,
-    selectedMovementTypes,
-    selectedGenders,
-    selectedRatings,
-    t
-  ])
+  }, [formatFiltersForAPI, t])
 
   const clearAll = () => {
     setPriceRange([0, 50_000_000])
@@ -239,7 +238,6 @@ const LuxuryProductPage: NextPage<TProps> = () => {
     handleLoadMovementTypes()
   }, [])
 
-  // Sync MegaMenu filters with local checkbox filters
   useEffect(() => {
     if (filters.brandId && filters.brandId.trim() && !selectedBrands.includes(filters.brandId)) {
       setSelectedBrands(prev => [...prev, filters.brandId!])
@@ -289,7 +287,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const activeFilterChips = useMemo(() => {
     const chips: { key: string; label: string; onDelete: () => void }[] = []
 
-    if (selectedBrands.length)
+    if (selectedBrands.length && !filters.brandId)
       selectedBrands.forEach(id => {
         const n = brands.find(b => b.id === id)?.name || id
         chips.push({
@@ -299,7 +297,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
         })
       })
 
-    if (selectedCategories.length)
+    if (selectedCategories.length && !filters.categoryId)
       selectedCategories.forEach(id => {
         const n = categories.find(c => c.id === id)?.name || id
         chips.push({
@@ -309,7 +307,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
         })
       })
 
-    if (selectedMovementTypes.length)
+    if (selectedMovementTypes.length && !filters.movementTypeId)
       selectedMovementTypes.forEach(id => {
         const n = movementTypes.find(m => m.id === id)?.name || id
         chips.push({
@@ -347,7 +345,11 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       chips.push({
         key: 'mega-brand',
         label: `Thương hiệu: ${brand?.name || filters.brandId}`,
-        onDelete: () => updateSingleFilter('brandId', '')
+        onDelete: () => {
+          updateSingleFilter('brandId', '')
+
+          setSelectedBrands(prev => prev.filter(id => id !== filters.brandId))
+        }
       })
     }
 
@@ -356,7 +358,11 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       chips.push({
         key: 'mega-category',
         label: `Danh mục: ${category?.name || filters.categoryId}`,
-        onDelete: () => updateSingleFilter('categoryId', '')
+        onDelete: () => {
+          updateSingleFilter('categoryId', '')
+
+          setSelectedCategories(prev => prev.filter(id => id !== filters.categoryId))
+        }
       })
     }
 
@@ -365,7 +371,9 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       chips.push({
         key: 'mega-movement',
         label: `Bộ máy: ${movement?.name || filters.movementTypeId}`,
-        onDelete: () => updateSingleFilter('movementTypeId', '')
+        onDelete: () => {
+          updateSingleFilter('movementTypeId', '')
+        }
       })
     }
 
@@ -493,7 +501,6 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                           <Checkbox
                             checked={selectedBrands.includes(brand.id)}
                             onChange={e => {
-                              // Clear MegaMenu filter when using checkbox
                               if (filters.brandId) {
                                 updateSingleFilter('brandId', '')
                               }
@@ -523,7 +530,6 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                           <Checkbox
                             checked={selectedCategories.includes(category.id)}
                             onChange={e => {
-                              // Clear MegaMenu filter when using checkbox
                               if (filters.categoryId) {
                                 updateSingleFilter('categoryId', '')
                               }
@@ -553,7 +559,6 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                           <Checkbox
                             checked={selectedMovementTypes.includes(mt.id)}
                             onChange={e => {
-                              // Clear MegaMenu filter when using checkbox
                               if (filters.movementTypeId) {
                                 updateSingleFilter('movementTypeId', '')
                               }

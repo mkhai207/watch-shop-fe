@@ -1,7 +1,7 @@
 import instanceAxios from 'src/helpers/axios'
 import { CONFIG_API } from 'src/configs/api'
 import { TCreateColor, TUpdateColor } from 'src/types/color'
-import axios from 'src/helpers/axios'
+import axios from 'axios'
 
 export const getColors = async () => {
   try {
