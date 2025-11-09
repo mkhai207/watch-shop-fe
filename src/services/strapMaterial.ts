@@ -1,7 +1,7 @@
 import instanceAxios from 'src/helpers/axios'
 import { CONFIG_API } from 'src/configs/api'
 import { TCreateStrapMaterial, TUpdateStrapMaterial } from 'src/types/strapMaterial'
-import axios from 'src/helpers/axios'
+import axios from 'axios'
 
 export const getStrapMaterials = async () => {
   try {
