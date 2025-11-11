@@ -23,7 +23,8 @@ import {
   LocalMall,
   Favorite,
   Logout,
-  AdminPanelSettings
+  AdminPanelSettings,
+  KeyboardArrowUp
 } from '@mui/icons-material'
 import { useRouter } from 'next/router'
 import { useAuth } from 'src/hooks/useAuth'
@@ -185,6 +186,9 @@ const LuxuryHeader: React.FC = () => {
                   borderRadius: 0,
                   border: 'none',
                   transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
                   '&:hover': {
                     backgroundColor: 'primary.main',
                     color: 'primary.contrastText',
@@ -193,6 +197,18 @@ const LuxuryHeader: React.FC = () => {
                 }}
               >
                 {item.label}
+                {(item.label === 'Sản phẩm' || item.label === 'Thương hiệu') && (
+                  <KeyboardArrowUp
+                    sx={{
+                      fontSize: 16,
+                      transform:
+                        showMegaMenu && (item.label === 'Sản phẩm' || item.label === 'Thương hiệu')
+                          ? 'rotate(180deg)'
+                          : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                  />
+                )}
               </Button>
             ))}
 

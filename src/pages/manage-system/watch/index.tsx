@@ -157,7 +157,6 @@ const WatchPage: NextPage = () => {
           type: 'number',
           operator: 'lte'
         },
-        // ML Filters
         {
           key: 'price_tier',
           label: 'Phân khúc giá',
@@ -328,7 +327,6 @@ const WatchPage: NextPage = () => {
     category_id: '' as any,
     brand_id: '' as any,
     movement_type_id: '' as any,
-    // ML Fields
     price_tier: '',
     gender_target: '',
     size_category: '',
@@ -459,7 +457,6 @@ const WatchPage: NextPage = () => {
       return true
     })
 
-    // Apply sorting
     const sortedData = [...filtered]
     if (filterValues.sort) {
       const [field, direction] = filterValues.sort.split(':')
@@ -513,7 +510,6 @@ const WatchPage: NextPage = () => {
       category_id: '' as any,
       brand_id: '' as any,
       movement_type_id: '' as any,
-      // ML Fields
       price_tier: '',
       gender_target: '',
       size_category: '',
@@ -619,7 +615,6 @@ const WatchPage: NextPage = () => {
     category_id: '' as any,
     brand_id: '' as any,
     movement_type_id: '' as any,
-    // ML Fields
     price_tier: '',
     gender_target: '',
     size_category: '',
@@ -826,7 +821,6 @@ const WatchPage: NextPage = () => {
                             category_id: (w.category_id as any) || '',
                             brand_id: (w.brand_id as any) || '',
                             movement_type_id: (w.movement_type_id as any) || '',
-                            // ML Fields
                             price_tier: (w as any).price_tier || '',
                             gender_target: (w as any).gender_target || '',
                             size_category: (w as any).size_category || '',

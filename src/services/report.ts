@@ -17,3 +17,13 @@ export const getReportDashboard = async (data: {
     return error
   }
 }
+
+export const getRevenueChartData = async (data: { year: string }) => {
+  try {
+    const res = await instanceAxios.post(`${CONFIG_API.REPORT.INDEX}/revenue-year`, { year: data.year })
+
+    return res.data
+  } catch (error) {
+    return error
+  }
+}

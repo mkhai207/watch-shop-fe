@@ -1,14 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { NextPage } from 'next'
-import { Box, Button, Chip, Grid, Paper, TextField, Typography } from '@mui/material'
+import { Box, Button, Chip, Grid, MenuItem, Paper, Select, TextField, Typography } from '@mui/material'
 import dayjs, { Dayjs } from 'dayjs'
-import IconifyIcon from 'src/components/Icon'
-import Link from 'next/link'
-import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import { getReportDashboard } from 'src/services/report'
-import qs from 'qs'
 import 'dayjs/locale/vi'
+import { NextPage } from 'next'
+import Link from 'next/link'
+import qs from 'qs'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import IconifyIcon from 'src/components/Icon'
+import { getReportDashboard, getRevenueChartData } from 'src/services/report'
 import { DashboardData } from 'src/types/report'
+import RevenueOrdersChart from 'src/views/layouts/components/chart'
+import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 
 dayjs.locale('vi')
 
@@ -54,6 +55,36 @@ const DashboardPage: NextPage = () => {
   const [endDate, setEndDate] = useState<Dayjs>(dayjs())
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedYear, setSelectedYear] = useState<number>(dayjs().year())
+  const [chartData, setChartData] = useState<Array<{ month: string; revenue: number; orderCount: number }>>([])
+  const [chartLoading, setChartLoading] = useState(false)
+
+  const yearOptions = useMemo(() => {
+    const currentYear = dayjs().year()
+    const years = []
+    const startYear = currentYear - 50
+    const endYear = currentYear + 50
+
+    for (let year = startYear; year <= endYear; year++) {
+      years.push(year)
+    }
+
+    return years
+  }, [])
+
+  const fetchChartData = useCallback(async (year: number) => {
+    setChartLoading(true)
+    try {
+      const response = await getRevenueChartData({ year: year.toString() })
+      if (response && !response.message) {
+        setChartData(response)
+      }
+    } catch (error) {
+      console.error('Error fetching chart data:', error)
+    } finally {
+      setChartLoading(false)
+    }
+  }, [])
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true)
@@ -80,6 +111,10 @@ const DashboardPage: NextPage = () => {
     fetchDashboardData()
   }, [fetchDashboardData])
 
+  useEffect(() => {
+    fetchChartData(selectedYear)
+  }, [fetchChartData, selectedYear])
+
   const handleDateChange = () => {
     fetchDashboardData()
   }
@@ -90,6 +125,10 @@ const DashboardPage: NextPage = () => {
 
   const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setEndDate(dayjs(event.target.value))
+  }
+
+  const handleYearChange = (newYear: number) => {
+    setSelectedYear(newYear)
   }
 
   return (
@@ -228,76 +267,48 @@ const DashboardPage: NextPage = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box>
                 <Typography variant='h6' fontWeight={700}>
-                  Đơn hàng gần đây
+                  Thống kê doanh thu & đơn hàng
                 </Typography>
                 <Typography variant='body2' color='text.secondary'>
-                  Các đơn hàng mới nhất trong hệ thống
+                  Biểu đồ doanh thu và số lượng đơn hàng theo tháng
                 </Typography>
               </Box>
-              <Link href='/manage-system/order' passHref>
-                <Button variant='outlined' size='small' startIcon={<IconifyIcon icon='mdi:eye-outline' />}>
-                  Xem tất cả
-                </Button>
-              </Link>
+              <Box sx={{ minWidth: 200, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant='body2' color='text.secondary'>
+                  Năm:
+                </Typography>
+                <Select
+                  value={selectedYear}
+                  onChange={e => handleYearChange(Number(e.target.value))}
+                  size='small'
+                  sx={{ minWidth: 100 }}
+                  disabled={chartLoading}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                        width: 150
+                      }
+                    }
+                  }}
+                >
+                  {yearOptions.map(year => (
+                    <MenuItem key={year} value={year}>
+                      {year}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Box>
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {dashboardData?.orderRecently && dashboardData.orderRecently.length > 0 ? (
-                dashboardData.orderRecently.map(order => (
-                  <Box
-                    key={order.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      p: 1.5,
-                      borderRadius: 1.5,
-                      bgcolor: 'action.hover'
-                    }}
-                  >
-                    <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography fontWeight={600}>#{order.code}</Typography>
-                        <Chip
-                          size='small'
-                          label={
-                            order.current_status_id === '1'
-                              ? 'Chờ xử lý'
-                              : order.current_status_id === '2'
-                                ? 'Đã xác nhận'
-                                : order.current_status_id === '3'
-                                  ? 'Đã giao'
-                                  : 'Đã hủy'
-                          }
-                          color={
-                            order.current_status_id === '1'
-                              ? 'warning'
-                              : order.current_status_id === '2'
-                                ? 'info'
-                                : order.current_status_id === '3'
-                                  ? 'success'
-                                  : 'error'
-                          }
-                          variant='filled'
-                        />
-                      </Box>
-                      <Typography variant='body2' color='text.secondary'>
-                        {order.guess_name || 'Khách hàng'} • {order.guess_phone}
-                      </Typography>
-                      <Typography variant='caption' color='text.secondary'>
-                        {dayjs(order.created_at, 'YYYYMMDDHHmmss').format('DD/MM/YYYY HH:mm')}
-                      </Typography>
-                    </Box>
-                    <Typography fontWeight={600}>{formatCurrency(order.final_amount)}</Typography>
-                  </Box>
-                ))
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <Typography variant='body2' color='text.secondary'>
-                    Không có đơn hàng nào
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+            {chartLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+                <Typography variant='body2' color='text.secondary'>
+                  Đang tải dữ liệu chart...
+                </Typography>
+              </Box>
+            ) : (
+              <RevenueOrdersChart data={chartData} />
+            )}
           </Paper>
         </Grid>
 
@@ -405,6 +416,92 @@ const DashboardPage: NextPage = () => {
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <Typography variant='body2' color='text.secondary'>
                   Không có dữ liệu sản phẩm
+                </Typography>
+              </Box>
+            </Grid>
+          )}
+        </Grid>
+      </Paper>
+
+      <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: theme => `1px solid ${theme.palette.divider}`, mt: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box>
+            <Typography variant='h6' fontWeight={700}>
+              Đơn hàng gần đây
+            </Typography>
+            <Typography variant='body2' color='text.secondary'>
+              Các đơn hàng mới nhất trong hệ thống
+            </Typography>
+          </Box>
+          <Link href='/manage-system/order' passHref>
+            <Button variant='outlined' size='small' startIcon={<IconifyIcon icon='mdi:eye-outline' />}>
+              Xem tất cả
+            </Button>
+          </Link>
+        </Box>
+        <Grid container spacing={2}>
+          {dashboardData?.orderRecently && dashboardData.orderRecently.length > 0 ? (
+            dashboardData.orderRecently.map(order => (
+              <Grid key={order.id} item xs={12} md={6} lg={4}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: 'action.hover',
+                    height: '100%',
+                    flexDirection: 'column',
+                    gap: 1
+                  }}
+                >
+                  <Box sx={{ width: '100%' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography fontWeight={600} variant='body2'>
+                        #{order.code}
+                      </Typography>
+                      <Chip
+                        size='small'
+                        label={
+                          order.current_status_id === '1'
+                            ? 'Chờ xử lý'
+                            : order.current_status_id === '2'
+                              ? 'Đã xác nhận'
+                              : order.current_status_id === '3'
+                                ? 'Đã giao'
+                                : 'Đã hủy'
+                        }
+                        color={
+                          order.current_status_id === '1'
+                            ? 'warning'
+                            : order.current_status_id === '2'
+                              ? 'info'
+                              : order.current_status_id === '3'
+                                ? 'success'
+                                : 'error'
+                        }
+                        variant='filled'
+                      />
+                    </Box>
+                    <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                      {order.guess_name || 'Khách hàng'} • {order.guess_phone}
+                    </Typography>
+                    <Typography variant='caption' color='text.secondary' sx={{ mb: 1, display: 'block' }}>
+                      {dayjs(order.created_at, 'YYYYMMDDHHmmss').format('DD/MM/YYYY HH:mm')}
+                    </Typography>
+                  </Box>
+                  <Typography fontWeight={600} color='primary.main' sx={{ alignSelf: 'flex-end' }}>
+                    {formatCurrency(order.final_amount)}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))
+          ) : (
+            <Grid item xs={12}>
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant='body2' color='text.secondary'>
+                  Không có đơn hàng nào
                 </Typography>
               </Box>
             </Grid>
