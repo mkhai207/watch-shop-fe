@@ -24,8 +24,11 @@ export type TUpdateMovementType = {
 
 export type GetMovementTypesResponse = {
   movementTypes: {
-    count: number
-    rows: TMovementType[]
+    page: number
+    limit: number
+    totalItems: number
+    totalPages: number
+    items: TMovementType[]
   }
 }
 

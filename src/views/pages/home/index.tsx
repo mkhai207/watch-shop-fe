@@ -125,10 +125,13 @@ const HomePage: NextPage<TProps> = () => {
         response = await getPublicRecommendations({ limit: 5 })
       }
 
-      if (response?.success && response?.data?.recommendations) {
-        console.log('✅ Recommendations loaded successfully:', response.data.recommendations)
-        console.log('📊 Total recommendations:', response.data.recommendations.length)
-        response.data.recommendations.forEach((rec: any, index: number) => {
+      // Handle nested response structure: response.data.data.recommendations
+      const recommendationsData = response?.data?.data?.recommendations || response?.data?.recommendations
+
+      if (response?.success && recommendationsData && Array.isArray(recommendationsData)) {
+        console.log('✅ Recommendations loaded successfully:', recommendationsData)
+        console.log('📊 Total recommendations:', recommendationsData.length)
+        recommendationsData.forEach((rec: any, index: number) => {
           console.log(`📦 Recommendation ${index + 1}:`, {
             name: rec.name,
             watch_id: rec.watch_id,
@@ -139,14 +142,16 @@ const HomePage: NextPage<TProps> = () => {
             selectedImage: getImageUrl(rec)
           })
         })
-        setRecommendations(response.data.recommendations)
+        setRecommendations(recommendationsData)
       } else {
         console.log('❌ No recommendations data:', response)
         console.log('Response structure:', {
           success: response?.success,
           hasData: !!response?.data,
-          hasRecommendations: !!response?.data?.recommendations,
-          dataKeys: response?.data ? Object.keys(response.data) : 'no data'
+          hasNestedData: !!response?.data?.data,
+          hasRecommendations: !!response?.data?.data?.recommendations || !!response?.data?.recommendations,
+          dataKeys: response?.data ? Object.keys(response.data) : 'no data',
+          nestedDataKeys: response?.data?.data ? Object.keys(response.data.data) : 'no nested data'
         })
       }
     } catch (error: any) {
