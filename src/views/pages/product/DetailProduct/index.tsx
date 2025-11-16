@@ -91,7 +91,6 @@ const DetailProductPage: NextPage<TProps> = () => {
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION_MIN[0])
   const [page, setPage] = useState(1)
 
-  // Calculate displayPrice early to avoid temporal dead zone
   const isWatch = !!watchDetail
   const selectedVariant = isWatch
     ? ((watchDetail as any)?.variants || [])

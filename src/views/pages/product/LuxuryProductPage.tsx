@@ -83,7 +83,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       limit: pageSize || 10
     }
 
-    if (filters.search?.trim()) params['name__like'] = filters.search.trim()
+    if (filters.search?.trim()) params['q'] = filters.search.trim()
 
     if (statusSelected?.length > 0) {
       params.status = statusSelected.length === 1 ? statusSelected[0] : statusSelected
