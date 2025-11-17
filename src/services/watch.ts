@@ -11,9 +11,16 @@ import {
   TUpdateWatch
 } from 'src/types/watch'
 
-export const getWatches = async () => {
+type GetWatchesParams = {
+  page?: number
+  limit?: number
+}
+
+export const getWatches = async (params?: GetWatchesParams) => {
   try {
-    const res = await axios.get(`${CONFIG_API.WATCH.INDEX}`)
+    const res = await axios.get(`${CONFIG_API.WATCH.INDEX}`, {
+      params
+    })
 
     return res.data as GetWatchesResponse
   } catch (error) {

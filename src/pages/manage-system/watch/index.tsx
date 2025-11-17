@@ -362,15 +362,43 @@ const WatchPage: NextPage = () => {
     } catch {}
   }
 
+  const WATCH_FETCH_PAGE_SIZE = 100
+
+  const fetchAllWatches = async () => {
+    const aggregated: TWatch[] = []
+    let currentPage = 1
+    let totalPages = 1
+    let totalItems = 0
+
+    while (currentPage <= totalPages) {
+      const wRes = (await getWatches({
+        page: currentPage,
+        limit: WATCH_FETCH_PAGE_SIZE
+      })) as GetWatchesResponse
+
+      const watchData = (wRes as any)?.watches
+      if (!watchData) break
+
+      const pageItems = watchData.items || watchData.rows || []
+      aggregated.push(...pageItems)
+
+      totalPages = watchData.totalPages || 1
+      totalItems = watchData.totalItems || aggregated.length
+
+      if (aggregated.length >= totalItems) break
+
+      currentPage += 1
+    }
+
+    return aggregated
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [wRes, vRes] = await Promise.all([getWatches(), getWatchVariants()])
-      const data = wRes as GetWatchesResponse
-      const watchData = (data as any)?.watches
+      const [allWatches, vRes] = await Promise.all([fetchAllWatches(), getWatchVariants()])
 
-      const allItems = watchData?.items || watchData?.rows || []
-      setItems(allItems)
+      setItems(allWatches)
 
       const vrows = (vRes as any)?.variants?.items || []
       const counts: Record<string, number> = {}

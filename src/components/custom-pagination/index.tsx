@@ -26,6 +26,9 @@ const CustomPagination = React.forwardRef((props: TProps, ref: Ref<any>) => {
 
   const { t } = useTranslation()
 
+  const startRow = rowLength > 0 ? (page - 1) * pageSize + 1 : 0
+  const endRow = rowLength > 0 ? Math.min(page * pageSize, rowLength) : 0
+
   return (
     <Box
       sx={{
@@ -41,10 +44,9 @@ const CustomPagination = React.forwardRef((props: TProps, ref: Ref<any>) => {
           {(rowLength || 0) > 0 ? (
             <Box>
               <span>{t('Đang hiển thị ')}</span>
-              <span style={{ fontWeight: 'bold' }}>{page === 1 ? page : 1 + pageSize} - </span>
-              <span style={{ fontWeight: 'bold' }}>
-                {page * pageSize < (rowLength || 0) ? page * pageSize : rowLength || 0}
-              </span>
+              <span style={{ fontWeight: 'bold' }}>{startRow}</span>
+              <span>{' - '}</span>
+              <span style={{ fontWeight: 'bold' }}>{endRow}</span>
               <span>{t(' trên ')}</span>
               <span style={{ fontWeight: 'bold' }}>{rowLength || 0}</span>
             </Box>
