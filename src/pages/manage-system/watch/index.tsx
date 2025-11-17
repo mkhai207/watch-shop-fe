@@ -1325,26 +1325,62 @@ const WatchPage: NextPage = () => {
           {variantEditing ? (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={4}>
-                <TextField
+                <Select
                   fullWidth
-                  label='Màu'
-                  value={
-                    colors.find(c => String(c.id) === String((variantEditing as any).color_id))?.name ||
-                    (variantEditing as any).color_id
-                  }
-                  InputProps={{ readOnly: true }}
-                />
+                  displayEmpty
+                  value={(variantEditing as any).color_id || ''}
+                  onChange={e => setVariantEditing((p: any) => ({ ...p, color_id: e.target.value }))}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 200
+                      }
+                    }
+                  }}
+                  renderValue={value => {
+                    if (!value) return 'Chọn màu'
+
+                    return colors.find(c => String(c.id) === String(value))?.name || value
+                  }}
+                >
+                  <MenuItem value=''>Chọn màu</MenuItem>
+                  {colors
+                    .filter(c => c.del_flag !== '1')
+                    .map(c => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.name}
+                      </MenuItem>
+                    ))}
+                </Select>
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
+                <Select
                   fullWidth
-                  label='Vật liệu dây'
-                  value={
-                    strapMaterials.find(s => String(s.id) === String((variantEditing as any).strap_material_id))
-                      ?.name || (variantEditing as any).strap_material_id
-                  }
-                  InputProps={{ readOnly: true }}
-                />
+                  displayEmpty
+                  value={(variantEditing as any).strap_material_id || ''}
+                  onChange={e => setVariantEditing((p: any) => ({ ...p, strap_material_id: e.target.value }))}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 200
+                      }
+                    }
+                  }}
+                  renderValue={value => {
+                    if (!value) return 'Chọn vật liệu dây'
+
+                    return strapMaterials.find(s => String(s.id) === String(value))?.name || value
+                  }}
+                >
+                  <MenuItem value=''>Chọn vật liệu dây</MenuItem>
+                  {strapMaterials
+                    .filter(s => s.del_flag !== '1')
+                    .map(s => (
+                      <MenuItem key={s.id} value={s.id}>
+                        {s.name}
+                      </MenuItem>
+                    ))}
+                </Select>
               </Grid>
               <Grid item xs={12} md={2}>
                 <TextField
@@ -1378,6 +1414,8 @@ const WatchPage: NextPage = () => {
               try {
                 setActionLoading(true)
                 await updateWatchVariant(String(v.id), {
+                  color_id: Number(v.color_id),
+                  strap_material_id: Number(v.strap_material_id),
                   stock_quantity: v.stock_quantity
                 } as any)
                 toast.success('Cập nhật biến thể thành công')
