@@ -365,6 +365,28 @@ const CheckoutPage: NextPage<TProps> = () => {
     setSelectedAddressId(addressId)
   }
 
+  const resolveCartItemPrice = (cartItem: TCartItem) => {
+    if (!cartItem?.variant) return 0
+
+    const variant: any = cartItem.variant
+    const candidates = [
+      variant?.product?.price,
+      variant?.price,
+      variant?.watch?.price,
+      variant?.watch?.base_price
+    ]
+
+    for (const value of candidates) {
+      if (value === undefined || value === null) continue
+      const parsed = Number(value)
+      if (!Number.isNaN(parsed)) {
+        return parsed
+      }
+    }
+
+    return 0
+  }
+
   // Tính toán order total dựa trên mode
   const getOrderTotal = () => {
     if (isBuyNowMode) {
@@ -374,7 +396,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
     return (
       list?.reduce((total, item) => {
-        const price = item?.variant?.product?.price ?? 0
+        const price = resolveCartItemPrice(item)
         const qty = item?.quantity ?? 0
         return total + price * qty
       }, 0) || 0
@@ -465,12 +487,15 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || '',
-                    thumbnail: item?.variant?.product?.thumbnail || '',
-                    color: item?.variant?.color?.name || 'Không xác định',
+                    name: item?.variant?.product?.name || (item as any)?.variant?.watch?.name || '',
+                    thumbnail:
+                      item?.variant?.product?.thumbnail ||
+                      (item as any)?.variant?.watch?.thumbnail ||
+                      '/luxury-watch-hero.jpg',
+                    color: item?.variant?.color?.name || (item as any)?.variant?.watch?.color || 'Không xác định',
                     strapMaterial: 'Không xác định',
                     quantity: item.quantity,
-                    price: item?.variant?.product?.price ?? 0
+                    price: resolveCartItemPrice(item)
                   })
                 ),
             subtotal: orderTotal,
@@ -499,12 +524,15 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || '',
-                    thumbnail: item?.variant?.product?.thumbnail || '',
-                    color: item?.variant?.color?.name || 'Không xác định',
+                    name: item?.variant?.product?.name || (item as any)?.variant?.watch?.name || '',
+                    thumbnail:
+                      item?.variant?.product?.thumbnail ||
+                      (item as any)?.variant?.watch?.thumbnail ||
+                      '/luxury-watch-hero.jpg',
+                    color: item?.variant?.color?.name || (item as any)?.variant?.watch?.color || 'Không xác định',
                     strapMaterial: 'Không xác định',
                     quantity: item.quantity,
-                    price: item?.variant?.product?.price ?? 0
+                    price: resolveCartItemPrice(item)
                   })
                 ),
             subtotal: orderTotal,
