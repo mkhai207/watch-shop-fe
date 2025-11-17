@@ -740,7 +740,7 @@ const WatchPage: NextPage = () => {
               <TableCell width={140}>Giá cơ bản</TableCell>
               <TableCell width={120}>Giới tính</TableCell>
               <TableCell width={120}>Trạng thái</TableCell>
-              <TableCell width={120}>Biến thể</TableCell>
+              {/* <TableCell width={120}>Biến thể</TableCell> */}
               <TableCell width={160} align='right'>
                 Thao tác
               </TableCell>
@@ -766,7 +766,7 @@ const WatchPage: NextPage = () => {
                     />
                   )}
                 </TableCell>
-                <TableCell>{variantCountByWatchId[String(row.id)] || 0}</TableCell>
+                {/* <TableCell>{variantCountByWatchId[String(row.id)] || 0}</TableCell> */}
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
                     <IconButton

@@ -232,16 +232,16 @@ const MyProfilePage: NextPage<TProps> = () => {
 
   const formatDateToYYYYMMDD = (dateStr: string) => {
     if (!dateStr) return ''
-    // Convert YYYY-MM-DD to YYYYMMDD
+
     return dateStr.replace(/-/g, '')
   }
 
   const formatDateFromYYYYMMDD = (dateStr: string) => {
     if (!dateStr || dateStr.length !== 8) return ''
-    // Convert YYYYMMDD to YYYY-MM-DD for date input
     const year = dateStr.substring(0, 4)
     const month = dateStr.substring(4, 6)
     const day = dateStr.substring(6, 8)
+
     return `${year}-${month}-${day}`
   }
 
@@ -249,25 +249,26 @@ const MyProfilePage: NextPage<TProps> = () => {
     console.log('handleUpdateProfile called')
     if (!userData) {
       console.log('No userData found')
+
       return
     }
 
     try {
       setUpdateLoading(true)
       console.log('Starting update profile with data:', editForm)
-      
-      // Validate required fields
+
       if (!editForm.first_name.trim() || !editForm.last_name.trim()) {
         toast.error('Họ và tên không được để trống')
+
         return
       }
 
       if (!editForm.phone_number.trim()) {
         toast.error('Số điện thoại không được để trống')
+
         return
       }
 
-      // Prepare update data
       const updateData = {
         first_name: editForm.first_name,
         last_name: editForm.last_name,
@@ -283,17 +284,15 @@ const MyProfilePage: NextPage<TProps> = () => {
         style_preferences: editForm.style_preferences
       }
 
-      // Call API to update profile
       console.log('Calling API:', `${CONFIG_API.AUTH.UPDATE_USER}/${userData.id}`)
       console.log('Update data:', updateData)
-      
+
       const response = await instanceAxios.put(`${CONFIG_API.AUTH.UPDATE_USER}/${userData.id}`, updateData)
       console.log('API response:', response)
-      
+
       if (response?.data) {
         toast.success('Cập nhật thông tin thành công')
         setOpenEditDialog(false)
-        // Refresh user data
         await fetchUserData()
       } else {
         throw new Error('Cập nhật thất bại')
@@ -310,24 +309,27 @@ const MyProfilePage: NextPage<TProps> = () => {
     try {
       setUpdateLoading(true)
 
-      // Validate password fields
       if (!passwordForm.current_password.trim()) {
         toast.error('Vui lòng nhập mật khẩu hiện tại')
+
         return
       }
 
       if (!passwordForm.new_password.trim()) {
         toast.error('Vui lòng nhập mật khẩu mới')
+
         return
       }
 
       if (passwordForm.new_password !== passwordForm.confirm_password) {
         toast.error('Mật khẩu mới và xác nhận mật khẩu không khớp')
+
         return
       }
 
       if (passwordForm.new_password.length < 6) {
         toast.error('Mật khẩu mới phải có ít nhất 6 ký tự')
+
         return
       }
 
@@ -476,9 +478,7 @@ const MyProfilePage: NextPage<TProps> = () => {
         </Box>
       </Paper>
 
-      {/* Profile Information Cards */}
       <Grid container spacing={3}>
-        {/* Personal Information */}
         <Grid item xs={12} md={6}>
           <Card elevation={2} sx={{ height: '100%' }}>
             <CardContent sx={{ p: 3 }}>
@@ -540,7 +540,9 @@ const MyProfilePage: NextPage<TProps> = () => {
                     Ngày sinh
                   </Typography>
                   <Typography variant='body1' fontWeight='medium'>
-                    {userData.date_of_birth ? formatCompactVN(formatDateFromYYYYMMDD(userData.date_of_birth)) : 'Chưa cập nhật'}
+                    {userData.date_of_birth
+                      ? formatCompactVN(formatDateFromYYYYMMDD(userData.date_of_birth))
+                      : 'Chưa cập nhật'}
                   </Typography>
                 </Box>
               </Stack>
@@ -548,7 +550,6 @@ const MyProfilePage: NextPage<TProps> = () => {
           </Card>
         </Grid>
 
-        {/* Account Information */}
         <Grid item xs={12} md={6}>
           <Card elevation={2} sx={{ height: '100%' }}>
             <CardContent sx={{ p: 3 }}>
@@ -621,7 +622,6 @@ const MyProfilePage: NextPage<TProps> = () => {
         </Grid>
       </Grid>
 
-      {/* Preferences Information */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
         <Grid item xs={12}>
           <Card elevation={2}>
@@ -839,19 +839,26 @@ const MyProfilePage: NextPage<TProps> = () => {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={['Rolex', 'Omega', 'Seiko', 'TAG Heuer', 'Breitling', 'Cartier', 'Patek Philippe', 'Audemars Piguet', 'IWC', 'Panerai', 'Hublot', 'Zenith']}
+                options={[
+                  'Rolex',
+                  'Omega',
+                  'Seiko',
+                  'TAG Heuer',
+                  'Breitling',
+                  'Cartier',
+                  'Patek Philippe',
+                  'Audemars Piguet',
+                  'IWC',
+                  'Panerai',
+                  'Hublot',
+                  'Zenith'
+                ]}
                 value={editForm.brand_preferences}
                 onChange={(_, newValue) => setEditForm(prev => ({ ...prev, brand_preferences: newValue }))}
                 renderInput={params => <TextField {...params} label='Thương hiệu yêu thích' />}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
-                    <Chip
-                      variant='outlined'
-                      label={option}
-                      size='small'
-                      {...getTagProps({ index })}
-                      key={option}
-                    />
+                    <Chip variant='outlined' label={option} size='small' {...getTagProps({ index })} key={option} />
                   ))
                 }
               />
@@ -860,19 +867,26 @@ const MyProfilePage: NextPage<TProps> = () => {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={['Diving', 'Chronograph', 'Dress', 'Pilot', 'Military', 'Sports', 'Luxury', 'Vintage', 'Racing', 'GMT', 'Moon Phase', 'Tourbillon']}
+                options={[
+                  'Diving',
+                  'Chronograph',
+                  'Dress',
+                  'Pilot',
+                  'Military',
+                  'Sports',
+                  'Luxury',
+                  'Vintage',
+                  'Racing',
+                  'GMT',
+                  'Moon Phase',
+                  'Tourbillon'
+                ]}
                 value={editForm.category_preferences}
                 onChange={(_, newValue) => setEditForm(prev => ({ ...prev, category_preferences: newValue }))}
                 renderInput={params => <TextField {...params} label='Phân loại yêu thích' />}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
-                    <Chip
-                      variant='outlined'
-                      label={option}
-                      size='small'
-                      {...getTagProps({ index })}
-                      key={option}
-                    />
+                    <Chip variant='outlined' label={option} size='small' {...getTagProps({ index })} key={option} />
                   ))
                 }
               />
@@ -881,19 +895,26 @@ const MyProfilePage: NextPage<TProps> = () => {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={['sport', 'dress', 'casual', 'luxury', 'vintage', 'modern', 'classic', 'elegant', 'professional', 'minimalist', 'bold', 'sophisticated']}
+                options={[
+                  'sport',
+                  'dress',
+                  'casual',
+                  'luxury',
+                  'vintage',
+                  'modern',
+                  'classic',
+                  'elegant',
+                  'professional',
+                  'minimalist',
+                  'bold',
+                  'sophisticated'
+                ]}
                 value={editForm.style_preferences}
                 onChange={(_, newValue) => setEditForm(prev => ({ ...prev, style_preferences: newValue }))}
                 renderInput={params => <TextField {...params} label='Phong cách yêu thích' />}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
-                    <Chip
-                      variant='outlined'
-                      label={option}
-                      size='small'
-                      {...getTagProps({ index })}
-                      key={option}
-                    />
+                    <Chip variant='outlined' label={option} size='small' {...getTagProps({ index })} key={option} />
                   ))
                 }
               />
@@ -904,8 +925,8 @@ const MyProfilePage: NextPage<TProps> = () => {
           <Button onClick={() => setOpenEditDialog(false)} disabled={updateLoading}>
             Hủy
           </Button>
-          <Button 
-            variant='contained' 
+          <Button
+            variant='contained'
             onClick={() => {
               console.log('Button clicked')
               handleUpdateProfile()
@@ -918,7 +939,12 @@ const MyProfilePage: NextPage<TProps> = () => {
       </Dialog>
 
       {/* Change Password Dialog */}
-      <Dialog open={openChangePasswordDialog} onClose={() => setOpenChangePasswordDialog(false)} maxWidth='sm' fullWidth>
+      <Dialog
+        open={openChangePasswordDialog}
+        onClose={() => setOpenChangePasswordDialog(false)}
+        maxWidth='sm'
+        fullWidth
+      >
         <DialogTitle>Đổi mật khẩu</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -955,11 +981,7 @@ const MyProfilePage: NextPage<TProps> = () => {
           <Button onClick={() => setOpenChangePasswordDialog(false)} disabled={updateLoading}>
             Hủy
           </Button>
-          <Button 
-            variant='contained' 
-            onClick={handleChangePasswordSubmit}
-            disabled={updateLoading}
-          >
+          <Button variant='contained' onClick={handleChangePasswordSubmit} disabled={updateLoading}>
             {updateLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
           </Button>
         </DialogActions>
