@@ -35,13 +35,14 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
 import { deleteCartItems, deleteCartItemsByIds } from 'src/services/cart'
 import { createOrder } from 'src/services/checkout'
-import { getDiscountByCode, v1GetDiscounts } from 'src/services/discount'
+import { v1GetDiscounts } from 'src/services/discount'
+
 // removed old user interaction API; using recommendation interactions instead
 import { createRecommendationInteraction } from 'src/services/recommendation'
 import { getAddressesByUserId, createAddressV1, listAddressesV1 } from 'src/services/address'
@@ -54,6 +55,7 @@ import {
   Ward
 } from 'src/services/addressApi'
 import { RootState } from 'src/stores'
+import { getCartItemsAsync } from 'src/stores/apps/cart/action'
 import { TDiscount } from 'src/types/discount'
 import { TCreateOrder, TCreateOrderForm } from 'src/types/order'
 import { TAddress } from 'src/types/address'
@@ -78,7 +80,8 @@ interface BuyNowItem {
 
 const CheckoutPage: NextPage<TProps> = () => {
   const { user } = useAuth()
-  const { items } = useSelector((state: RootState) => state.cart)
+  const dispatch = useDispatch()
+  const { items, isLoading: cartLoading } = useSelector((state: RootState) => state.cart)
   const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[]>([])
   const { t } = useTranslation()
   const router = useRouter()
@@ -156,6 +159,14 @@ const CheckoutPage: NextPage<TProps> = () => {
     resolver: yupResolver(schema)
   })
 
+  // Load cart items if user is logged in and cart is empty
+  useEffect(() => {
+    if (user?.id && !items.length && !cartLoading) {
+      console.log('Loading cart items...')
+      dispatch(getCartItemsAsync() as any)
+    }
+  }, [user?.id, items.length, cartLoading, dispatch])
+
   useEffect(() => {
     const buyNowData = localStorage.getItem('buyNowItems')
     const selectedIds = localStorage.getItem('selectedCartItemIds')
@@ -178,6 +189,7 @@ const CheckoutPage: NextPage<TProps> = () => {
           setSelectedCartItemIds(parsedIds)
         }
       } catch {}
+
       // Do not remove here; allow checkout refresh to keep selection
     }
   }, [])
@@ -250,62 +262,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     fetchVouchers()
   }, [])
 
-  // Auto read selected code from Cart and apply when data ready
-  useEffect(() => {
-    try {
-      const code = localStorage.getItem('selectedDiscountCode')
-      if (code) setDiscountCode(code)
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    const tryAutoApply = async () => {
-      if (!discountCode || appliedDiscount) return
-      // Try from loaded vouchers first
-      let found: any = availableVouchers.find(v => String(v.code || '').toLowerCase() === discountCode.toLowerCase())
-      if (!found) {
-        try {
-          const res = await v1GetDiscounts({ page: 1, limit: 100 })
-          const list: any[] = res?.discounts?.items || []
-          found = list.find(d => String(d.code || '').toLowerCase() === discountCode.toLowerCase())
-        } catch {}
-      }
-      if (found) {
-        // Validate min and dates
-        const now = new Date()
-        const start = new Date(
-          found.effective_date.slice(0, 4) +
-            '-' +
-            found.effective_date.slice(4, 6) +
-            '-' +
-            found.effective_date.slice(6, 8)
-        )
-        const end = new Date(
-          found.valid_until.slice(0, 4) + '-' + found.valid_until.slice(4, 6) + '-' + found.valid_until.slice(6, 8)
-        )
-        if (now >= start && now <= end && orderTotal >= Number(found.min_order_value || 0)) {
-          const type = String(found.discount_type)
-          const value = Number(found.discount_value || 0)
-          let amount = 0
-          if (type === '1') {
-            amount = Math.floor((orderTotal * value) / 100)
-            const cap = found.max_discount_amount != null ? Number(found.max_discount_amount) : null
-            if (cap && cap > 0) amount = Math.min(amount, cap)
-          } else {
-            amount = value
-          }
-          setAppliedDiscount({
-            code: found.code,
-            discountAmount: amount,
-            discountType: type === '1' ? 'percentage' : 'fixed'
-          })
-          setDiscountError('')
-        }
-      }
-    }
-    tryAutoApply()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableVouchers, discountCode])
+  // Removed auto-apply discount functionality - users must manually select discount codes
 
   useEffect(() => {
     const updatePosition = () => {
@@ -344,6 +301,7 @@ const CheckoutPage: NextPage<TProps> = () => {
       setDistricts([])
       setWards([])
       setAddressDialogOpen(true)
+
       return
     } else if (addressId) {
       const selectedAddress = addresses.find(addr => addr.id === addressId)
@@ -367,32 +325,55 @@ const CheckoutPage: NextPage<TProps> = () => {
 
   // Tính toán order total dựa trên mode
   const getOrderTotal = () => {
+    console.log('=== DEBUGGING CHECKOUT PRICES ===')
+    console.log('isBuyNowMode:', isBuyNowMode)
+    console.log('buyNowItems:', buyNowItems)
+    console.log('items from cart:', items)
+    console.log('selectedCartItemIds:', selectedCartItemIds)
+
     if (isBuyNowMode) {
-      return buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
+      const total =
+        buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
+      console.log('Buy now total:', total)
+
+      return total
     }
 
     const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
-    return (
+    console.log('Filtered cart items:', list)
+
+    const total =
       list?.reduce((total, item) => {
-        const price = item?.variant?.product?.price ?? 0
+        console.log('Full cart item structure:', item)
+        console.log('item.variant:', item?.variant)
+        console.log('item.variant.product:', item?.variant?.product)
+        console.log('item.variant.watch:', item?.variant?.watch)
+
+        const price = item?.variant?.product?.price ?? item?.variant?.watch?.price ?? item?.variant?.price ?? 0
         const qty = item?.quantity ?? 0
+        const productName =
+          item?.variant?.product?.name ?? item?.variant?.watch?.name ?? item?.variant?.name ?? 'Unknown'
+        console.log(`Item: ${productName}, Price: ${price}, Qty: ${qty}, Subtotal: ${price * qty}`)
+
         return total + price * qty
       }, 0) || 0
-    )
+
+    console.log('Cart total:', total)
+
+    return total
   }
 
   const orderTotal = getOrderTotal()
-  // Align shipping fee with Cart page (currently 0)
+
   const shippingFee = shippingMethod === 'express' ? 30000 : 0
 
-  // Cart meta for UX buttons
   const cartItemCount = isBuyNowMode
     ? buyNowItems.reduce((acc, it) => acc + (it?.quantity || 0), 0)
     : items.reduce((acc, it) => acc + (it?.quantity || 0), 0)
 
-  // Tính toán discount (appliedDiscount.discountAmount is absolute after validation)
   const getDiscountAmount = () => {
     if (!appliedDiscount) return 0
+
     return Math.max(0, Math.min(orderTotal, appliedDiscount.discountAmount))
   }
 
@@ -1335,6 +1316,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                 } else {
                   amount = value
                 }
+
                 return (
                   <Paper key={d.id} variant='outlined' sx={{ p: 1.5, opacity: inDate && eligible ? 1 : 0.6 }}>
                     <Box display='flex' justifyContent='space-between' alignItems='center'>

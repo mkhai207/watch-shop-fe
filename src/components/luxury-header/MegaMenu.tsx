@@ -50,12 +50,23 @@ const SectionList: React.FC<SectionListProps> = ({ title, items, itemType, onNav
       variant='subtitle1'
       sx={{
         fontWeight: 700,
-        mb: 2,
+        mb: 2.5,
         color: 'text.primary',
-        fontSize: '1rem',
+        fontSize: '1.1rem',
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        pl: 1
+        letterSpacing: 1,
+        pl: 1,
+        position: 'relative',
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          bottom: -8,
+          left: 4,
+          width: 30,
+          height: 2,
+          backgroundColor: 'primary.main',
+          borderRadius: 1
+        }
       }}
     >
       {title}
@@ -66,32 +77,63 @@ const SectionList: React.FC<SectionListProps> = ({ title, items, itemType, onNav
         <ListItemButton
           key={item.id}
           onClick={() => onNavigate(itemType, item.id.toString())}
-          sx={{ borderRadius: 1, mb: 0.5, px: 1, py: 0.5, width: '100%' }}
+          sx={{
+            borderRadius: 2,
+            mb: 0.5,
+            px: 2,
+            py: 1,
+            width: '100%',
+            transition: 'all 0.3s ease',
+            position: 'relative',
+            overflow: 'hidden',
+            '&:hover': {
+              backgroundColor: 'rgba(25, 118, 210, 0.08)',
+              transform: 'translateX(8px)',
+              '&::before': {
+                transform: 'scaleX(1)'
+              }
+            },
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 3,
+              backgroundColor: 'primary.main',
+              transform: 'scaleX(0)',
+              transformOrigin: 'left center',
+              transition: 'transform 0.3s ease'
+            }
+          }}
         >
           {itemType === 'colorId' && (
             <Box
               sx={{
-                width: 12,
-                height: 12,
+                width: 14,
+                height: 14,
                 borderRadius: '50%',
                 backgroundColor: item.hex_code || '#ccc',
-                border: '1px solid #ddd',
-                mr: 1.5,
-                flexShrink: 0
+                border: '2px solid #fff',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+                mr: 2,
+                flexShrink: 0,
+                transition: 'transform 0.3s ease'
               }}
             />
           )}
           <ListItemText
             primary={item.name}
             primaryTypographyProps={{
-              fontSize: '0.875rem',
+              fontSize: '0.9rem',
               color: 'text.secondary',
-              fontWeight: 400,
+              fontWeight: 500,
               noWrap: true,
               sx: {
-                transition: 'color 0.2s ease',
-                '&:hover': {
-                  color: 'primary.main'
+                transition: 'all 0.3s ease',
+                '.MuiListItemButton-root:hover &': {
+                  color: 'primary.main',
+                  fontWeight: 600
                 }
               }
             }}
@@ -171,9 +213,9 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
   if (!show) return null
 
   return (
-    <Fade in={show} timeout={250}>
+    <Fade in={show} timeout={400}>
       <Paper
-        elevation={12}
+        elevation={20}
         onMouseLeave={onClose}
         sx={{
           position: 'absolute',
@@ -181,21 +223,52 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
           left: 0,
           right: 0,
           zIndex: 1300,
-          borderRadius: 0,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.1)',
+          borderRadius: '0 0 16px 16px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.1)',
           bgcolor: 'background.paper',
-          minHeight: 300
+          minHeight: 350,
+          backdropFilter: 'blur(10px)',
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          animation: 'slideDown 0.4s ease-out',
+          '@keyframes slideDown': {
+            '0%': {
+              opacity: 0,
+              transform: 'translateY(-20px)'
+            },
+            '100%': {
+              opacity: 1,
+              transform: 'translateY(0)'
+            }
+          }
         }}
       >
         {loading ? (
-          <Box display='flex' alignItems='center' justifyContent='center' minHeight={300}>
-            <CircularProgress />
+          <Box display='flex' alignItems='center' justifyContent='center' minHeight={350}>
+            <CircularProgress size={40} thickness={4} sx={{ color: 'primary.main' }} />
           </Box>
         ) : (
-          <Container maxWidth='lg' sx={{ py: 4 }}>
-            <Grid container spacing={3}>
+          <Container maxWidth='lg' sx={{ py: 5, px: 4 }}>
+            <Grid container spacing={4}>
               <Grid item xs={12} md={4}>
-                <Box sx={{ height: '100%' }}>
+                <Box
+                  sx={{
+                    height: '100%',
+                    animation: 'fadeInUp 0.6s ease-out',
+                    animationDelay: '0.1s',
+                    animationFillMode: 'both',
+                    '@keyframes fadeInUp': {
+                      '0%': {
+                        opacity: 0,
+                        transform: 'translateY(30px)'
+                      },
+                      '100%': {
+                        opacity: 1,
+                        transform: 'translateY(0)'
+                      }
+                    }
+                  }}
+                >
                   <SectionList
                     title='Thương hiệu'
                     items={brands.slice(0, 8)}
@@ -203,7 +276,7 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
                     onNavigate={handleNavigate}
                     onShowMore={handleShowMore}
                   />
-                  <Box sx={{ mt: 3 }} />
+                  <Box sx={{ mt: 4 }} />
                   <SectionList
                     title='Danh mục'
                     items={categories.slice(0, 8)}
@@ -215,7 +288,14 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <Box sx={{ height: '100%' }}>
+                <Box
+                  sx={{
+                    height: '100%',
+                    animation: 'fadeInUp 0.6s ease-out',
+                    animationDelay: '0.2s',
+                    animationFillMode: 'both'
+                  }}
+                >
                   <SectionList
                     title='Bộ máy'
                     items={movementTypes.slice(0, 8)}
@@ -223,7 +303,7 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
                     onNavigate={handleNavigate}
                     onShowMore={handleShowMore}
                   />
-                  <Box sx={{ mt: 3 }} />
+                  <Box sx={{ mt: 4 }} />
                   <SectionList
                     title='Chất liệu dây'
                     items={strapMaterials.slice(0, 8)}
@@ -235,7 +315,14 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <Box sx={{ height: '100%' }}>
+                <Box
+                  sx={{
+                    height: '100%',
+                    animation: 'fadeInUp 0.6s ease-out',
+                    animationDelay: '0.3s',
+                    animationFillMode: 'both'
+                  }}
+                >
                   <SectionList
                     title='Màu sắc'
                     items={colors.slice(0, 8)}
