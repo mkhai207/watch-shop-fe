@@ -3,7 +3,7 @@ import { ReactNode } from 'react'
 
 // ** Next Imports
 import Head from 'next/head'
-import { Router } from 'next/router'
+import { Router, useRouter } from 'next/router'
 import type { NextPage } from 'next'
 import type { AppProps } from 'next/app'
 
@@ -81,6 +81,8 @@ export default function App(props: ExtendedAppProps) {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { settings } = useSettings()
+  const router = useRouter()
+  const isManageSystemRoute = router.pathname.startsWith('/manage-system')
 
   // Variables
   const getLayout = Component.getLayout ?? (page => <UserLayout>{page}</UserLayout>)
@@ -131,9 +133,11 @@ export default function App(props: ExtendedAppProps) {
                       <Guard authGuard={authGuard} guestGuard={guestGuard}>
                         <AclGuard aclAbilities={aclAbilities} guestGuard={guestGuard} authGuard={authGuard}>
                           <HydrationBoundary>{getLayout(<Component {...pageProps} />)}</HydrationBoundary>
-                          <NoSSR>
-                            <ChatBot />
-                          </NoSSR>
+                          {!isManageSystemRoute && (
+                            <NoSSR>
+                              <ChatBot />
+                            </NoSSR>
+                          )}
                         </AclGuard>
                       </Guard>
                     </FilterProvider>
