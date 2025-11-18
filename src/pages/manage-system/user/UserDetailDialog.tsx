@@ -40,7 +40,7 @@ const UserDetailDialog: React.FC<UserDetailDialogProps> = ({ open, user, onClose
           setUserDetail(response.user)
         }
       } catch (error) {
-        console.error('Error fetching user detail:', error)
+        // Error handled silently or could show toast if needed
       } finally {
         setLoading(false)
       }

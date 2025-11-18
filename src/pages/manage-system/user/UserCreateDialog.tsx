@@ -20,7 +20,7 @@ import {
 import { Close, Visibility, VisibilityOff } from '@mui/icons-material'
 import { IUserCreate } from 'src/types/user'
 import toast from 'react-hot-toast'
-import instanceAxios from 'src/helpers/axios'
+import { registerAuth } from 'src/services/auth'
 
 interface UserCreateDialogProps {
   open: boolean
@@ -96,15 +96,33 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({ open, onClose, onSu
 
     setLoading(true)
     try {
-      const response = await instanceAxios.post('https://watch-shop-uzr4.onrender.com/v1/auth/register', formData)
+      // Map IUserCreate to TRegisterAuth
+      const registerData = {
+        email: formData.email,
+        password: formData.password,
+        username: formData.userName,
+        first_name: formData.fistName,
+        last_name: formData.lastName,
+        phone_number: '',
+        gender: '',
+        date_of_birth: '',
+        address: '',
+        role_id: formData.roleId,
+        age_group: '',
+        gender_preference: '',
+        price_range_preference: '',
+        brand_preferences: [],
+        category_preferences: [],
+        style_preferences: []
+      }
 
-      if (response.data) {
+      const response = await registerAuth(registerData)
+
+      if (response) {
         toast.success('Tạo người dùng thành công')
         onSuccess()
       }
     } catch (error: any) {
-      console.error('Error creating user:', error)
-
       if (error?.response?.data?.message) {
         toast.error(error.response.data.message)
       } else if (error?.response?.status === 400) {

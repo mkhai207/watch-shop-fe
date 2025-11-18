@@ -20,7 +20,7 @@ import {
 import { Close } from '@mui/icons-material'
 import { IUser } from 'src/types/user'
 import toast from 'react-hot-toast'
-import instanceAxios from 'src/helpers/axios'
+import { updateUser } from 'src/services/user'
 
 interface UserEditDialogProps {
   open: boolean
@@ -70,16 +70,13 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ open, user, onClose, on
         return
       }
 
-      console.log('Sending update data:', changedFields)
-      const response = await instanceAxios.put(`http://localhost:8080/v1/users/${user.id}`, changedFields)
+      const response = await updateUser(user.id, changedFields)
 
-      if (response.data) {
+      if (response) {
         toast.success('Cập nhật người dùng thành công')
         onSuccess()
       }
     } catch (error: any) {
-      console.error('Error updating user:', error)
-
       if (error?.response?.data?.message) {
         toast.error(error.response.data.message)
       } else {
