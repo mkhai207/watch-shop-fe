@@ -32,7 +32,7 @@ import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { IUser } from 'src/types/user'
-import instanceAxios from 'src/helpers/axios'
+import { getUsers, deleteUser } from 'src/services/user'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import dayjs from 'dayjs'
 import UserDetailDialog from './UserDetailDialog'
@@ -135,13 +135,11 @@ const UserPage: NextPage = () => {
           ...queryParams
         }
 
-        const response = await instanceAxios.get('http://localhost:8080/v1/users', { params })
-        console.log('Users API response:', response.data)
+        const response = await getUsers(params)
 
-        if (response.data && response.data.users) {
-          const userData = response.data.users
+        if (response && response.users) {
+          const userData = response.users
 
-          // Add computed fullName field
           const usersWithFullName = userData.items.map((user: any) => ({
             ...user,
             fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username
@@ -151,10 +149,11 @@ const UserPage: NextPage = () => {
           setTotalPages(userData.totalPages || 1)
           setTotalCount(userData.totalItems || 0)
         } else {
-          console.log('No users data found in response')
+          setUsers([])
+          setTotalPages(1)
+          setTotalCount(0)
         }
       } catch (error) {
-        console.error('Error fetching users:', error)
         toast.error('Có lỗi xảy ra khi tải dữ liệu người dùng')
       } finally {
         setLoading(false)
@@ -198,13 +197,12 @@ const UserPage: NextPage = () => {
 
     setActionLoading(true)
     try {
-      await instanceAxios.delete(`http://localhost:8080/v1/users/${selected.id}`)
+      await deleteUser(selected.id)
       toast.success('Xóa người dùng thành công')
       fetchUsers()
       setOpenDelete(false)
       setSelected(null)
     } catch (error: any) {
-      console.error('Error deleting user:', error)
       if (error?.response?.data?.message) {
         toast.error(error.response.data.message)
       } else {
