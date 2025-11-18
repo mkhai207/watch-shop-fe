@@ -43,7 +43,6 @@ import { deleteCartItems, deleteCartItemsByIds } from 'src/services/cart'
 import { createOrder } from 'src/services/checkout'
 import { v1GetDiscounts } from 'src/services/discount'
 
-// removed old user interaction API; using recommendation interactions instead
 import { createRecommendationInteraction } from 'src/services/recommendation'
 import { getAddressesByUserId, createAddressV1, listAddressesV1 } from 'src/services/address'
 import {
@@ -106,7 +105,6 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [discountLoading, setDiscountLoading] = useState(false)
   const [discountError, setDiscountError] = useState('')
 
-  // Voucher dropdown states
   const [availableVouchers, setAvailableVouchers] = useState<TDiscount[]>([])
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false)
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
@@ -114,7 +112,6 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [inputElement, setInputElement] = useState<HTMLElement | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
 
-  // Address dialog states
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [addrRecipient, setAddrRecipient] = useState('')
   const [addrPhone, setAddrPhone] = useState('')
@@ -159,10 +156,15 @@ const CheckoutPage: NextPage<TProps> = () => {
     resolver: yupResolver(schema)
   })
 
-  // Load cart items if user is logged in and cart is empty
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('checkout_temp_data')
+      localStorage.removeItem('buy_now_temp')
+    }
+  }, [])
+
   useEffect(() => {
     if (user?.id && !items.length && !cartLoading) {
-      console.log('Loading cart items...')
       dispatch(getCartItemsAsync() as any)
     }
   }, [user?.id, items.length, cartLoading, dispatch])
@@ -189,24 +191,19 @@ const CheckoutPage: NextPage<TProps> = () => {
           setSelectedCartItemIds(parsedIds)
         }
       } catch {}
-
-      // Do not remove here; allow checkout refresh to keep selection
     }
   }, [])
 
-  // Load addresses
   useEffect(() => {
     const fetchAddresses = async () => {
       if (user?.id) {
         setLoadingAddresses(true)
         try {
-          // Try v1 list first
           const v1 = await listAddressesV1()
           const rows = v1?.addresses?.rows
           if (Array.isArray(rows)) {
             setAddresses(rows)
 
-            // Auto select default address
             const defaultAddress = rows.find((addr: TAddress) => addr.is_default)
             if (defaultAddress) {
               setSelectedAddressId(defaultAddress.id)
@@ -297,7 +294,6 @@ const CheckoutPage: NextPage<TProps> = () => {
       setAddrWard('')
       setAddrDistrict('')
       setAddrCity('')
-      // Reset cascading dropdowns
       setDistricts([])
       setWards([])
       setAddressDialogOpen(true)
@@ -325,40 +321,24 @@ const CheckoutPage: NextPage<TProps> = () => {
 
   // Tính toán order total dựa trên mode
   const getOrderTotal = () => {
-    console.log('=== DEBUGGING CHECKOUT PRICES ===')
-    console.log('isBuyNowMode:', isBuyNowMode)
-    console.log('buyNowItems:', buyNowItems)
-    console.log('items from cart:', items)
-    console.log('selectedCartItemIds:', selectedCartItemIds)
-
     if (isBuyNowMode) {
       const total =
         buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
-      console.log('Buy now total:', total)
 
       return total
     }
 
     const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
-    console.log('Filtered cart items:', list)
 
     const total =
       list?.reduce((total, item) => {
-        console.log('Full cart item structure:', item)
-        console.log('item.variant:', item?.variant)
-        console.log('item.variant.product:', item?.variant?.product)
-        console.log('item.variant.watch:', item?.variant?.watch)
-
-        const price = item?.variant?.product?.price ?? item?.variant?.watch?.price ?? item?.variant?.price ?? 0
+        // Sử dụng giá từ variant.price * quantity
+        const price = item?.variant?.price ?? 0
         const qty = item?.quantity ?? 0
-        const productName =
-          item?.variant?.product?.name ?? item?.variant?.watch?.name ?? item?.variant?.name ?? 'Unknown'
-        console.log(`Item: ${productName}, Price: ${price}, Qty: ${qty}, Subtotal: ${price * qty}`)
+        const subtotal = price * qty
 
-        return total + price * qty
+        return total + subtotal
       }, 0) || 0
-
-    console.log('Cart total:', total)
 
     return total
   }
@@ -446,12 +426,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || '',
-                    thumbnail: item?.variant?.product?.thumbnail || '',
+                    name: item?.variant?.watch?.name || item?.variant?.product?.name || 'Không xác định',
+                    thumbnail: item?.variant?.watch?.thumbnail || item?.variant?.product?.thumbnail || '',
                     color: item?.variant?.color?.name || 'Không xác định',
-                    strapMaterial: 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
                     quantity: item.quantity,
-                    price: item?.variant?.product?.price ?? 0
+                    price: item?.variant?.price ?? 0
                   })
                 ),
             subtotal: orderTotal,
@@ -480,12 +460,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || '',
-                    thumbnail: item?.variant?.product?.thumbnail || '',
+                    name: item?.variant?.watch?.name || item?.variant?.product?.name || 'Không xác định',
+                    thumbnail: item?.variant?.watch?.thumbnail || item?.variant?.product?.thumbnail || '',
                     color: item?.variant?.color?.name || 'Không xác định',
-                    strapMaterial: 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
                     quantity: item.quantity,
-                    price: item?.variant?.product?.price ?? 0
+                    price: item?.variant?.price ?? 0
                   })
                 ),
             subtotal: orderTotal,
@@ -499,7 +479,6 @@ const CheckoutPage: NextPage<TProps> = () => {
       }
     } catch (error) {
       setLoading(false)
-      console.log('error', error)
     }
   }
 
@@ -522,6 +501,7 @@ const CheckoutPage: NextPage<TProps> = () => {
       const found = list.find(d => String(d.code || '').toLowerCase() === discountCode.trim().toLowerCase())
       if (!found) {
         setDiscountError('Mã giảm giá không hợp lệ')
+
         return
       }
 
@@ -539,12 +519,14 @@ const CheckoutPage: NextPage<TProps> = () => {
       )
       if (!(now >= start && now <= end)) {
         setDiscountError('Mã giảm giá chưa hiệu lực hoặc đã hết hạn')
+
         return
       }
 
       // Validate min order
       if (orderTotal < Number(found.min_order_value || 0)) {
         setDiscountError(`Đơn tối thiểu ${Number(found.min_order_value || 0).toLocaleString()}VNĐ`)
+
         return
       }
 
@@ -636,7 +618,6 @@ const CheckoutPage: NextPage<TProps> = () => {
       guess_name: data.name,
       guess_email: user?.email || '',
       guess_phone: data.phone,
-      // Map: COD='0', VNPAY='1', MOMO='2' (tạm thời, nếu backend khác vui lòng báo)
       payment_method: data.paymentMethod === 'VNPAY' ? '1' : data.paymentMethod === 'MOMO' ? '2' : '0',
       discount_amount: discountAmount,
       variants
@@ -659,6 +640,7 @@ const CheckoutPage: NextPage<TProps> = () => {
         }).finally(() => {
           proceedCreate()
         })
+
         return
       }
     }
@@ -727,6 +709,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     if (selectedProvince) {
       setAddrCity(provinceName)
       loadDistricts(selectedProvince.code)
+
       // Reset district and ward when province changes
       setAddrDistrict('')
       setAddrWard('')
@@ -739,6 +722,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     if (selectedDistrict) {
       setAddrDistrict(districtName)
       loadWards(selectedDistrict.code)
+
       // Reset ward when district changes
       setAddrWard('')
     }
@@ -1024,116 +1008,121 @@ const CheckoutPage: NextPage<TProps> = () => {
                       </Typography>
                     </Box>
                   ))
-                ) : items && items.length > 0 ? (
-                  items.map(item => {
-                    const product = item?.variant?.product
-                    const colorName = item?.variant?.color?.name || '-'
-                    const sizeName = item?.variant?.size?.name || '-'
-                    const quantity = item?.quantity || 0
-                    const thumbnail =
-                      product?.thumbnail || (item as any)?.variant?.watch?.thumbnail || '/luxury-watch-hero.jpg'
-                    const name = product?.name || (item as any)?.variant?.watch?.name || 'Sản phẩm'
-                    const price = product?.price ?? (item as any)?.variant?.price ?? 0
-                    const basePrice = (item as any)?.variant?.watch?.base_price || 0
-                    const code = (item as any)?.variant?.watch?.code
-                    const model = (item as any)?.variant?.watch?.model
-                    const caseMaterial = (item as any)?.variant?.watch?.case_material
-                    const caseSize = (item as any)?.variant?.watch?.case_size
-                    const strapSize = (item as any)?.variant?.watch?.strap_size
-                    const waterRes = (item as any)?.variant?.watch?.water_resistance
-                    const gender = (item as any)?.variant?.watch?.gender
+                ) : selectedCartItemIds.length > 0 ? (
+                  items
+                    .filter(it => selectedCartItemIds.includes(it.id))
+                    .map(item => {
+                      const product = item?.variant?.product
+                      const colorName = item?.variant?.color?.name || '-'
+                      const quantity = item?.quantity || 0
+                      const thumbnail =
+                        product?.thumbnail || (item as any)?.variant?.watch?.thumbnail || '/luxury-watch-hero.jpg'
+                      const name = product?.name || (item as any)?.variant?.watch?.name || 'Sản phẩm'
+                      const price = product?.price ?? (item as any)?.variant?.price ?? 0
+                      const basePrice = (item as any)?.variant?.watch?.base_price || 0
+                      const code = (item as any)?.variant?.watch?.code
+                      const model = (item as any)?.variant?.watch?.model
+                      const caseMaterial = (item as any)?.variant?.watch?.case_material
+                      const caseSize = (item as any)?.variant?.watch?.case_size
+                      const strapSize = (item as any)?.variant?.watch?.strap_size
+                      const waterRes = (item as any)?.variant?.watch?.water_resistance
+                      const gender = (item as any)?.variant?.watch?.gender
 
-                    if (!product && !(item as any)?.variant?.watch) {
-                      return null
-                    }
+                      if (!product && !(item as any)?.variant?.watch) {
+                        return null
+                      }
 
-                    return (
-                      <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                        <Box sx={{ position: 'relative' }}>
-                          <img
-                            src={thumbnail}
-                            alt={name}
-                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
-                          />
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: -8,
-                              right: -8,
-                              bgcolor: 'grey.500',
-                              color: 'white',
-                              borderRadius: '50%',
-                              width: 20,
-                              height: 20,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 12
-                            }}
-                          >
-                            {quantity}
-                          </Box>
-                        </Box>
-                        <Box sx={{ ml: 2, flex: 1 }}>
-                          <Typography variant='subtitle2'>{name}</Typography>
-                          <Typography variant='body2' color='text.secondary'>
-                            {colorName} / Dây: Không xác định
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                            {!!code && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Mã: <b>{code}</b>
-                              </Typography>
-                            )}
-                            {!!model && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Model: <b>{model}</b>
-                              </Typography>
-                            )}
-                            {!!caseMaterial && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Vỏ: <b>{caseMaterial}</b>
-                              </Typography>
-                            )}
-                            {!!caseSize && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Size vỏ: <b>{caseSize}mm</b>
-                              </Typography>
-                            )}
-                            {!!strapSize && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Dây: <b>{strapSize}mm</b>
-                              </Typography>
-                            )}
-                            {!!waterRes && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Chống nước: <b>{waterRes}</b>
-                              </Typography>
-                            )}
-                            {['0', '1', '2'].includes(String(gender)) && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Giới tính: <b>{gender === '1' ? 'Nam' : gender === '2' ? 'Nữ' : 'Unisex'}</b>
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-                        <Box>
-                          <Typography variant='subtitle1' fontWeight={700} color='error.main'>
-                            {(price * quantity).toLocaleString()}VNĐ
-                          </Typography>
-                          {basePrice && basePrice !== price && (
-                            <Typography
-                              variant='caption'
-                              color='text.secondary'
-                              sx={{ textDecoration: 'line-through' }}
+                      return (
+                        <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                          <Box sx={{ position: 'relative' }}>
+                            <img
+                              src={thumbnail}
+                              alt={name}
+                              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
+                            />
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                bgcolor: 'grey.500',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: 20,
+                                height: 20,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 12
+                              }}
                             >
-                              {(basePrice * quantity).toLocaleString()}VNĐ
+                              {quantity}
+                            </Box>
+                          </Box>
+                          <Box sx={{ ml: 2, flex: 1 }}>
+                            <Typography variant='subtitle2'>{name}</Typography>
+                            <Typography variant='body2' color='text.secondary'>
+                              {colorName} / Dây: Không xác định
                             </Typography>
-                          )}
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                              {!!code && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Mã: <b>{code}</b>
+                                </Typography>
+                              )}
+                              {!!model && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Model: <b>{model}</b>
+                                </Typography>
+                              )}
+                              {!!caseMaterial && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Vỏ: <b>{caseMaterial}</b>
+                                </Typography>
+                              )}
+                              {!!caseSize && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Size vỏ: <b>{caseSize}mm</b>
+                                </Typography>
+                              )}
+                              {!!strapSize && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Dây: <b>{strapSize}mm</b>
+                                </Typography>
+                              )}
+                              {!!waterRes && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Chống nước: <b>{waterRes}</b>
+                                </Typography>
+                              )}
+                              {['0', '1', '2'].includes(String(gender)) && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Giới tính: <b>{gender === '1' ? 'Nam' : gender === '2' ? 'Nữ' : 'Unisex'}</b>
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                          <Box>
+                            <Typography variant='subtitle1' fontWeight={700} color='error.main'>
+                              {(price * quantity).toLocaleString()}VNĐ
+                            </Typography>
+                            {basePrice && basePrice !== price && (
+                              <Typography
+                                variant='caption'
+                                color='text.secondary'
+                                sx={{ textDecoration: 'line-through' }}
+                              >
+                                {(basePrice * quantity).toLocaleString()}VNĐ
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
-                      </Box>
-                    )
-                  })
+                      )
+                    })
+                ) : items && items.length > 0 ? (
+                  <Typography variant='body2' color='warning.main' sx={{ textAlign: 'center', py: 2 }}>
+                    Vui lòng chọn sản phẩm từ giỏ hàng để thanh toán
+                  </Typography>
                 ) : (
                   <Typography variant='body2'>Không có sản phẩm trong giỏ hàng</Typography>
                 )}
@@ -1459,7 +1448,7 @@ const CheckoutPage: NextPage<TProps> = () => {
               onClick={async () => {
                 if (!addrRecipient || !/^0\d{9}$/.test(addrPhone) || !addrStreet || !addrCity) return
                 try {
-                  const res = await createAddressV1({
+                  await createAddressV1({
                     city: addrCity,
                     district: addrDistrict,
                     is_default: '0',
@@ -1468,10 +1457,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                     phone_number: addrPhone,
                     recipient_name: addrRecipient
                   })
+
                   // Compose display address and set form fields
                   setValue('name', addrRecipient)
                   setValue('phone', addrPhone)
                   setValue('shipping_address', `${addrStreet}, ${addrWard}, ${addrDistrict}, ${addrCity}`)
+
                   // Refresh address list after save (v1)
                   const refreshed = await listAddressesV1()
                   const rows = refreshed?.addresses?.rows || []
