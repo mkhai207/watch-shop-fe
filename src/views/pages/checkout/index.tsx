@@ -32,7 +32,7 @@ import {
 import { NextPage } from 'next'
 import { ArrowBack, ShoppingCartOutlined } from '@mui/icons-material'
 import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useSelector, useDispatch } from 'react-redux'
@@ -77,6 +77,121 @@ interface BuyNowItem {
   strap_material_name?: string
 }
 
+type DiscountEvaluation = {
+  valid: boolean
+  amount: number
+  discountType: 'percentage' | 'fixed'
+  message: string
+}
+
+const parseDiscountDate = (value?: string | null) => {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const toDate = (dateStr: string) => {
+    const year = dateStr.slice(0, 4)
+    const month = dateStr.slice(4, 6)
+    const day = dateStr.slice(6, 8)
+    const hour = dateStr.slice(8, 10) || '00'
+    const minute = dateStr.slice(10, 12) || '00'
+    const second = dateStr.slice(12, 14) || '00'
+
+    return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`)
+  }
+
+  if (/^\d{14}$/.test(trimmed)) {
+    return toDate(trimmed)
+  }
+
+  if (/^\d{8}$/.test(trimmed)) {
+    return toDate(trimmed + '000000')
+  }
+
+  const parsed = new Date(trimmed)
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const isDiscountActive = (discount: any) => {
+  const now = new Date()
+  const startRaw = discount?.effective_date || discount?.valid_from
+  const endRaw = discount?.valid_until
+  const start = parseDiscountDate(startRaw)
+  const end = parseDiscountDate(endRaw)
+
+  if (start && now < start) return false
+  if (end && now > end) return false
+
+  return true
+}
+
+const getDiscountMinOrder = (discount: any) => Number(discount?.min_order_value ?? discount?.minimum_order_value ?? 0)
+
+const getDiscountType = (discount: any): 'percentage' | 'fixed' => {
+  const raw = String(discount?.discount_type || '').toUpperCase()
+
+  if (raw === '1' || raw === 'PERCENTAGE') return 'percentage'
+
+  return 'fixed'
+}
+
+const computeDiscountAmountForTotal = (discount: any, total: number) => {
+  if (!discount || total <= 0) return 0
+
+  const type = getDiscountType(discount)
+  const rawValue = Number(discount?.discount_value ?? 0)
+  let amount = 0
+
+  if (type === 'percentage') {
+    amount = Math.floor((total * rawValue) / 100)
+    const cap = Number(discount?.max_discount_amount ?? discount?.maxDiscountAmount ?? 0)
+    if (cap > 0) amount = Math.min(amount, cap)
+  } else {
+    amount = rawValue
+  }
+
+  return Math.max(0, Math.min(total, amount))
+}
+
+const evaluateDiscountForTotal = (discount: any, total: number): DiscountEvaluation => {
+  if (!discount) {
+    return { valid: false, amount: 0, discountType: 'fixed', message: 'Mã giảm giá không hợp lệ' }
+  }
+
+  if (!isDiscountActive(discount)) {
+    return { valid: false, amount: 0, discountType: 'fixed', message: 'Mã giảm giá chưa hiệu lực hoặc đã hết hạn' }
+  }
+
+  const minOrder = getDiscountMinOrder(discount)
+  if (total < minOrder) {
+    return {
+      valid: false,
+      amount: 0,
+      discountType: 'fixed',
+      message: `Đơn tối thiểu ${minOrder.toLocaleString()}VNĐ`
+    }
+  }
+
+  const amount = computeDiscountAmountForTotal(discount, total)
+  if (amount <= 0) {
+    return {
+      valid: false,
+      amount: 0,
+      discountType: getDiscountType(discount),
+      message: 'Không thể áp dụng mã giảm giá cho đơn hàng này'
+    }
+  }
+
+  return { valid: true, amount, discountType: getDiscountType(discount), message: '' }
+}
+
+const findDiscountByCode = (list: any[], code: string) => {
+  const normalized = code.trim().toLowerCase()
+
+  return list.find(item => String(item?.code || '').toLowerCase() === normalized)
+}
+
 const CheckoutPage: NextPage<TProps> = () => {
   const { user } = useAuth()
   const dispatch = useDispatch()
@@ -111,6 +226,7 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [loadingVouchers, setLoadingVouchers] = useState(false)
   const [inputElement, setInputElement] = useState<HTMLElement | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const [hasRestoredDiscount, setHasRestoredDiscount] = useState(false)
 
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [addrRecipient, setAddrRecipient] = useState('')
@@ -323,12 +439,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     if (!cartItem?.variant) return 0
 
     const variant: any = cartItem.variant
-    const candidates = [
-      variant?.product?.price,
-      variant?.price,
-      variant?.watch?.price,
-      variant?.watch?.base_price
-    ]
+    const candidates = [variant?.product?.price, variant?.price, variant?.watch?.price, variant?.watch?.base_price]
 
     for (const value of candidates) {
       if (value === undefined || value === null) continue
@@ -506,91 +617,102 @@ const CheckoutPage: NextPage<TProps> = () => {
 
   // removed legacy product interaction hooks
 
-  const handleApplyDiscount = async () => {
-    if (!discountCode.trim()) {
-      setDiscountError('Vui lòng nhập mã giảm giá')
-
-      return
-    }
-
-    setDiscountLoading(true)
-    setDiscountError('')
-
-    try {
-      // Prefer v1 list to validate and compute like Cart
-      const res = await v1GetDiscounts({ page: 1, limit: 100 })
-      const list: any[] = res?.discounts?.items || []
-      const found = list.find(d => String(d.code || '').toLowerCase() === discountCode.trim().toLowerCase())
-      if (!found) {
-        setDiscountError('Mã giảm giá không hợp lệ')
+  const handleApplyDiscount = useCallback(
+    async (codeInput?: string, options?: { auto?: boolean }) => {
+      const isAuto = Boolean(options?.auto)
+      const inputValue = (codeInput ?? discountCode).trim()
+      if (!inputValue) {
+        if (!isAuto) setDiscountError('Vui lòng nhập mã giảm giá')
 
         return
       }
 
-      // Validate date window
-      const now = new Date()
-      const start = new Date(
-        found.effective_date.slice(0, 4) +
-          '-' +
-          found.effective_date.slice(4, 6) +
-          '-' +
-          found.effective_date.slice(6, 8)
-      )
-      const end = new Date(
-        found.valid_until.slice(0, 4) + '-' + found.valid_until.slice(4, 6) + '-' + found.valid_until.slice(6, 8)
-      )
-      if (!(now >= start && now <= end)) {
-        setDiscountError('Mã giảm giá chưa hiệu lực hoặc đã hết hạn')
-
-        return
+      if (!isAuto) {
+        setDiscountLoading(true)
+        setDiscountError('')
       }
 
-      // Validate min order
-      if (orderTotal < Number(found.min_order_value || 0)) {
-        setDiscountError(`Đơn tối thiểu ${Number(found.min_order_value || 0).toLocaleString()}VNĐ`)
-
-        return
-      }
-
-      // Compute amount
-      const type = String(found.discount_type)
-      const value = Number(found.discount_value || 0)
-      let amount = 0
-      if (type === '1') {
-        amount = Math.floor((orderTotal * value) / 100)
-        const cap = found.max_discount_amount != null ? Number(found.max_discount_amount) : null
-        if (cap && cap > 0) amount = Math.min(amount, cap)
-      } else {
-        amount = value
-      }
-
-      setAppliedDiscount({
-        code: found.code,
-        discountAmount: amount,
-        discountType: type === '1' ? 'percentage' : 'fixed'
-      })
       try {
-        localStorage.setItem('selectedDiscountCode', found.code)
-      } catch {}
-      setDiscountError('')
-    } catch (error) {
-      console.error('Error applying discount:', error)
-      setDiscountError('Có lỗi xảy ra khi áp dụng mã giảm giá')
-    } finally {
-      setDiscountLoading(false)
-    }
-  }
+        let target = findDiscountByCode(availableVouchers, inputValue)
+        if (!target) {
+          const res = await v1GetDiscounts({ page: 1, limit: 100 })
+          const fetched: any[] = res?.discounts?.items || []
+          setAvailableVouchers(fetched as TDiscount[])
+          target = findDiscountByCode(fetched, inputValue)
+        }
+
+        if (!target) {
+          if (!isAuto) setDiscountError('Mã giảm giá không hợp lệ')
+          if (isAuto && typeof window !== 'undefined') {
+            localStorage.removeItem('selectedDiscountCode')
+          }
+
+          return
+        }
+
+        const evaluation = evaluateDiscountForTotal(target, orderTotal)
+        if (!evaluation.valid) {
+          if (!isAuto) setDiscountError(evaluation.message)
+          if (isAuto && typeof window !== 'undefined') {
+            localStorage.removeItem('selectedDiscountCode')
+          }
+
+          return
+        }
+
+        setAppliedDiscount({
+          code: target.code,
+          discountAmount: evaluation.amount,
+          discountType: evaluation.discountType
+        })
+        setDiscountCode(target.code)
+        setDiscountError('')
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('selectedDiscountCode', target.code)
+        }
+      } catch (error) {
+        console.error('Error applying discount:', error)
+        if (!isAuto) setDiscountError('Có lỗi xảy ra khi áp dụng mã giảm giá')
+      } finally {
+        if (!isAuto) setDiscountLoading(false)
+      }
+    },
+    [availableVouchers, discountCode, orderTotal]
+  )
 
   const handleRemoveDiscount = () => {
     setAppliedDiscount(null)
     setDiscountError('')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('selectedDiscountCode')
+    }
   }
 
   const handleVoucherSelect = (voucher: TDiscount) => {
     setDiscountCode(voucher.code)
     setShowVoucherDropdown(false)
     setDiscountError('')
+    void handleApplyDiscount(voucher.code)
   }
+
+  useEffect(() => {
+    if (hasRestoredDiscount) return
+    if (orderTotal <= 0) return
+    if (typeof window === 'undefined') return
+    const stored = localStorage.getItem('selectedDiscountCode')
+    if (!stored) {
+      setHasRestoredDiscount(true)
+
+      return
+    }
+
+    const restore = async () => {
+      await handleApplyDiscount(stored, { auto: true })
+      setHasRestoredDiscount(true)
+    }
+
+    restore()
+  }, [handleApplyDiscount, hasRestoredDiscount, orderTotal])
 
   const handleDiscountInputFocus = (event: React.FocusEvent<HTMLInputElement>) => {
     const inputEl = event.currentTarget
@@ -1178,7 +1300,9 @@ const CheckoutPage: NextPage<TProps> = () => {
                             disabled={discountLoading}
                             placeholder='Nhập mã hoặc chọn từ danh sách'
                             onKeyDown={e => {
-                              if (e.key === 'Enter') handleApplyDiscount()
+                              if (e.key === 'Enter') {
+                                void handleApplyDiscount()
+                              }
                             }}
                           />
                           <Button
@@ -1304,32 +1428,13 @@ const CheckoutPage: NextPage<TProps> = () => {
           <DialogContent dividers>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {availableVouchers.map((d: any) => {
-                const now = new Date()
-                const start = new Date(
-                  d.effective_date?.slice?.(0, 4) +
-                    '-' +
-                    d.effective_date?.slice?.(4, 6) +
-                    '-' +
-                    d.effective_date?.slice?.(6, 8)
-                )
-                const end = new Date(
-                  d.valid_until?.slice?.(0, 4) + '-' + d.valid_until?.slice?.(4, 6) + '-' + d.valid_until?.slice?.(6, 8)
-                )
-                const inDate = d.effective_date && d.valid_until ? now >= start && now <= end : true
-                const eligible = orderTotal >= Number(d.min_order_value || 0)
-                const type = String(d.discount_type)
-                const value = Number(d.discount_value || 0)
-                let amount = 0
-                if (type === '1') {
-                  amount = Math.floor((orderTotal * value) / 100)
-                  const cap = d.max_discount_amount != null ? Number(d.max_discount_amount) : null
-                  if (cap && cap > 0) amount = Math.min(amount, cap)
-                } else {
-                  amount = value
-                }
+                const evaluation = evaluateDiscountForTotal(d, orderTotal)
+                const active = isDiscountActive(d)
+                const minOrder = getDiscountMinOrder(d)
+                const eligible = evaluation.valid
 
                 return (
-                  <Paper key={d.id} variant='outlined' sx={{ p: 1.5, opacity: inDate && eligible ? 1 : 0.6 }}>
+                  <Paper key={d.id} variant='outlined' sx={{ p: 1.5, opacity: active ? (eligible ? 1 : 0.6) : 0.4 }}>
                     <Box display='flex' justifyContent='space-between' alignItems='center'>
                       <Box>
                         <Typography fontWeight={700}>{d.code}</Typography>
@@ -1337,28 +1442,24 @@ const CheckoutPage: NextPage<TProps> = () => {
                           {d.name}
                         </Typography>
                         <Typography variant='caption' color='text.secondary' display='block'>
-                          ĐH tối thiểu: {Number(d.min_order_value || 0).toLocaleString()}VNĐ
+                          ĐH tối thiểu: {minOrder.toLocaleString()}VNĐ
                         </Typography>
                       </Box>
                       <Box textAlign='right'>
-                        <Typography variant='body2' color={inDate && eligible ? 'success.main' : 'text.secondary'}>
-                          {inDate && eligible ? `Giảm: ${amount.toLocaleString()}VNĐ` : 'Chưa đủ điều kiện'}
+                        <Typography variant='body2' color={eligible ? 'success.main' : 'text.secondary'}>
+                          {eligible
+                            ? `Giảm: ${evaluation.amount.toLocaleString()}VNĐ`
+                            : active
+                              ? 'Chưa đủ điều kiện'
+                              : 'Hết hạn'}
                         </Typography>
                         <Button
                           size='small'
                           variant='contained'
                           sx={{ mt: 1, textTransform: 'none' }}
-                          disabled={!(inDate && eligible)}
+                          disabled={!eligible}
                           onClick={() => {
-                            setDiscountCode(d.code)
-                            setAppliedDiscount({
-                              code: d.code,
-                              discountAmount: amount,
-                              discountType: String(d.discount_type) === '1' ? 'percentage' : 'fixed'
-                            })
-                            try {
-                              localStorage.setItem('selectedDiscountCode', d.code)
-                            } catch {}
+                            void handleApplyDiscount(d.code)
                             setDiscountDialogOpen(false)
                           }}
                         >
