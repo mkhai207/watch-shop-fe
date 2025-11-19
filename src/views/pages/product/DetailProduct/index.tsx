@@ -23,14 +23,18 @@ import { SyntheticEvent, useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 import { useDispatch, useSelector } from 'react-redux'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { Navigation } from 'swiper/modules'
+import 'swiper/css'
+import 'swiper/css/navigation'
 import CardProduct from 'src/components/card-product/CardProduct'
 import CustomPagination from 'src/components/custom-pagination'
 import IconifyIcon from 'src/components/Icon'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION_MIN } from 'src/configs/gridConfig'
 import { useAuth } from 'src/hooks/useAuth'
-import { getDetailsProductPublic, getSimilarProducts } from 'src/services/product'
-import { createRecommendationInteraction } from 'src/services/recommendation'
+import { getDetailsProductPublic } from 'src/services/product'
+import { createRecommendationInteraction, getPersonalizedRecommendations } from 'src/services/recommendation'
 import { fetchReviewsByProductId, getReviewsByWatchIdV1 } from 'src/services/review'
 import { getWatchById } from 'src/services/watch'
 import { AppDispatch, RootState } from 'src/stores'
@@ -65,17 +69,8 @@ const DetailProductPage: NextPage<TProps> = () => {
   const dispatch: AppDispatch = useDispatch()
   const { isLoading, isSuccess, isError, message } = useSelector((state: RootState) => state.cart)
   const [tabValue, setTabValue] = useState(0)
-  const [productSimilar, setProductSimilar] = useState<{
-    data: any[]
-    total: number
-    totalPages: number
-    currentPage: number
-  }>({
-    data: [],
-    total: 0,
-    totalPages: 0,
-    currentPage: 1
-  })
+  const [recommendedProducts, setRecommendedProducts] = useState<any[]>([])
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [reviews, setReviews] = useState<{
     data: any[]
     total: number
@@ -328,26 +323,58 @@ const DetailProductPage: NextPage<TProps> = () => {
     }
   }, [selectedSize, selectedColor])
 
-  const fetchGetSimilarProduct = async () => {
-    try {
-      setLoading(true)
+  const getRecommendationImage = (rec: any) => {
+    if (Array.isArray(rec?.images) && rec.images.length > 0) return rec.images[0]
+    if (rec?.thumbnail) return rec.thumbnail
+    if (rec?.watch?.thumbnail) return rec.watch.thumbnail
+    if (rec?.brand?.logo_url) return rec.brand.logo_url
+    if (rec?.category?.image_url) return rec.category.image_url
 
-      const response = await getSimilarProducts(productDetail?.id || '')
+    return '/images/luxury-rolex-submariner.png'
+  }
 
-      if (response.status === 'success') {
-        setProductSimilar({
-          data: response.data || [],
-          total: response.data.total || 0,
-          totalPages: response.data.totalPages || 0,
-          currentPage: response.data.currentPage || 1
-        })
-      }
-    } catch (error: any) {
-      console.error('Error fetching products:', error)
-    } finally {
-      setLoading(false)
+  const normalizeRecommendationItem = (rec: any) => {
+    if (!rec) return null
+    const source = rec.watch || rec
+    const id = rec.watch_id || source?.id
+    if (!id) return null
+
+    return {
+      id,
+      name: source?.name || rec.name || 'Sản phẩm',
+      thumbnail: getRecommendationImage(rec),
+      price: source?.price || rec.base_price || rec.price || 0,
+      brand: source?.brand?.name || rec.brand?.name,
+      category: source?.category?.name || rec.category?.name,
+      rating: source?.rating || rec.rating || 0,
+      sold: source?.sold || rec.sold || 0
     }
   }
+
+  const fetchRecommendedProducts = useCallback(async () => {
+    if (!user?.id) {
+      setRecommendedProducts([])
+
+      return
+    }
+    try {
+      setRecommendationsLoading(true)
+      const res = await getPersonalizedRecommendations({ limit: 10 })
+      const raw = (res?.data?.data?.recommendations ||
+        res?.data?.recommendations ||
+        res?.recommendations?.items ||
+        res?.recommendations ||
+        res?.items ||
+        res) as any[]
+      const normalized = Array.isArray(raw) ? raw.map(normalizeRecommendationItem).filter(Boolean) : []
+      setRecommendedProducts(normalized)
+    } catch (error) {
+      console.error('Error fetching recommendations:', error)
+      setRecommendedProducts([])
+    } finally {
+      setRecommendationsLoading(false)
+    }
+  }, [user?.id])
 
   const handleOnchangePagination = (page: number, pageSize: number) => {
     setPage(page)
@@ -544,10 +571,13 @@ const DetailProductPage: NextPage<TProps> = () => {
 
   useEffect(() => {
     if (productDetail?.id || watchDetail?.id) {
-      fetchGetSimilarProduct()
       fetchReviews(String(productDetail?.id || watchDetail?.id))
     }
   }, [productDetail, watchDetail, page, pageSize])
+
+  useEffect(() => {
+    fetchRecommendedProducts()
+  }, [fetchRecommendedProducts])
 
   const mainImages = parseSlider((isWatch ? watchDetail?.slider : (productDetail as any)?.slider) || '')
   const displayName = (isWatch ? watchDetail?.name : productDetail?.name) || ''
@@ -1326,21 +1356,47 @@ const DetailProductPage: NextPage<TProps> = () => {
           </Paper>
         </Container>
 
-        {user && user?.id && (
-          <Container maxWidth='lg' style={{ padding: '20px' }}>
-            <Box textAlign='center' mb={7}>
-              <Typography variant='h4' component='h1' fontWeight='bold' mb={1}>
-                {t('similar-products')}
+        {user?.id && (
+          <Container maxWidth='lg' sx={{ py: 4, mt: 10 }}>
+            <Box textAlign='center' mb={4}>
+              <Typography variant='h4' component='h2' fontWeight='bold' sx={{ letterSpacing: '-0.02em', mb: 1 }}>
+                Các sản phẩm được đề xuất cho bạn
+              </Typography>
+              <Typography variant='body2' color='text.secondary'>
+                Gợi ý từ hệ thống AI dựa trên hành vi xem, thêm giỏ và mua hàng của bạn
               </Typography>
             </Box>
 
-            <Grid container spacing={3}>
-              {productSimilar.data.map((product: TProduct) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
-                  <CardProduct item={product} />
-                </Grid>
-              ))}
-            </Grid>
+            {recommendationsLoading ? (
+              <Box display='flex' justifyContent='center' py={6}>
+                <Spinner />
+              </Box>
+            ) : recommendedProducts.length > 0 ? (
+              <Swiper
+                modules={[Navigation]}
+                navigation
+                spaceBetween={24}
+                slidesPerView={1.1}
+                breakpoints={{
+                  600: { slidesPerView: 2 },
+                  900: { slidesPerView: 3 },
+                  1200: { slidesPerView: 4 }
+                }}
+                style={{ paddingBottom: 32 }}
+              >
+                {recommendedProducts.map((product: any, index: number) => (
+                  <SwiperSlide key={product?.id || product?.watch_id || index}>
+                    <CardProduct item={product} />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            ) : (
+              <Paper variant='outlined' sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant='body1' color='text.secondary'>
+                  Chưa có đề xuất nào. Hãy tiếp tục xem và tương tác với các sản phẩm để nhận gợi ý chính xác hơn!
+                </Typography>
+              </Paper>
+            )}
           </Container>
         )}
       </Container>
