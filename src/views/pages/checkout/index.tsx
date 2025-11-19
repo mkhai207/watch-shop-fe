@@ -280,6 +280,22 @@ const CheckoutPage: NextPage<TProps> = () => {
   }, [])
 
   useEffect(() => {
+    const cartPath = ROUTE_CONFIG.CART
+    const handleRouteChangeStart = (url: string) => {
+      if (typeof window === 'undefined') return
+      if (url && url.startsWith(cartPath)) {
+        localStorage.setItem('shouldResetCartDiscount', '1')
+      }
+    }
+
+    router.events.on('routeChangeStart', handleRouteChangeStart)
+
+    return () => {
+      router.events.off('routeChangeStart', handleRouteChangeStart)
+    }
+  }, [router.events])
+
+  useEffect(() => {
     if (user?.id && !items.length && !cartLoading) {
       dispatch(getCartItemsAsync() as any)
     }

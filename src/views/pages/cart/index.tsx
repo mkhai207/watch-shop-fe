@@ -172,6 +172,19 @@ const CartPage: NextPage<TProps> = () => {
     fetchGetMyCart()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const shouldReset = localStorage.getItem('shouldResetCartDiscount')
+    if (shouldReset) {
+      localStorage.removeItem('shouldResetCartDiscount')
+      localStorage.removeItem('selectedDiscountCode')
+      setPromoCode('')
+      setIsPromoApplied(false)
+      setAppliedDiscount(null)
+      setDiscountAmount(0)
+    }
+  }, [])
+
   // Fetch discounts (v1)
   useEffect(() => {
     ;(async () => {
@@ -238,6 +251,9 @@ const CartPage: NextPage<TProps> = () => {
       setIsPromoApplied(false)
       setAppliedDiscount(null)
       setDiscountAmount(0)
+      try {
+        localStorage.removeItem('selectedDiscountCode')
+      } catch {}
 
       return
     }
@@ -247,6 +263,9 @@ const CartPage: NextPage<TProps> = () => {
       setIsPromoApplied(false)
       setAppliedDiscount(null)
       setDiscountAmount(0)
+      try {
+        localStorage.removeItem('selectedDiscountCode')
+      } catch {}
 
       return
     }
