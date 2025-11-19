@@ -221,25 +221,40 @@ const OrderHistoryPage = () => {
     return status.name
   }
 
-  const canReviewOrder = (order: any) => {
-    const statusId = order?.status || order?.current_status_id
+  const getNormalizedStatusMeta = (order: any) => {
+    const rawStatusId = order?.status || order?.current_status_id || ''
+    const statusId = String(rawStatusId)
     const status = getStatusInfo(statusId)
-    const isCompleted = status?.code === 'COMPLETED'
+    const code = String(status?.code || order?.currentStatus?.code || '').toUpperCase()
+    const name = String(order?.currentStatus?.name || status?.name || '').toLowerCase()
+
+    return { statusId, code, name }
+  }
+
+  const canReviewOrder = (order: any) => {
+    const { statusId, code, name } = getNormalizedStatusMeta(order)
+    const isCompletedById = statusId === '6'
+    const isCompletedByCode = code === 'COMPLETED'
+    const isCompletedByName = name.includes('hoàn thành')
     const notReviewedYet = String(order?.review_flag ?? '') === '0'
 
-    return isCompleted && notReviewedYet
+    return (isCompletedById || isCompletedByCode || isCompletedByName) && notReviewedYet
   }
 
   const canRetryPayment = (order: any) => {
-    // Check if payment method is online (payment_method = '1')
     const isOnlinePayment = order?.payment_method === '1'
+    if (!isOnlinePayment) return false
 
-    // Check if status sort_order <= 2 (PENDINGPAYMENT, UNPAID, etc.)
-    const statusId = order?.status || order?.current_status_id
-    const status = getStatusInfo(statusId)
-    const statusSortOrder = status?.sort_order || 0
+    const { statusId, code, name } = getNormalizedStatusMeta(order)
+    const retryableStatusIds = ['1', '2']
+    const retryableCodes = ['PENDING', 'PENDINGPAYMENT', 'UNPAID']
+    const retryableNames = ['chờ thanh toán', 'chờ xác nhận']
 
-    return isOnlinePayment && statusSortOrder <= 2
+    const isRetryableId = retryableStatusIds.includes(statusId)
+    const isRetryableCode = retryableCodes.includes(code)
+    const isRetryableName = retryableNames.some(label => name.includes(label))
+
+    return isRetryableId || isRetryableCode || isRetryableName
   }
 
   useEffect(() => {
