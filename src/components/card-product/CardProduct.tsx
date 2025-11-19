@@ -76,21 +76,24 @@ const CardProduct = (props: TCardProduct) => {
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
-              minHeight: '2.4em',
+              height: '2.7em',
+              lineHeight: 1.35,
               cursor: 'inherit'
             }}
           >
             {item?.name || 'Tên sản phẩm'}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'nowrap', minHeight: '24px' }}>
             <Typography
               variant='body2'
               sx={{
                 fontWeight: 'bold',
                 textDecoration: 'line-through',
                 color: theme.palette.error.main,
-                fontSize: '12px'
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}
             >
               500.000 VND
@@ -101,7 +104,12 @@ const CardProduct = (props: TCardProduct) => {
               sx={{
                 color: theme.palette.primary.main,
                 fontWeight: 'bold',
-                fontSize: '16px'
+                fontSize: '16px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                minWidth: 0,
+                flex: 1
               }}
             >
               {formattedPrice} VND

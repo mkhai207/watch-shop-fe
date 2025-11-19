@@ -10,7 +10,8 @@ import {
   Slider,
   Typography,
   Chip,
-  Breadcrumbs
+  Breadcrumbs,
+  CircularProgress
 } from '@mui/material'
 import { NextPage } from 'next'
 import Link from 'next/link'
@@ -27,7 +28,6 @@ import { getCategories } from 'src/services/category'
 import { getMovementTypes } from 'src/services/movementType'
 import { search } from 'src/services/watch'
 import { TProduct } from 'src/types/product'
-import { useFormatPrice } from 'src/utils/formatNumber'
 
 type TProps = {}
 
@@ -51,8 +51,6 @@ const LuxuryProductPage: NextPage<TProps> = () => {
   const [movementTypes, setMovementTypes] = useState<any[]>([])
 
   const [loading, setLoading] = useState(false)
-  const formattedPriceRange = useFormatPrice(priceRange[0])
-  const formattedPriceRangeMax = useFormatPrice(priceRange[1])
   const [productsPublic, setProductsPublic] = useState<{
     data: any[]
     total: number
@@ -417,33 +415,101 @@ const LuxuryProductPage: NextPage<TProps> = () => {
       {/* Header / Hero */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, rgba(25,118,210,0.08) 0%, rgba(25,118,210,0.02) 100%)',
+          background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)',
           borderBottom: '1px solid',
-          borderColor: 'grey.200'
+          borderColor: 'grey.200',
+          borderRadius: { xs: 0, md: '0 0 24px 24px' },
+          overflow: 'hidden'
         }}
       >
-        <Box sx={{ maxWidth: 1200, mx: 'auto', px: { xs: 2, md: 3 }, py: { xs: 3, md: 5 } }}>
-          <Breadcrumbs sx={{ mb: 1, color: 'text.secondary' }} aria-label='breadcrumb'>
+        <Box
+          sx={{
+            maxWidth: 1200,
+            mx: 'auto',
+            px: { xs: 2, md: 3 },
+            py: { xs: 3, md: 5 },
+            borderRadius: 1,
+            position: 'relative',
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+          }}
+        >
+          <Breadcrumbs sx={{ mb: 2, color: 'text.secondary' }} aria-label='breadcrumb'>
             <Link href='/' style={{ color: 'inherit', textDecoration: 'none' }}>
               Trang chủ
             </Link>
             <Typography color='text.primary'>Bộ sưu tập đồng hồ</Typography>
           </Breadcrumbs>
 
-          <Typography variant='h3' sx={{ fontWeight: 700, lineHeight: 1.2, mb: 1, fontSize: { xs: 28, md: 36 } }}>
+          <Typography variant='h3' sx={{ fontWeight: 700, lineHeight: 1.3, mb: 2, fontSize: { xs: 28, md: 36 } }}>
             Bộ sưu tập đồng hồ
           </Typography>
-          <Typography sx={{ color: 'text.secondary', mb: 2 }}>
+          <Typography sx={{ color: 'text.secondary', mb: 3, fontSize: '1.1rem' }}>
             Khám phá các mẫu đồng hồ cao cấp, được tuyển chọn kỹ lưỡng.
           </Typography>
 
           {/* Active chips */}
           {activeFilterChips.length > 0 && (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1,
+                alignItems: 'center',
+                p: 2,
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'grey.100',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              }}
+            >
+              <Typography variant='body2' sx={{ fontWeight: 500, color: 'text.secondary', mr: 1 }}>
+                Bộ lọc:
+              </Typography>
               {activeFilterChips.map(ch => (
-                <Chip key={ch.key} label={ch.label} onDelete={ch.onDelete} size='small' />
+                <Chip
+                  key={ch.key}
+                  label={ch.label}
+                  onDelete={ch.onDelete}
+                  size='small'
+                  variant='outlined'
+                  sx={{
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    borderRadius: 1,
+                    fontWeight: 500,
+                    '&:hover': {
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      boxShadow: '0 2px 8px rgba(25, 118, 210, 0.2)'
+                    },
+                    '& .MuiChip-deleteIcon': {
+                      borderRadius: '50%',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.2)'
+                      }
+                    }
+                  }}
+                />
               ))}
-              <Button onClick={clearAll} size='small' sx={{ ml: 0.5 }}>
+              <Button
+                onClick={clearAll}
+                size='small'
+                variant='text'
+                sx={{
+                  ml: 1,
+                  color: 'error.main',
+                  textTransform: 'none',
+                  fontSize: '0.875rem',
+                  borderRadius: 1,
+                  px: 2,
+                  '&:hover': {
+                    backgroundColor: 'error.50',
+                    boxShadow: '0 2px 8px rgba(211, 47, 47, 0.15)'
+                  }
+                }}
+              >
                 Xóa tất cả
               </Button>
             </Box>
@@ -463,17 +529,33 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                 borderColor: 'grey.200',
                 bgcolor: 'background.paper',
                 borderRadius: 2,
-                p: 2.5
+                p: 2.5,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.08)',
+                  transform: 'translateY(-2px)'
+                }
               }}
             >
-              <Typography variant='h6' sx={{ fontWeight: 700, mb: 2 }}>
+              {/* <Typography variant='h5' sx={{ fontWeight: 700, mb: 2, fontSize: '1.5rem' }}>
                 Bộ lọc
-              </Typography>
+              </Typography> */}
 
               {/* Price */}
               <Box mb={3}>
                 <Typography sx={{ fontWeight: 600, mb: 1 }}>Khoảng giá</Typography>
-                <Box sx={{ p: 2, border: '1px solid', borderColor: 'grey.200', borderRadius: 2, bgcolor: 'grey.50' }}>
+                <Box
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'grey.200',
+                    borderRadius: 2,
+                    bgcolor: 'grey.50',
+                    transition: 'all 0.3s ease',
+                    '&:hover': { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }
+                  }}
+                >
                   <Typography variant='body2' sx={{ textAlign: 'center', color: 'text.secondary', mb: 1 }}>
                     {priceRange[0].toLocaleString()} - {priceRange[1].toLocaleString()} VND
                   </Typography>
@@ -626,7 +708,12 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                 </FormGroup>
               </Box>
 
-              <Button variant='outlined' fullWidth onClick={clearAll} sx={{ mt: 1 }}>
+              <Button
+                variant='outlined'
+                fullWidth
+                onClick={clearAll}
+                sx={{ mt: 1, borderRadius: 1, textTransform: 'none', fontWeight: 500 }}
+              >
                 Xóa tất cả bộ lọc
               </Button>
             </Box>
@@ -645,7 +732,12 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                 borderColor: 'grey.200',
                 bgcolor: 'background.paper',
                 borderRadius: 2,
-                mb: 2
+                mb: 2,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)'
+                }
               }}
             >
               <Box display='flex' alignItems='center' justifyContent='flex-end' gap={2}>
@@ -656,7 +748,7 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                   size='small'
                   value={filters.sortBy || 'created_at:desc'}
                   onChange={e => updateSortBy(e.target.value)}
-                  sx={{ minWidth: 200 }}
+                  sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
                   MenuProps={{ disableScrollLock: true }}
                 >
                   <MenuItem value='created_at:desc'>Mới nhất</MenuItem>
@@ -669,17 +761,29 @@ const LuxuryProductPage: NextPage<TProps> = () => {
               </Box>
             </Box>
             {loading ? (
-              <Box mb={3}>
-                <Typography variant='body2' mb={1}>
-                  Khoảng giá: {formattedPriceRange} - {formattedPriceRangeMax} VND
+              <Box
+                sx={{
+                  p: 6,
+                  textAlign: 'center',
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  bgcolor: 'background.paper',
+                  borderRadius: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 400,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                }}
+              >
+                <CircularProgress size={48} sx={{ mb: 2 }} />
+                <Typography variant='h6' sx={{ color: 'text.secondary', mb: 1 }}>
+                  Đang tải sản phẩm...
                 </Typography>
-                <Slider
-                  value={priceRange}
-                  onChange={(_, v) => {
-                    const newRange = v as number[]
-                    setPriceRange(newRange)
-                  }}
-                />
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                  Vui lòng chờ trong giây lát
+                </Typography>
               </Box>
             ) : productsPublic.data.length === 0 ? (
               <Box
@@ -689,7 +793,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                   border: '1px solid',
                   borderColor: 'grey.200',
                   bgcolor: 'background.paper',
-                  borderRadius: 2
+                  borderRadius: 2,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
                 }}
               >
                 <Typography sx={{ color: 'text.secondary' }}>Không tìm thấy sản phẩm nào</Typography>
@@ -701,7 +806,12 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                   border: '1px solid',
                   borderColor: 'grey.200',
                   bgcolor: 'background.paper',
-                  borderRadius: 2
+                  borderRadius: 2,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.08)'
+                  }
                 }}
               >
                 <Grid container spacing={2.5}>
@@ -717,7 +827,17 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
                     return (
                       <Grid key={w.id} item xs={12} sm={6} md={4}>
-                        <Box sx={{ transition: 'transform .2s ease', '&:hover': { transform: 'translateY(-4px)' } }}>
+                        <Box
+                          sx={{
+                            transition: 'all 0.3s ease',
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                            '&:hover': {
+                              transform: 'translateY(-6px)',
+                              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                            }
+                          }}
+                        >
                           <CardProduct item={item} />
                         </Box>
                       </Grid>
@@ -735,7 +855,12 @@ const LuxuryProductPage: NextPage<TProps> = () => {
                 border: '1px solid',
                 borderColor: 'grey.200',
                 bgcolor: 'background.paper',
-                borderRadius: 2
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)'
+                }
               }}
             >
               <CustomPagination

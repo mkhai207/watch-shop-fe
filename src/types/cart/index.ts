@@ -1,7 +1,7 @@
 export type TColor = {
   id: string
   name: string
-  hex_code: string
+  hex_code?: string
 }
 
 export type TSize = {
@@ -9,14 +9,39 @@ export type TSize = {
   name: string
 }
 
+export type TWatch = {
+  id: string
+  code: string
+  name: string
+  description: string
+  model: string
+  base_price: number
+  thumbnail?: string
+  slider?: string
+}
+
+export type TStrapMaterial = {
+  id: string
+  name: string
+}
+
 export type TVariant = {
   id: string
-  colorId: string
-  sizeId: string
-  quantity: number
-  product: TProduct
+  color_id: string
+  strap_material_id: string
+  watch_id: string
+  price: number
+  stock_quantity: number
   color: TColor
-  size: TSize
+  strapMaterial: TStrapMaterial
+  watch: TWatch
+  // Legacy support
+  colorId?: string
+  sizeId?: string
+  quantity?: number
+  product?: TProduct
+  size?: TSize
+  name?: string
 }
 
 export type TAddToCart = {
@@ -35,14 +60,20 @@ export type TProduct = {
 
 export type TCartItem = {
   id: string
+  cart_id: string
+  variant_id: string
+  quantity: number
+  unit_price: number
+  total_price: number
   created_at: string
   created_by: string
-  updated_at: string
-  updated_by: string
-  quantity: number
-  product_variant_id: string
-  user_id: string
+  updated_at: string | null
+  updated_by: string | null
+  del_flag: string
   variant: TVariant
+  // Legacy support
+  product_variant_id?: string
+  user_id?: string
 }
 
 export type TUpdateCartItem = {

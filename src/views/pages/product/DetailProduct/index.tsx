@@ -1038,7 +1038,6 @@ const DetailProductPage: NextPage<TProps> = () => {
             <TabPanel value={tabValue} index={0}>
               <Box sx={{ maxWidth: '100%' }}>
                 {/* Product Title */}
-                {/* Removed title above description as requested */}
 
                 {/* Product Description */}
                 <Typography
@@ -1136,22 +1135,85 @@ const DetailProductPage: NextPage<TProps> = () => {
                                 justifyContent: 'center',
                                 color: 'white',
                                 fontWeight: 'bold',
-                                mr: 2
+                                mr: 2,
+                                border: '1px solid',
+                                borderColor: 'grey.300'
                               }}
                             >
-                              {(
-                                (review?.user?.full_name ||
-                                  review?.user?.name ||
-                                  review?.user?.email ||
-                                  'Ẩn danh')[0] || '?'
-                              ).toUpperCase()}
+                              {(() => {
+                                // Lấy chữ cái đầu từ tên
+                                const firstName = review['user.first_name'] || review?.user?.first_name || ''
+                                const email = review['user.email'] || review?.user?.email || ''
+                                const fullName = review?.user?.full_name || review?.user?.name || ''
+
+                                if (firstName) {
+                                  return firstName[0].toUpperCase()
+                                }
+                                if (fullName) {
+                                  return fullName[0].toUpperCase()
+                                }
+                                if (email) {
+                                  return email[0].toUpperCase()
+                                }
+
+                                return '?'
+                              })()}
                             </Box>
                             <Box>
                               <Typography variant='subtitle1' fontWeight='bold' color='text.primary'>
-                                {review?.user?.full_name || review?.user?.name || review?.user?.email || 'Ẩn danh'}
+                                {(() => {
+                                  // Xử lý tên từ flat structure user.first_name, user.last_name
+                                  const firstName = review['user.first_name'] || review?.user?.first_name || ''
+                                  const lastName = review['user.last_name'] || review?.user?.last_name || ''
+                                  const email = review['user.email'] || review?.user?.email || ''
+                                  const username = review['user.username'] || review?.user?.username || ''
+                                  const fullName = review?.user?.full_name || review?.user?.name || ''
+
+                                  if (firstName && lastName) {
+                                    return `${firstName} ${lastName}`.trim()
+                                  }
+                                  if (fullName) {
+                                    return fullName
+                                  }
+                                  if (username && username !== email) {
+                                    return username
+                                  }
+                                  if (email) {
+                                    return email.split('@')[0]
+                                  }
+
+                                  return 'Người dùng ẩn danh'
+                                })()}
                               </Typography>
                               <Typography variant='body2' color='text.secondary'>
-                                {new Date(review.created_at).toLocaleDateString('vi-VN')}
+                                {(() => {
+                                  try {
+                                    const dateStr = review.created_at || ''
+
+                                    // Xử lý format YYYYMMDDHHMMSS
+                                    if (dateStr.length === 14) {
+                                      const year = dateStr.substring(0, 4)
+                                      const month = dateStr.substring(4, 6)
+                                      const day = dateStr.substring(6, 8)
+                                      const hour = dateStr.substring(8, 10)
+                                      const minute = dateStr.substring(10, 12)
+                                      const formattedDate = `${year}-${month}-${day}T${hour}:${minute}:00`
+
+                                      return new Date(formattedDate).toLocaleDateString('vi-VN', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })
+                                    }
+
+                                    // Fallback cho format khác
+                                    return new Date(review.created_at).toLocaleDateString('vi-VN')
+                                  } catch {
+                                    return 'Ngày không xác định'
+                                  }
+                                })()}
                               </Typography>
                             </Box>
                           </Box>

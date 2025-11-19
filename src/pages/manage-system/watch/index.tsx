@@ -700,11 +700,9 @@ const WatchPage: NextPage = () => {
           const watchData = (wRes as any)?.watch || viewingWatch
           setViewingWatch(watchData)
 
-          // Check if variants are already included in the watch data
           if (watchData.variants && Array.isArray(watchData.variants)) {
             setViewVariants(watchData.variants)
           } else {
-            // Fallback: fetch variants separately
             const vRes = await getWatchVariants()
             const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
             setViewVariants(all.filter(i => String(i.watch_id) === createdWatchId))
@@ -764,6 +762,7 @@ const WatchPage: NextPage = () => {
             <TableRow>
               <TableCell width={90}>STT</TableCell>
               <TableCell width={160}>Mã</TableCell>
+              <TableCell width={100}>Ảnh mô tả</TableCell>
               <TableCell>Tên</TableCell>
               <TableCell width={140}>Giá cơ bản</TableCell>
               <TableCell width={120}>Giới tính</TableCell>
@@ -779,6 +778,46 @@ const WatchPage: NextPage = () => {
               <TableRow key={row.id} hover sx={{ opacity: row.del_flag === '1' ? 0.6 : 1 }}>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{(page - 1) * pageSize + index + 1}</TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>{row.code}</TableCell>
+                <TableCell>
+                  {row.thumbnail ? (
+                    <Box
+                      component='img'
+                      src={row.thumbnail}
+                      alt={row.name}
+                      sx={{
+                        width: 60,
+                        height: 60,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: theme => `1px solid ${theme.palette.divider}`
+                      }}
+                      onError={e => {
+                        console.log('Image load error for:', row.name, 'URL:', row.thumbnail)
+                        e.currentTarget.style.display = 'none'
+                      }}
+                      onLoad={() => {
+                        console.log('Image loaded successfully for:', row.name, 'URL:', row.thumbnail)
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: 60,
+                        height: 60,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'grey.100',
+                        borderRadius: 1,
+                        border: theme => `1px solid ${theme.palette.divider}`
+                      }}
+                    >
+                      <Typography variant='caption' color='text.disabled'>
+                        N/A
+                      </Typography>
+                    </Box>
+                  )}
+                </TableCell>
                 <TableCell>{row.name}</TableCell>
                 <TableCell>{(row.base_price || 0).toLocaleString('vi-VN')}</TableCell>
                 <TableCell>{row.gender === '1' ? 'Nữ' : 'Nam'}</TableCell>
@@ -1325,26 +1364,62 @@ const WatchPage: NextPage = () => {
           {variantEditing ? (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={4}>
-                <TextField
+                <Select
                   fullWidth
-                  label='Màu'
-                  value={
-                    colors.find(c => String(c.id) === String((variantEditing as any).color_id))?.name ||
-                    (variantEditing as any).color_id
-                  }
-                  InputProps={{ readOnly: true }}
-                />
+                  displayEmpty
+                  value={(variantEditing as any).color_id || ''}
+                  onChange={e => setVariantEditing((p: any) => ({ ...p, color_id: e.target.value }))}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 200
+                      }
+                    }
+                  }}
+                  renderValue={value => {
+                    if (!value) return 'Chọn màu'
+
+                    return colors.find(c => String(c.id) === String(value))?.name || value
+                  }}
+                >
+                  <MenuItem value=''>Chọn màu</MenuItem>
+                  {colors
+                    .filter(c => c.del_flag !== '1')
+                    .map(c => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.name}
+                      </MenuItem>
+                    ))}
+                </Select>
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
+                <Select
                   fullWidth
-                  label='Vật liệu dây'
-                  value={
-                    strapMaterials.find(s => String(s.id) === String((variantEditing as any).strap_material_id))
-                      ?.name || (variantEditing as any).strap_material_id
-                  }
-                  InputProps={{ readOnly: true }}
-                />
+                  displayEmpty
+                  value={(variantEditing as any).strap_material_id || ''}
+                  onChange={e => setVariantEditing((p: any) => ({ ...p, strap_material_id: e.target.value }))}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 200
+                      }
+                    }
+                  }}
+                  renderValue={value => {
+                    if (!value) return 'Chọn vật liệu dây'
+
+                    return strapMaterials.find(s => String(s.id) === String(value))?.name || value
+                  }}
+                >
+                  <MenuItem value=''>Chọn vật liệu dây</MenuItem>
+                  {strapMaterials
+                    .filter(s => s.del_flag !== '1')
+                    .map(s => (
+                      <MenuItem key={s.id} value={s.id}>
+                        {s.name}
+                      </MenuItem>
+                    ))}
+                </Select>
               </Grid>
               <Grid item xs={12} md={2}>
                 <TextField
@@ -1378,6 +1453,8 @@ const WatchPage: NextPage = () => {
               try {
                 setActionLoading(true)
                 await updateWatchVariant(String(v.id), {
+                  color_id: Number(v.color_id),
+                  strap_material_id: Number(v.strap_material_id),
                   stock_quantity: v.stock_quantity
                 } as any)
                 toast.success('Cập nhật biến thể thành công')
@@ -1509,7 +1586,7 @@ const WatchPage: NextPage = () => {
                     (viewingWatch as any).movement_type_tags?.length) && (
                     <Box sx={{ mt: 3 }}>
                       <Typography variant='subtitle1' sx={{ mb: 2, color: 'primary.main' }}>
-                        🎯 Thông tin ML
+                        Thông tin ML
                       </Typography>
                       <Grid container spacing={2}>
                         {(viewingWatch as any).price_tier && (
@@ -1996,6 +2073,7 @@ const WatchPage: NextPage = () => {
           <Button onClick={() => setOpenEditWatch(false)}>Hủy</Button>
           <Button
             variant='contained'
+            disabled={actionLoading || editUploadingThumb || editUploadingSlider}
             onClick={async () => {
               if (!selected) return
               try {

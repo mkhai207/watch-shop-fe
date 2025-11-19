@@ -81,3 +81,27 @@ export const deleteUser = async (id: string) => {
     throw error
   }
 }
+
+export const forgotPassword = async (email: string) => {
+  try {
+    const res = await axios.post(`${CONFIG_API.AUTH.INDEX}/forgot-password`, {
+      email
+    })
+
+    return res.data
+  } catch (error) {
+    throw error
+  }
+}
+
+export const resetPassword = async (token: string, password: string) => {
+  try {
+    const res = await axios.post(`${CONFIG_API.AUTH.INDEX}/reset-password?token=${token}`, {
+      password
+    })
+
+    return res.data
+  } catch (error) {
+    throw error
+  }
+}

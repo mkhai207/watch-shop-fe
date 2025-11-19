@@ -71,8 +71,34 @@ const LoginPage: NextPage<TProps> = () => {
   const onSubmit = (data: { userName: string; password: string }) => {
     if (!Object.keys(errors)?.length) {
       login({ ...data, rememberMe: isRemember }, err => {
-        if (err?.response?.data?.error) {
+        console.error('Login error:', err)
+
+        if (err?.response?.status === 500) {
+          const errorMessage = err?.response?.data?.message || 'Lỗi server, vui lòng thử lại sau'
+          if (errorMessage.includes('Cannot read properties of null')) {
+            toast.error('Tài khoản không tồn tại hoặc đã bị vô hiệu hóa')
+          } else {
+            toast.error(`Lỗi server: ${errorMessage}`)
+          }
+        } else if (err?.response?.status === 401) {
           toast.error(t('username-or-password-is-incorrect'))
+        } else if (err?.response?.status === 400) {
+          const errorMessage = err?.response?.data?.message || 'Dữ liệu không hợp lệ'
+          toast.error(errorMessage)
+        } else if (err?.response?.status === 403) {
+          toast.error('Tài khoản đã bị khóa hoặc không có quyền truy cập')
+        } else if (err?.response?.data?.error) {
+          toast.error(err.response.data.error)
+        } else if (err?.response?.data?.message) {
+          toast.error(err.response.data.message)
+        } else if (err?.message) {
+          if (err.message.includes('Network Error')) {
+            toast.error('Không thể kết nối đến server, vui lòng kiểm tra mạng')
+          } else {
+            toast.error(`Lỗi: ${err.message}`)
+          }
+        } else {
+          toast.error('Đã xảy ra lỗi không xác định, vui lòng thử lại')
         }
       })
     }
@@ -205,7 +231,7 @@ const LoginPage: NextPage<TProps> = () => {
                 }
                 label={t('remember-me')}
               />
-              <Link href='#'>{t('forgot-password')}</Link>
+              <Link href='/forgot-password'>{t('forgot-password')}</Link>
             </Box>
             <Button type='submit' fullWidth variant='contained' color='primary' sx={{ mt: 3, mb: 2 }}>
               Sign In

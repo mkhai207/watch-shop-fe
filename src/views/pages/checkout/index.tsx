@@ -35,14 +35,14 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import Spinner from 'src/components/spinner'
 import { ROUTE_CONFIG } from 'src/configs/route'
 import { useAuth } from 'src/hooks/useAuth'
 import { deleteCartItems, deleteCartItemsByIds } from 'src/services/cart'
 import { createOrder } from 'src/services/checkout'
-import { getDiscountByCode, v1GetDiscounts } from 'src/services/discount'
-// removed old user interaction API; using recommendation interactions instead
+import { v1GetDiscounts } from 'src/services/discount'
+
 import { createRecommendationInteraction } from 'src/services/recommendation'
 import { getAddressesByUserId, createAddressV1, listAddressesV1 } from 'src/services/address'
 import {
@@ -54,6 +54,7 @@ import {
   Ward
 } from 'src/services/addressApi'
 import { RootState } from 'src/stores'
+import { getCartItemsAsync } from 'src/stores/apps/cart/action'
 import { TDiscount } from 'src/types/discount'
 import { TCreateOrder, TCreateOrderForm } from 'src/types/order'
 import { TAddress } from 'src/types/address'
@@ -78,7 +79,8 @@ interface BuyNowItem {
 
 const CheckoutPage: NextPage<TProps> = () => {
   const { user } = useAuth()
-  const { items } = useSelector((state: RootState) => state.cart)
+  const dispatch = useDispatch()
+  const { items, isLoading: cartLoading } = useSelector((state: RootState) => state.cart)
   const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[]>([])
   const { t } = useTranslation()
   const router = useRouter()
@@ -103,7 +105,6 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [discountLoading, setDiscountLoading] = useState(false)
   const [discountError, setDiscountError] = useState('')
 
-  // Voucher dropdown states
   const [availableVouchers, setAvailableVouchers] = useState<TDiscount[]>([])
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false)
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
@@ -111,7 +112,6 @@ const CheckoutPage: NextPage<TProps> = () => {
   const [inputElement, setInputElement] = useState<HTMLElement | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
 
-  // Address dialog states
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
   const [addrRecipient, setAddrRecipient] = useState('')
   const [addrPhone, setAddrPhone] = useState('')
@@ -157,6 +157,19 @@ const CheckoutPage: NextPage<TProps> = () => {
   })
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('checkout_temp_data')
+      localStorage.removeItem('buy_now_temp')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (user?.id && !items.length && !cartLoading) {
+      dispatch(getCartItemsAsync() as any)
+    }
+  }, [user?.id, items.length, cartLoading, dispatch])
+
+  useEffect(() => {
     const buyNowData = localStorage.getItem('buyNowItems')
     const selectedIds = localStorage.getItem('selectedCartItemIds')
     if (buyNowData) {
@@ -178,23 +191,19 @@ const CheckoutPage: NextPage<TProps> = () => {
           setSelectedCartItemIds(parsedIds)
         }
       } catch {}
-      // Do not remove here; allow checkout refresh to keep selection
     }
   }, [])
 
-  // Load addresses
   useEffect(() => {
     const fetchAddresses = async () => {
       if (user?.id) {
         setLoadingAddresses(true)
         try {
-          // Try v1 list first
           const v1 = await listAddressesV1()
           const rows = v1?.addresses?.rows
           if (Array.isArray(rows)) {
             setAddresses(rows)
 
-            // Auto select default address
             const defaultAddress = rows.find((addr: TAddress) => addr.is_default)
             if (defaultAddress) {
               setSelectedAddressId(defaultAddress.id)
@@ -250,62 +259,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     fetchVouchers()
   }, [])
 
-  // Auto read selected code from Cart and apply when data ready
-  useEffect(() => {
-    try {
-      const code = localStorage.getItem('selectedDiscountCode')
-      if (code) setDiscountCode(code)
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    const tryAutoApply = async () => {
-      if (!discountCode || appliedDiscount) return
-      // Try from loaded vouchers first
-      let found: any = availableVouchers.find(v => String(v.code || '').toLowerCase() === discountCode.toLowerCase())
-      if (!found) {
-        try {
-          const res = await v1GetDiscounts({ page: 1, limit: 100 })
-          const list: any[] = res?.discounts?.items || []
-          found = list.find(d => String(d.code || '').toLowerCase() === discountCode.toLowerCase())
-        } catch {}
-      }
-      if (found) {
-        // Validate min and dates
-        const now = new Date()
-        const start = new Date(
-          found.effective_date.slice(0, 4) +
-            '-' +
-            found.effective_date.slice(4, 6) +
-            '-' +
-            found.effective_date.slice(6, 8)
-        )
-        const end = new Date(
-          found.valid_until.slice(0, 4) + '-' + found.valid_until.slice(4, 6) + '-' + found.valid_until.slice(6, 8)
-        )
-        if (now >= start && now <= end && orderTotal >= Number(found.min_order_value || 0)) {
-          const type = String(found.discount_type)
-          const value = Number(found.discount_value || 0)
-          let amount = 0
-          if (type === '1') {
-            amount = Math.floor((orderTotal * value) / 100)
-            const cap = found.max_discount_amount != null ? Number(found.max_discount_amount) : null
-            if (cap && cap > 0) amount = Math.min(amount, cap)
-          } else {
-            amount = value
-          }
-          setAppliedDiscount({
-            code: found.code,
-            discountAmount: amount,
-            discountType: type === '1' ? 'percentage' : 'fixed'
-          })
-          setDiscountError('')
-        }
-      }
-    }
-    tryAutoApply()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableVouchers, discountCode])
+  // Removed auto-apply discount functionality - users must manually select discount codes
 
   useEffect(() => {
     const updatePosition = () => {
@@ -340,10 +294,10 @@ const CheckoutPage: NextPage<TProps> = () => {
       setAddrWard('')
       setAddrDistrict('')
       setAddrCity('')
-      // Reset cascading dropdowns
       setDistricts([])
       setWards([])
       setAddressDialogOpen(true)
+
       return
     } else if (addressId) {
       const selectedAddress = addresses.find(addr => addr.id === addressId)
@@ -390,31 +344,38 @@ const CheckoutPage: NextPage<TProps> = () => {
   // Tính toán order total dựa trên mode
   const getOrderTotal = () => {
     if (isBuyNowMode) {
-      return buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
+      const total =
+        buyNowItems?.reduce((total, item) => total + (item?.product_price || 0) * (item?.quantity || 0), 0) || 0
+
+      return total
     }
 
     const list = selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items
-    return (
+
+    const total =
       list?.reduce((total, item) => {
-        const price = resolveCartItemPrice(item)
+        // Sử dụng giá từ variant.price * quantity
+        const price = item?.variant?.price ?? 0
         const qty = item?.quantity ?? 0
-        return total + price * qty
+        const subtotal = price * qty
+
+        return total + subtotal
       }, 0) || 0
-    )
+
+    return total
   }
 
   const orderTotal = getOrderTotal()
-  // Align shipping fee with Cart page (currently 0)
+
   const shippingFee = shippingMethod === 'express' ? 30000 : 0
 
-  // Cart meta for UX buttons
   const cartItemCount = isBuyNowMode
     ? buyNowItems.reduce((acc, it) => acc + (it?.quantity || 0), 0)
     : items.reduce((acc, it) => acc + (it?.quantity || 0), 0)
 
-  // Tính toán discount (appliedDiscount.discountAmount is absolute after validation)
   const getDiscountAmount = () => {
     if (!appliedDiscount) return 0
+
     return Math.max(0, Math.min(orderTotal, appliedDiscount.discountAmount))
   }
 
@@ -487,15 +448,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || (item as any)?.variant?.watch?.name || '',
-                    thumbnail:
-                      item?.variant?.product?.thumbnail ||
-                      (item as any)?.variant?.watch?.thumbnail ||
-                      '/luxury-watch-hero.jpg',
-                    color: item?.variant?.color?.name || (item as any)?.variant?.watch?.color || 'Không xác định',
-                    strapMaterial: 'Không xác định',
+                    name: item?.variant?.watch?.name || item?.variant?.product?.name || 'Không xác định',
+                    thumbnail: item?.variant?.watch?.thumbnail || item?.variant?.product?.thumbnail || '',
+                    color: item?.variant?.color?.name || 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
                     quantity: item.quantity,
-                    price: resolveCartItemPrice(item)
+                    price: item?.variant?.price ?? 0
                   })
                 ),
             subtotal: orderTotal,
@@ -524,15 +482,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                 }))
               : (selectedCartItemIds.length > 0 ? items.filter(it => selectedCartItemIds.includes(it.id)) : items).map(
                   item => ({
-                    name: item?.variant?.product?.name || (item as any)?.variant?.watch?.name || '',
-                    thumbnail:
-                      item?.variant?.product?.thumbnail ||
-                      (item as any)?.variant?.watch?.thumbnail ||
-                      '/luxury-watch-hero.jpg',
-                    color: item?.variant?.color?.name || (item as any)?.variant?.watch?.color || 'Không xác định',
-                    strapMaterial: 'Không xác định',
+                    name: item?.variant?.watch?.name || item?.variant?.product?.name || 'Không xác định',
+                    thumbnail: item?.variant?.watch?.thumbnail || item?.variant?.product?.thumbnail || '',
+                    color: item?.variant?.color?.name || 'Không xác định',
+                    strapMaterial: item?.variant?.strapMaterial?.name || 'Không xác định',
                     quantity: item.quantity,
-                    price: resolveCartItemPrice(item)
+                    price: item?.variant?.price ?? 0
                   })
                 ),
             subtotal: orderTotal,
@@ -546,7 +501,6 @@ const CheckoutPage: NextPage<TProps> = () => {
       }
     } catch (error) {
       setLoading(false)
-      console.log('error', error)
     }
   }
 
@@ -569,6 +523,7 @@ const CheckoutPage: NextPage<TProps> = () => {
       const found = list.find(d => String(d.code || '').toLowerCase() === discountCode.trim().toLowerCase())
       if (!found) {
         setDiscountError('Mã giảm giá không hợp lệ')
+
         return
       }
 
@@ -586,12 +541,14 @@ const CheckoutPage: NextPage<TProps> = () => {
       )
       if (!(now >= start && now <= end)) {
         setDiscountError('Mã giảm giá chưa hiệu lực hoặc đã hết hạn')
+
         return
       }
 
       // Validate min order
       if (orderTotal < Number(found.min_order_value || 0)) {
         setDiscountError(`Đơn tối thiểu ${Number(found.min_order_value || 0).toLocaleString()}VNĐ`)
+
         return
       }
 
@@ -683,7 +640,6 @@ const CheckoutPage: NextPage<TProps> = () => {
       guess_name: data.name,
       guess_email: user?.email || '',
       guess_phone: data.phone,
-      // Map: COD='0', VNPAY='1', MOMO='2' (tạm thời, nếu backend khác vui lòng báo)
       payment_method: data.paymentMethod === 'VNPAY' ? '1' : data.paymentMethod === 'MOMO' ? '2' : '0',
       discount_amount: discountAmount,
       variants
@@ -706,6 +662,7 @@ const CheckoutPage: NextPage<TProps> = () => {
         }).finally(() => {
           proceedCreate()
         })
+
         return
       }
     }
@@ -774,6 +731,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     if (selectedProvince) {
       setAddrCity(provinceName)
       loadDistricts(selectedProvince.code)
+
       // Reset district and ward when province changes
       setAddrDistrict('')
       setAddrWard('')
@@ -786,6 +744,7 @@ const CheckoutPage: NextPage<TProps> = () => {
     if (selectedDistrict) {
       setAddrDistrict(districtName)
       loadWards(selectedDistrict.code)
+
       // Reset ward when district changes
       setAddrWard('')
     }
@@ -1071,116 +1030,121 @@ const CheckoutPage: NextPage<TProps> = () => {
                       </Typography>
                     </Box>
                   ))
-                ) : items && items.length > 0 ? (
-                  items.map(item => {
-                    const product = item?.variant?.product
-                    const colorName = item?.variant?.color?.name || '-'
-                    const sizeName = item?.variant?.size?.name || '-'
-                    const quantity = item?.quantity || 0
-                    const thumbnail =
-                      product?.thumbnail || (item as any)?.variant?.watch?.thumbnail || '/luxury-watch-hero.jpg'
-                    const name = product?.name || (item as any)?.variant?.watch?.name || 'Sản phẩm'
-                    const price = product?.price ?? (item as any)?.variant?.price ?? 0
-                    const basePrice = (item as any)?.variant?.watch?.base_price || 0
-                    const code = (item as any)?.variant?.watch?.code
-                    const model = (item as any)?.variant?.watch?.model
-                    const caseMaterial = (item as any)?.variant?.watch?.case_material
-                    const caseSize = (item as any)?.variant?.watch?.case_size
-                    const strapSize = (item as any)?.variant?.watch?.strap_size
-                    const waterRes = (item as any)?.variant?.watch?.water_resistance
-                    const gender = (item as any)?.variant?.watch?.gender
+                ) : selectedCartItemIds.length > 0 ? (
+                  items
+                    .filter(it => selectedCartItemIds.includes(it.id))
+                    .map(item => {
+                      const product = item?.variant?.product
+                      const colorName = item?.variant?.color?.name || '-'
+                      const quantity = item?.quantity || 0
+                      const thumbnail =
+                        product?.thumbnail || (item as any)?.variant?.watch?.thumbnail || '/luxury-watch-hero.jpg'
+                      const name = product?.name || (item as any)?.variant?.watch?.name || 'Sản phẩm'
+                      const price = product?.price ?? (item as any)?.variant?.price ?? 0
+                      const basePrice = (item as any)?.variant?.watch?.base_price || 0
+                      const code = (item as any)?.variant?.watch?.code
+                      const model = (item as any)?.variant?.watch?.model
+                      const caseMaterial = (item as any)?.variant?.watch?.case_material
+                      const caseSize = (item as any)?.variant?.watch?.case_size
+                      const strapSize = (item as any)?.variant?.watch?.strap_size
+                      const waterRes = (item as any)?.variant?.watch?.water_resistance
+                      const gender = (item as any)?.variant?.watch?.gender
 
-                    if (!product && !(item as any)?.variant?.watch) {
-                      return null
-                    }
+                      if (!product && !(item as any)?.variant?.watch) {
+                        return null
+                      }
 
-                    return (
-                      <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                        <Box sx={{ position: 'relative' }}>
-                          <img
-                            src={thumbnail}
-                            alt={name}
-                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
-                          />
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: -8,
-                              right: -8,
-                              bgcolor: 'grey.500',
-                              color: 'white',
-                              borderRadius: '50%',
-                              width: 20,
-                              height: 20,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 12
-                            }}
-                          >
-                            {quantity}
-                          </Box>
-                        </Box>
-                        <Box sx={{ ml: 2, flex: 1 }}>
-                          <Typography variant='subtitle2'>{name}</Typography>
-                          <Typography variant='body2' color='text.secondary'>
-                            {colorName} / Dây: Không xác định
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                            {!!code && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Mã: <b>{code}</b>
-                              </Typography>
-                            )}
-                            {!!model && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Model: <b>{model}</b>
-                              </Typography>
-                            )}
-                            {!!caseMaterial && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Vỏ: <b>{caseMaterial}</b>
-                              </Typography>
-                            )}
-                            {!!caseSize && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Size vỏ: <b>{caseSize}mm</b>
-                              </Typography>
-                            )}
-                            {!!strapSize && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Dây: <b>{strapSize}mm</b>
-                              </Typography>
-                            )}
-                            {!!waterRes && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Chống nước: <b>{waterRes}</b>
-                              </Typography>
-                            )}
-                            {['0', '1', '2'].includes(String(gender)) && (
-                              <Typography variant='caption' color='text.secondary'>
-                                Giới tính: <b>{gender === '1' ? 'Nam' : gender === '2' ? 'Nữ' : 'Unisex'}</b>
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-                        <Box>
-                          <Typography variant='subtitle1' fontWeight={700} color='error.main'>
-                            {(price * quantity).toLocaleString()}VNĐ
-                          </Typography>
-                          {basePrice && basePrice !== price && (
-                            <Typography
-                              variant='caption'
-                              color='text.secondary'
-                              sx={{ textDecoration: 'line-through' }}
+                      return (
+                        <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                          <Box sx={{ position: 'relative' }}>
+                            <img
+                              src={thumbnail}
+                              alt={name}
+                              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
+                            />
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                bgcolor: 'grey.500',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: 20,
+                                height: 20,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 12
+                              }}
                             >
-                              {(basePrice * quantity).toLocaleString()}VNĐ
+                              {quantity}
+                            </Box>
+                          </Box>
+                          <Box sx={{ ml: 2, flex: 1 }}>
+                            <Typography variant='subtitle2'>{name}</Typography>
+                            <Typography variant='body2' color='text.secondary'>
+                              {colorName} / Dây: Không xác định
                             </Typography>
-                          )}
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                              {!!code && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Mã: <b>{code}</b>
+                                </Typography>
+                              )}
+                              {!!model && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Model: <b>{model}</b>
+                                </Typography>
+                              )}
+                              {!!caseMaterial && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Vỏ: <b>{caseMaterial}</b>
+                                </Typography>
+                              )}
+                              {!!caseSize && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Size vỏ: <b>{caseSize}mm</b>
+                                </Typography>
+                              )}
+                              {!!strapSize && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Dây: <b>{strapSize}mm</b>
+                                </Typography>
+                              )}
+                              {!!waterRes && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Chống nước: <b>{waterRes}</b>
+                                </Typography>
+                              )}
+                              {['0', '1', '2'].includes(String(gender)) && (
+                                <Typography variant='caption' color='text.secondary'>
+                                  Giới tính: <b>{gender === '1' ? 'Nam' : gender === '2' ? 'Nữ' : 'Unisex'}</b>
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                          <Box>
+                            <Typography variant='subtitle1' fontWeight={700} color='error.main'>
+                              {(price * quantity).toLocaleString()}VNĐ
+                            </Typography>
+                            {basePrice && basePrice !== price && (
+                              <Typography
+                                variant='caption'
+                                color='text.secondary'
+                                sx={{ textDecoration: 'line-through' }}
+                              >
+                                {(basePrice * quantity).toLocaleString()}VNĐ
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
-                      </Box>
-                    )
-                  })
+                      )
+                    })
+                ) : items && items.length > 0 ? (
+                  <Typography variant='body2' color='warning.main' sx={{ textAlign: 'center', py: 2 }}>
+                    Vui lòng chọn sản phẩm từ giỏ hàng để thanh toán
+                  </Typography>
                 ) : (
                   <Typography variant='body2'>Không có sản phẩm trong giỏ hàng</Typography>
                 )}
@@ -1363,6 +1327,7 @@ const CheckoutPage: NextPage<TProps> = () => {
                 } else {
                   amount = value
                 }
+
                 return (
                   <Paper key={d.id} variant='outlined' sx={{ p: 1.5, opacity: inDate && eligible ? 1 : 0.6 }}>
                     <Box display='flex' justifyContent='space-between' alignItems='center'>
@@ -1505,7 +1470,7 @@ const CheckoutPage: NextPage<TProps> = () => {
               onClick={async () => {
                 if (!addrRecipient || !/^0\d{9}$/.test(addrPhone) || !addrStreet || !addrCity) return
                 try {
-                  const res = await createAddressV1({
+                  await createAddressV1({
                     city: addrCity,
                     district: addrDistrict,
                     is_default: '0',
@@ -1514,10 +1479,12 @@ const CheckoutPage: NextPage<TProps> = () => {
                     phone_number: addrPhone,
                     recipient_name: addrRecipient
                   })
+
                   // Compose display address and set form fields
                   setValue('name', addrRecipient)
                   setValue('phone', addrPhone)
                   setValue('shipping_address', `${addrStreet}, ${addrWard}, ${addrDistrict}, ${addrCity}`)
+
                   // Refresh address list after save (v1)
                   const refreshed = await listAddressesV1()
                   const rows = refreshed?.addresses?.rows || []

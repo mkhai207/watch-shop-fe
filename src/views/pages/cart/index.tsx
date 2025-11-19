@@ -306,7 +306,7 @@ const CartPage: NextPage<TProps> = () => {
               Giỏ hàng của bạn
             </Typography>
             <Typography variant='body2' color='text.secondary'>
-              {items.length || 0} Sản phẩm
+              {items?.length || 0} Sản phẩm
             </Typography>
           </Grid>
 
