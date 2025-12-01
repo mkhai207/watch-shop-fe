@@ -2,9 +2,24 @@ import axios from 'axios'
 import { CONFIG_API } from 'src/configs/api'
 import instanceAxios from 'src/helpers/axios'
 
-export const getCategories = async () => {
+export const getCategories = async (queryParams?: Record<string, any>) => {
   try {
-    const res = await axios.get(CONFIG_API.CATEGORY.GET_CATEGORIES, {
+    const url = CONFIG_API.CATEGORY.GET_CATEGORIES
+    let finalUrl = url
+
+    if (queryParams) {
+      const params = new URLSearchParams()
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          params.set(key, String(value))
+        }
+      })
+      if (params.toString()) {
+        finalUrl = `${url}?${params.toString()}`
+      }
+    }
+
+    const res = await axios.get(finalUrl, {
       headers: {
         'Content-Type': 'application/json'
       }

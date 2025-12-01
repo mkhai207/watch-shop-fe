@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import type { NextPage } from 'next'
 import {
   Box,
@@ -31,9 +31,10 @@ import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import Spinner from 'src/components/spinner'
 import toast from 'react-hot-toast'
 import { formatCompactVN } from 'src/utils/date'
-import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter, buildBackendQuery } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { useDebounce } from 'src/hooks/useDebounce'
 import {
   v1CreateDiscount,
   v1DeleteDiscount,
@@ -61,6 +62,7 @@ const DiscountPage: NextPage = () => {
   const [items, setItems] = useState<TV1Discount[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
+  const [totalCount, setTotalCount] = useState(0)
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
@@ -94,12 +96,12 @@ const DiscountPage: NextPage = () => {
         }
       ],
       sortOptions: [
-        { value: 'name_asc', label: 'Tên A-Z' },
-        { value: 'name_desc', label: 'Tên Z-A' },
-        { value: 'code_asc', label: 'Mã A-Z' },
-        { value: 'code_desc', label: 'Mã Z-A' },
-        { value: 'created_at_desc', label: 'Mới nhất' },
-        { value: 'created_at_asc', label: 'Cũ nhất' }
+        { value: 'name:asc', label: 'Tên A-Z' },
+        { value: 'name:desc', label: 'Tên Z-A' },
+        { value: 'code:asc', label: 'Mã A-Z' },
+        { value: 'code:desc', label: 'Mã Z-A' },
+        { value: 'created_at:desc', label: 'Mới nhất' },
+        { value: 'created_at:asc', label: 'Cũ nhất' }
       ],
       dateRangeFields: [
         { key: 'created_at', label: 'Ngày tạo' },
@@ -119,94 +121,164 @@ const DiscountPage: NextPage = () => {
     initialValues: {
       search: '',
       filters: {},
-      sort: 'created_at_desc'
+      sort: 'created_at:desc'
     }
   })
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const response = await v1GetDiscounts()
-      const allDiscounts = response?.discounts?.items || []
-      setItems(allDiscounts)
-    } catch (err: any) {
-      toast.error(err?.message || 'Lỗi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleFilterChange = useCallback(
+    (newValues: typeof filterValues) => {
+      setFilterValues(newValues)
+    },
+    [setFilterValues]
+  )
+
+  const handleFilterReset = useCallback(() => {
+    resetFilter()
+  }, [resetFilter])
+
+  const debouncedSearchValue = useDebounce(filterValues.search || '', 300)
+
+  const debouncedFilterValues = React.useMemo(
+    () => ({
+      search: debouncedSearchValue,
+      filters: filterValues.filters,
+      sort: filterValues.sort,
+      dateRange: filterValues.dateRange
+    }),
+    [debouncedSearchValue, filterValues.filters, filterValues.sort, filterValues.dateRange]
+  )
+
+  // Fetch discounts with pagination and filtering
+  const fetchData = useCallback(
+    async (queryParams?: any) => {
+      try {
+        setLoading(true)
+
+        // Prepare query parameters for backend API
+        const backendParams: Record<string, any> = {
+          page: page.toString(),
+          limit: pageSize.toString()
+        }
+
+        // Add filter parameters
+        if (queryParams) {
+          Object.entries(queryParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== '' && value !== null) {
+              backendParams[key] = String(value)
+            }
+          })
+        }
+
+        const response = await v1GetDiscounts(backendParams)
+        let discountsData = []
+        let totalItems = 0
+
+        if (response?.discounts?.items) {
+          discountsData = response.discounts.items
+          totalItems = response.discounts.totalItems || 0
+        } else if (Array.isArray(response?.discounts)) {
+          // If backend doesn't support pagination yet, simulate it
+          const allDiscounts = response.discounts
+
+          // Apply client-side filtering for now
+          let filteredDiscounts = [...allDiscounts]
+
+          if (queryParams?.name) {
+            const searchLower = queryParams.name.toLowerCase().trim()
+            filteredDiscounts = filteredDiscounts.filter(
+              (d: TV1Discount) =>
+                (d.name && d.name.toLowerCase().includes(searchLower)) || d.code.toLowerCase().includes(searchLower)
+            )
+          }
+
+          if (queryParams?.code) {
+            const searchLower = queryParams.code.toLowerCase().trim()
+            filteredDiscounts = filteredDiscounts.filter((d: TV1Discount) => d.code.toLowerCase().includes(searchLower))
+          }
+
+          if (queryParams?.discount_type !== undefined) {
+            filteredDiscounts = filteredDiscounts.filter(
+              (d: TV1Discount) => d.discount_type === queryParams.discount_type
+            )
+          }
+
+          if (queryParams?.del_flag !== undefined) {
+            filteredDiscounts = filteredDiscounts.filter((d: TV1Discount) => d.del_flag === queryParams.del_flag)
+          }
+
+          if (queryParams?.sort) {
+            const [field, direction] = queryParams.sort.split(':')
+            filteredDiscounts.sort((a: TV1Discount, b: TV1Discount) => {
+              let aValue: any
+              let bValue: any
+
+              switch (field) {
+                case 'name':
+                  aValue = (a.name || '').toLowerCase()
+                  bValue = (b.name || '').toLowerCase()
+                  break
+                case 'code':
+                  aValue = a.code.toLowerCase()
+                  bValue = b.code.toLowerCase()
+                  break
+                case 'created_at':
+                  aValue = new Date(a.created_at || 0)
+                  bValue = new Date(b.created_at || 0)
+                  break
+                default:
+                  aValue = (a.name || '').toLowerCase()
+                  bValue = (b.name || '').toLowerCase()
+              }
+
+              if (direction === 'desc') {
+                return aValue < bValue ? 1 : -1
+              }
+
+              return aValue > bValue ? 1 : -1
+            })
+          }
+
+          // Apply client-side pagination
+          totalItems = filteredDiscounts.length
+          const startIndex = (page - 1) * pageSize
+          const endIndex = startIndex + pageSize
+          discountsData = filteredDiscounts.slice(startIndex, endIndex)
+        } else {
+          console.log('Unknown response format:', response)
+        }
+
+        setItems(discountsData)
+        setTotalCount(totalItems)
+      } catch (err: any) {
+        toast.error(err?.message || 'Lỗi tải dữ liệu')
+        setItems([])
+        setTotalCount(0)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page, pageSize]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
+  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchData])
 
-  const filtered = useMemo(() => {
-    let result = [...items]
+  // Reset to page 1 when filter changes
+  React.useEffect(() => {
+    setPage(1)
+  }, [filterValues])
 
-    if (filterValues.search) {
-      const searchLower = filterValues.search.toLowerCase().trim()
-      result = result.filter(
-        d => (d.name && d.name.toLowerCase().includes(searchLower)) || d.code.toLowerCase().includes(searchLower)
-      )
+  const paginatedData = items
+
+  const handleOnchangePagination = (newPage: number, newPageSize: number) => {
+    if (newPageSize !== pageSize) {
+      setPage(1)
+      setPageSize(newPageSize)
+    } else {
+      setPage(newPage)
     }
-
-    Object.entries(filterValues.filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '' && value !== null) {
-        if (key === 'discount_type') {
-          result = result.filter(d => d.discount_type === value)
-        } else if (key === 'del_flag') {
-          result = result.filter(d => (d as any).del_flag === value)
-        }
-      }
-    })
-
-    if (filterValues.sort) {
-      const [field, direction] = filterValues.sort.split('_')
-      result.sort((a, b) => {
-        let aValue: any
-        let bValue: any
-
-        switch (field) {
-          case 'name':
-            aValue = (a.name || '').toLowerCase()
-            bValue = (b.name || '').toLowerCase()
-            break
-          case 'code':
-            aValue = a.code.toLowerCase()
-            bValue = b.code.toLowerCase()
-            break
-          case 'created':
-            aValue = new Date(a.created_at || 0)
-            bValue = new Date(b.created_at || 0)
-            break
-          default:
-            aValue = (a.name || '').toLowerCase()
-            bValue = (b.name || '').toLowerCase()
-        }
-
-        if (direction === 'desc') {
-          return aValue < bValue ? 1 : -1
-        }
-
-        return aValue > bValue ? 1 : -1
-      })
-    }
-
-    return result
-  }, [items, filterValues])
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (page - 1) * pageSize
-    const endIndex = startIndex + pageSize
-
-    return filtered.slice(startIndex, endIndex)
-  }, [filtered, page, pageSize])
-
-  const totalPages = Math.ceil(filtered.length / pageSize)
-
-  const handleChangePagination = (newPage: number, newPageSize: number) => {
-    setPage(newPage)
-    setPageSize(newPageSize)
   }
 
   const [openCreate, setOpenCreate] = useState<boolean>(false)
@@ -251,7 +323,10 @@ const DiscountPage: NextPage = () => {
       if ((res as any)?.discount) {
         toast.success('Tạo khuyến mãi thành công')
         setOpenCreate(false)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Tạo thất bại')
       }
@@ -311,7 +386,10 @@ const DiscountPage: NextPage = () => {
         toast.success('Cập nhật khuyến mãi thành công')
         setOpenEdit(false)
         setSelected(null)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Cập nhật thất bại')
       }
@@ -329,7 +407,10 @@ const DiscountPage: NextPage = () => {
       const res = await v1DeleteDiscount(item.id)
       if ((res as any)?.success) {
         toast.success('Xóa khuyến mãi thành công')
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Xóa thất bại')
       }
@@ -371,8 +452,8 @@ const DiscountPage: NextPage = () => {
       <AdvancedFilter
         config={filterConfig}
         values={filterValues}
-        onChange={setFilterValues}
-        onReset={resetFilter}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
         loading={loading}
       />
 
@@ -494,12 +575,13 @@ const DiscountPage: NextPage = () => {
         </Table>
         <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
           <CustomPagination
-            page={page}
-            pageSize={pageSize}
-            rowLength={filtered.length}
-            totalPages={totalPages}
+            onChangePagination={handleOnchangePagination}
             pageSizeOptions={PAGE_SIZE_OPTION}
-            onChangePagination={handleChangePagination}
+            pageSize={pageSize}
+            totalPages={Math.ceil(totalCount / pageSize)}
+            page={page}
+            rowLength={totalCount}
+            isHideShowed={false}
           />
         </Box>
       </TableContainer>

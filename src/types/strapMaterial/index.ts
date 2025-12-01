@@ -27,8 +27,13 @@ export type TUpdateStrapMaterial = {
 
 export type GetStrapMaterialsResponse = {
   strapMaterials: {
-    count: number
-    rows: TStrapMaterial[]
+    count?: number
+    rows?: TStrapMaterial[]
+    totalItems?: number
+    totalPages?: number
+    page?: number
+    limit?: number
+    items?: TStrapMaterial[]
   }
 }
 

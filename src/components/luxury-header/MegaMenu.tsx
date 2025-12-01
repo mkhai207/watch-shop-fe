@@ -189,8 +189,8 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
       if (movementTypesRes?.movementTypes?.items)
         setMovementTypes(movementTypesRes.movementTypes.items.filter(filterDeleted))
       if (colorsRes?.colors?.items) setColors(colorsRes.colors.items.filter(filterDeleted))
-      if (strapMaterialsRes?.strapMaterials?.rows)
-        setStrapMaterials(strapMaterialsRes.strapMaterials.rows.filter(filterDeleted))
+      if (strapMaterialsRes?.strapMaterials?.items)
+        setStrapMaterials(strapMaterialsRes.strapMaterials.items.filter(filterDeleted))
     } catch (error) {
       console.error('Error fetching mega menu data:', error)
     } finally {

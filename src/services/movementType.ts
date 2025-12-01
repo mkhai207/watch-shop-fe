@@ -3,9 +3,9 @@ import { CONFIG_API } from 'src/configs/api'
 import { TCreateMovementType, TUpdateMovementType } from 'src/types/movementType'
 import axios from 'axios'
 
-export const getMovementTypes = async () => {
+export const getMovementTypes = async (params?: any) => {
   try {
-    const res = await axios.get(`${CONFIG_API.MOVEMENT_TYPE.INDEX}`)
+    const res = await axios.get(`${CONFIG_API.MOVEMENT_TYPE.INDEX}`, { params })
 
     return res.data
   } catch (error) {

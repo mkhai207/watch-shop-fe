@@ -25,12 +25,13 @@ import {
 import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
 import type { NextPage } from 'next'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter, buildBackendQuery } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { useDebounce } from 'src/hooks/useDebounce'
 import { createCategory, deleteCategory, getCategories, getCategoryById, updateCategory } from 'src/services/category'
 import { uploadImage } from 'src/services/file'
 import type {
@@ -47,6 +48,7 @@ const CategoryPage: NextPage = () => {
   const [categories, setCategories] = useState<TCategory[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
+  const [totalCount, setTotalCount] = useState(0)
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [selected, setSelected] = useState<TCategory | null>(null)
@@ -74,10 +76,10 @@ const CategoryPage: NextPage = () => {
         }
       ],
       sortOptions: [
-        { value: 'name_asc', label: 'Tên A-Z' },
-        { value: 'name_desc', label: 'Tên Z-A' },
-        { value: 'created_at_desc', label: 'Mới nhất' },
-        { value: 'created_at_asc', label: 'Cũ nhất' }
+        { value: 'name:asc', label: 'Tên A-Z' },
+        { value: 'name:desc', label: 'Tên Z-A' },
+        { value: 'created_at:desc', label: 'Mới nhất' },
+        { value: 'created_at:asc', label: 'Cũ nhất' }
       ],
       dateRangeFields: [
         { key: 'created_at', label: 'Ngày tạo' },
@@ -95,86 +97,144 @@ const CategoryPage: NextPage = () => {
     initialValues: {
       search: '',
       filters: {},
-      sort: 'created_at_desc'
+      sort: 'created_at:desc'
     }
   })
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const res = await getCategories()
-      const data = res as GetCategorysResponse
-      const allCategories = data?.categorys?.items || []
-      setCategories(allCategories)
-    } catch (err: any) {
-      toast.error(err?.message || 'Lỗi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }
+
+  const handleFilterChange = useCallback(
+    (newValues: typeof filterValues) => {
+      setFilterValues(newValues)
+    },
+    [setFilterValues]
+  )
+
+  const handleFilterReset = useCallback(() => {
+    resetFilter()
+  }, [resetFilter])
+
+  const debouncedSearchValue = useDebounce(filterValues.search || '', 300)
+
+  const debouncedFilterValues = React.useMemo(
+    () => ({
+      search: debouncedSearchValue,
+      filters: filterValues.filters,
+      sort: filterValues.sort,
+      dateRange: filterValues.dateRange
+    }),
+    [debouncedSearchValue, filterValues.filters, filterValues.sort, filterValues.dateRange]
+  )
+
+  const fetchData = useCallback(
+    async (queryParams?: any) => {
+      try {
+        setLoading(true)
+
+        const backendParams: Record<string, any> = {
+          page: page.toString(),
+          limit: pageSize.toString()
+        }
+
+        if (queryParams) {
+          Object.entries(queryParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== '' && value !== null) {
+              backendParams[key] = String(value)
+            }
+          })
+        }
+
+        const res = await getCategories(backendParams)
+        const data = res as GetCategorysResponse
+        let categoriesData = []
+        let totalItems = 0
+
+        if (data?.categorys?.items) {
+          categoriesData = data.categorys.items
+          totalItems = data.categorys.totalItems || 0
+        } else if (Array.isArray(data?.categorys)) {
+          const allCategories = data.categorys
+
+          let filteredCategories = [...allCategories]
+
+          if (queryParams?.name) {
+            const searchLower = queryParams.name.toLowerCase().trim()
+            filteredCategories = filteredCategories.filter((c: TCategory) => c.name.toLowerCase().includes(searchLower))
+          }
+
+          if (queryParams?.del_flag !== undefined) {
+            filteredCategories = filteredCategories.filter((c: TCategory) => c.del_flag === queryParams.del_flag)
+          }
+
+          if (queryParams?.sort) {
+            const [field, direction] = queryParams.sort.split(':')
+            filteredCategories.sort((a: TCategory, b: TCategory) => {
+              let aValue: any
+              let bValue: any
+
+              switch (field) {
+                case 'name':
+                  aValue = a.name?.toLowerCase() || ''
+                  bValue = b.name?.toLowerCase() || ''
+                  break
+                case 'created_at':
+                  aValue = new Date(a.created_at || 0)
+                  bValue = new Date(b.created_at || 0)
+                  break
+                default:
+                  aValue = a.name?.toLowerCase() || ''
+                  bValue = b.name?.toLowerCase() || ''
+              }
+
+              if (direction === 'desc') {
+                return aValue < bValue ? 1 : -1
+              }
+
+              return aValue > bValue ? 1 : -1
+            })
+          }
+
+          totalItems = filteredCategories.length
+          const startIndex = (page - 1) * pageSize
+          const endIndex = startIndex + pageSize
+          categoriesData = filteredCategories.slice(startIndex, endIndex)
+        } else if (data?.categorys) {
+          categoriesData = [data.categorys]
+          totalItems = 1
+        } else {
+          console.log('Unknown response format:', data)
+        }
+
+        setCategories(categoriesData)
+        setTotalCount(totalItems)
+      } catch (err: any) {
+        toast.error(err?.message || 'Lỗi tải dữ liệu')
+        setCategories([])
+        setTotalCount(0)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page, pageSize]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
+  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchData])
 
-  const filtered = useMemo(() => {
-    let result = [...categories]
+  // Reset to page 1 when filter changes
+  React.useEffect(() => {
+    setPage(1)
+  }, [filterValues])
 
-    if (filterValues.search) {
-      const searchLower = filterValues.search.toLowerCase().trim()
-      result = result.filter(c => c.name.toLowerCase().includes(searchLower))
+  const paginatedData = categories
+
+  const handleOnchangePagination = (newPage: number, newPageSize: number) => {
+    if (newPageSize !== pageSize) {
+      setPage(1)
+      setPageSize(newPageSize)
+    } else {
+      setPage(newPage)
     }
-
-    Object.entries(filterValues.filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '' && value !== null) {
-        if (key === 'del_flag') {
-          result = result.filter(c => c.del_flag === value)
-        }
-      }
-    })
-
-    if (filterValues.sort) {
-      const [field, direction] = filterValues.sort.split('_')
-      result.sort((a, b) => {
-        let aValue: any
-        let bValue: any
-
-        switch (field) {
-          case 'name':
-            aValue = a.name?.toLowerCase() || ''
-            bValue = b.name?.toLowerCase() || ''
-            break
-          case 'created':
-            aValue = new Date(a.created_at || 0)
-            bValue = new Date(b.created_at || 0)
-            break
-          default:
-            aValue = a.name?.toLowerCase() || ''
-            bValue = b.name?.toLowerCase() || ''
-        }
-
-        if (direction === 'desc') {
-          return aValue < bValue ? 1 : -1
-        }
-
-        return aValue > bValue ? 1 : -1
-      })
-    }
-
-    return result
-  }, [categories, filterValues])
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (page - 1) * pageSize
-    const endIndex = startIndex + pageSize
-
-    return filtered.slice(startIndex, endIndex)
-  }, [filtered, page, pageSize])
-
-  const totalPages = Math.ceil(filtered.length / pageSize)
-
-  const handleChangePagination = (newPage: number, newPageSize: number) => {
-    setPage(newPage)
-    setPageSize(newPageSize)
   }
 
   const handleOpenCreate = () => {
@@ -202,7 +262,10 @@ const CategoryPage: NextPage = () => {
         setOpenCreate(false)
         setImageFile(null)
         setImagePreview(null)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Tạo thất bại')
       }
@@ -254,7 +317,10 @@ const CategoryPage: NextPage = () => {
         setSelected(null)
         setEditImageFile(null)
         setEditImagePreview(null)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Cập nhật thất bại')
       }
@@ -272,7 +338,10 @@ const CategoryPage: NextPage = () => {
       const res = await deleteCategory(category.id)
       if ((res as any)?.category || (res as any)?.success) {
         toast.success('Xóa phân loại thành công')
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Xóa thất bại')
       }
@@ -380,8 +449,8 @@ const CategoryPage: NextPage = () => {
       <AdvancedFilter
         config={filterConfig}
         values={filterValues}
-        onChange={setFilterValues}
-        onReset={resetFilter}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
         loading={loading}
       />
 
@@ -483,12 +552,13 @@ const CategoryPage: NextPage = () => {
         </Table>
         <Box sx={{ mt: 3, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
           <CustomPagination
-            page={page}
-            pageSize={pageSize}
-            rowLength={filtered.length}
-            totalPages={totalPages}
+            onChangePagination={handleOnchangePagination}
             pageSizeOptions={PAGE_SIZE_OPTION}
-            onChangePagination={handleChangePagination}
+            pageSize={pageSize}
+            totalPages={Math.ceil(totalCount / pageSize)}
+            page={page}
+            rowLength={totalCount}
+            isHideShowed={false}
           />
         </Box>
       </TableContainer>

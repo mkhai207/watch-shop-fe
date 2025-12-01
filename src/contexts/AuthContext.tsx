@@ -18,6 +18,7 @@ import instanceAxios from 'src/helpers/axios'
 import { useDispatch } from 'react-redux'
 import { AppDispatch } from 'src/stores'
 import { getCartItemsAsync } from 'src/stores/apps/cart/action'
+import getHomeRoute from 'src/components/acl/getHomeRoute'
 
 // ** Defaults
 const defaultProvider: AuthValuesType = {
@@ -83,7 +84,8 @@ const AuthProvider = ({ children }: Props) => {
         setUser({ ...response.user })
         params.rememberMe ? window.localStorage.setItem('userData', JSON.stringify(response.user)) : null
 
-        const redirectURL = returnUrl && returnUrl !== '/' ? returnUrl : '/'
+        const homeRoute = getHomeRoute(response.user.role.code.toUpperCase() || '/')
+        const redirectURL = returnUrl && returnUrl !== '/' ? returnUrl : homeRoute
 
         // Load cart right after successful login
         dispatch(getCartItemsAsync())

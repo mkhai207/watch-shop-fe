@@ -24,12 +24,14 @@ import {
 } from '@mui/material'
 import Chip from '@mui/material/Chip'
 import type { NextPage } from 'next'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import { buildBackendQuery } from 'src/components/advanced-filter/utils'
 import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { useDebounce } from 'src/hooks/useDebounce'
 import {
   createStrapMaterial,
   deleteStrapMaterial,
@@ -63,6 +65,8 @@ const StrapMaterialPage: NextPage = () => {
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   const filterConfig: FilterConfig = React.useMemo(() => {
     return {
@@ -83,14 +87,14 @@ const StrapMaterialPage: NextPage = () => {
         }
       ],
       sortOptions: [
-        { value: 'name_asc', label: 'Tên A-Z' },
-        { value: 'name_desc', label: 'Tên Z-A' },
-        { value: 'code_asc', label: 'Mã A-Z' },
-        { value: 'code_desc', label: 'Mã Z-A' },
-        { value: 'extra_money_asc', label: 'Phụ thu thấp đến cao' },
-        { value: 'extra_money_desc', label: 'Phụ thu cao đến thấp' },
-        { value: 'created_at_desc', label: 'Mới nhất' },
-        { value: 'created_at_asc', label: 'Cũ nhất' }
+        { value: 'name:asc', label: 'Tên A-Z' },
+        { value: 'name:desc', label: 'Tên Z-A' },
+        { value: 'code:asc', label: 'Mã A-Z' },
+        { value: 'code:desc', label: 'Mã Z-A' },
+        { value: 'extra_money:asc', label: 'Phụ thu thấp đến cao' },
+        { value: 'extra_money:desc', label: 'Phụ thu cao đến thấp' },
+        { value: 'created_at:desc', label: 'Mới nhất' },
+        { value: 'created_at:asc', label: 'Cũ nhất' }
       ],
       dateRangeFields: [
         { key: 'created_at', label: 'Ngày tạo' },
@@ -108,95 +112,50 @@ const StrapMaterialPage: NextPage = () => {
     initialValues: {
       search: '',
       filters: {},
-      sort: 'created_at_desc'
+      sort: 'created_at:desc'
     }
   })
 
-  const fetchData = async () => {
+  const debouncedSearchValue = useDebounce(filterValues.search || '', 300)
+
+  const debouncedFilterValues = React.useMemo(
+    () => ({
+      search: debouncedSearchValue,
+      filters: filterValues.filters,
+      sort: filterValues.sort,
+      dateRange: filterValues.dateRange
+    }),
+    [debouncedSearchValue, filterValues.filters, filterValues.sort, filterValues.dateRange]
+  )
+
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getStrapMaterials()
+      const queryParams = { ...buildBackendQuery(debouncedFilterValues, filterConfig), page, limit: pageSize }
+      const res = await getStrapMaterials(queryParams)
       const data = res as GetStrapMaterialsResponse
-      setItems(data?.strapMaterials?.rows || [])
+
+      const items = data?.strapMaterials?.items || data?.strapMaterials?.rows || []
+      const total = data?.strapMaterials?.totalItems || data?.strapMaterials?.count || 0
+      const pages = data?.strapMaterials?.totalPages || Math.ceil(total / pageSize)
+
+      setItems(items)
+      setTotalItems(total)
+      setTotalPages(pages)
     } catch (err: any) {
       toast.error(err?.message || 'Lỗi tải dữ liệu')
     } finally {
       setLoading(false)
     }
-  }
+  }, [debouncedFilterValues, page, pageSize, filterConfig])
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
-  const filtered = useMemo(() => {
-    let result = [...items]
-
-    if (filterValues.search) {
-      const searchLower = filterValues.search.toLowerCase().trim()
-      result = result.filter(
-        it =>
-          it.name.toLowerCase().includes(searchLower) ||
-          it.code.toLowerCase().includes(searchLower) ||
-          (it.description && it.description.toLowerCase().includes(searchLower))
-      )
-    }
-
-    Object.entries(filterValues.filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '' && value !== null) {
-        if (key === 'del_flag') {
-          result = result.filter(it => it.del_flag === value)
-        }
-      }
-    })
-
-    if (filterValues.sort) {
-      const [field, direction] = filterValues.sort.split('_')
-      result.sort((a, b) => {
-        let aValue: any
-        let bValue: any
-
-        switch (field) {
-          case 'name':
-            aValue = a.name?.toLowerCase() || ''
-            bValue = b.name?.toLowerCase() || ''
-            break
-          case 'code':
-            aValue = a.code?.toLowerCase() || ''
-            bValue = b.code?.toLowerCase() || ''
-            break
-          case 'extra':
-            aValue = a.extra_money || 0
-            bValue = b.extra_money || 0
-            break
-          case 'created':
-            aValue = new Date(a.created_at || 0)
-            bValue = new Date(b.created_at || 0)
-            break
-          default:
-            aValue = a.name?.toLowerCase() || ''
-            bValue = b.name?.toLowerCase() || ''
-        }
-
-        if (direction === 'desc') {
-          return aValue < bValue ? 1 : -1
-        }
-
-        return aValue > bValue ? 1 : -1
-      })
-    }
-
-    return result
-  }, [items, filterValues])
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (page - 1) * pageSize
-    const endIndex = startIndex + pageSize
-
-    return filtered.slice(startIndex, endIndex)
-  }, [filtered, page, pageSize])
-
-  const totalPages = Math.ceil(filtered.length / pageSize)
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedFilterValues])
 
   const handleChangePagination = (newPage: number, newPageSize: number) => {
     setPage(newPage)
@@ -376,7 +335,7 @@ const StrapMaterialPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedData.map((row, index) => (
+            {items.map((row, index) => (
               <TableRow key={row.id} hover sx={{ opacity: row.del_flag === '1' ? 0.6 : 1 }}>
                 <TableCell
                   sx={{
@@ -421,7 +380,7 @@ const StrapMaterialPage: NextPage = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {paginatedData.length === 0 && (
+            {items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
@@ -434,7 +393,7 @@ const StrapMaterialPage: NextPage = () => {
           <CustomPagination
             page={page}
             pageSize={pageSize}
-            rowLength={filtered.length}
+            rowLength={totalItems}
             totalPages={totalPages}
             pageSizeOptions={PAGE_SIZE_OPTION}
             onChangePagination={handleChangePagination}

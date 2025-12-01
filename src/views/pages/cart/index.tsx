@@ -456,18 +456,18 @@ const CartPage: NextPage<TProps> = () => {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={selectedIds.size > 0 && selectedIds.size === items.length}
-                      indeterminate={selectedIds.size > 0 && selectedIds.size < items.length}
+                      checked={selectedIds.size > 0 && selectedIds.size === items?.length}
+                      indeterminate={selectedIds.size > 0 && selectedIds.size < items?.length}
                       onChange={e => toggleSelectAll(e.target.checked)}
                     />
                   }
-                  label={`Chọn tất cả (${items.length})`}
+                  label={`Chọn tất cả (${items?.length || 0})`}
                 />
                 <Typography variant='body2' color='text.secondary'>
-                  Đã chọn {selectedIds.size} / {items.length}
+                  Đã chọn {selectedIds.size} / {items?.length || 0}
                 </Typography>
               </Box>
-              {items && items.length > 0
+              {items && items?.length > 0
                 ? items.map(item => (
                     <>
                       <Card variant='outlined' sx={{ mb: 3 }}>
@@ -668,7 +668,7 @@ const CartPage: NextPage<TProps> = () => {
                 : null}
             </Paper>
 
-            {items && items.length > 0 && (
+            {items && items?.length > 0 && (
               <Box display='flex' justifyContent='flex-end' alignItems='center' mt={1.5}>
                 <Button variant='outlined' color='error' onClick={handleClearCart} sx={{ textTransform: 'none' }}>
                   Xóa tất cả

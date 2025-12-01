@@ -25,12 +25,13 @@ import {
 import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
 import type { NextPage } from 'next'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter, buildBackendQuery } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { useDebounce } from 'src/hooks/useDebounce'
 import { createBrand, deleteBrand, getBrandById, getBrands, updateBrand } from 'src/services/brand'
 import { uploadImage } from 'src/services/file'
 import type { GetBrandResponse, GetBrandsResponse, TBrand, TCreateBrand, TUpdateBrand } from 'src/types/brand'
@@ -41,6 +42,7 @@ const BrandPage: NextPage = () => {
   const [brands, setBrands] = useState<TBrand[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
+  const [totalCount, setTotalCount] = useState(0)
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [selected, setSelected] = useState<TBrand | null>(null)
@@ -68,10 +70,10 @@ const BrandPage: NextPage = () => {
         }
       ],
       sortOptions: [
-        { value: 'name_asc', label: 'Tên A-Z' },
-        { value: 'name_desc', label: 'Tên Z-A' },
-        { value: 'created_at_desc', label: 'Mới nhất' },
-        { value: 'created_at_asc', label: 'Cũ nhất' }
+        { value: 'name:asc', label: 'Tên A-Z' },
+        { value: 'name:desc', label: 'Tên Z-A' },
+        { value: 'created_at:desc', label: 'Mới nhất' },
+        { value: 'created_at:asc', label: 'Cũ nhất' }
       ],
       dateRangeFields: [
         { key: 'created_at', label: 'Ngày tạo' },
@@ -89,87 +91,150 @@ const BrandPage: NextPage = () => {
     initialValues: {
       search: '',
       filters: {},
-      sort: 'created_at_desc'
+      sort: 'created_at:desc'
     }
   })
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const res = await getBrands()
-      const data = res as GetBrandsResponse
-      const allBrands = data?.brands?.items || []
-      setBrands(allBrands)
-    } catch (err: any) {
-      toast.error(err?.message || 'Lỗi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleFilterChange = useCallback(
+    (newValues: typeof filterValues) => {
+      setFilterValues(newValues)
+    },
+    [setFilterValues]
+  )
+
+  const handleFilterReset = useCallback(() => {
+    resetFilter()
+  }, [resetFilter])
+
+  const debouncedSearchValue = useDebounce(filterValues.search || '', 300)
+
+  const debouncedFilterValues = React.useMemo(
+    () => ({
+      search: debouncedSearchValue,
+      filters: filterValues.filters,
+      sort: filterValues.sort,
+      dateRange: filterValues.dateRange
+    }),
+    [debouncedSearchValue, filterValues.filters, filterValues.sort, filterValues.dateRange]
+  )
+
+  // Fetch brands with pagination and filtering
+  const fetchData = useCallback(
+    async (queryParams?: any) => {
+      try {
+        setLoading(true)
+
+        // Prepare query parameters for backend API
+        const backendParams: Record<string, any> = {
+          page: page.toString(),
+          limit: pageSize.toString()
+        }
+
+        // Add filter parameters
+        if (queryParams) {
+          Object.entries(queryParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== '' && value !== null) {
+              backendParams[key] = String(value)
+            }
+          })
+        }
+
+        const res = await getBrands(backendParams)
+        const data = res as GetBrandsResponse
+        let brandsData = []
+        let totalItems = 0
+
+        if (data?.brands?.items) {
+          brandsData = data.brands.items
+          totalItems = data.brands.totalItems || 0
+        } else if (Array.isArray(data?.brands)) {
+          // If backend doesn't support pagination yet, simulate it
+          const allBrands = data.brands
+
+          // Apply client-side filtering for now
+          let filteredBrands = [...allBrands]
+
+          if (queryParams?.name) {
+            const searchLower = queryParams.name.toLowerCase().trim()
+            filteredBrands = filteredBrands.filter((b: TBrand) => b.name.toLowerCase().includes(searchLower))
+          }
+
+          if (queryParams?.del_flag !== undefined) {
+            filteredBrands = filteredBrands.filter((b: TBrand) => b.del_flag === queryParams.del_flag)
+          }
+
+          if (queryParams?.sort) {
+            const [field, direction] = queryParams.sort.split(':')
+            filteredBrands.sort((a: TBrand, b: TBrand) => {
+              let aValue: any
+              let bValue: any
+
+              switch (field) {
+                case 'name':
+                  aValue = a.name?.toLowerCase() || ''
+                  bValue = b.name?.toLowerCase() || ''
+                  break
+                case 'created_at':
+                  aValue = new Date(a.created_at || 0)
+                  bValue = new Date(b.created_at || 0)
+                  break
+                default:
+                  aValue = a.name?.toLowerCase() || ''
+                  bValue = b.name?.toLowerCase() || ''
+              }
+
+              if (direction === 'desc') {
+                return aValue < bValue ? 1 : -1
+              }
+
+              return aValue > bValue ? 1 : -1
+            })
+          }
+
+          // Apply client-side pagination
+          totalItems = filteredBrands.length
+          const startIndex = (page - 1) * pageSize
+          const endIndex = startIndex + pageSize
+          brandsData = filteredBrands.slice(startIndex, endIndex)
+        } else if (data?.brands) {
+          brandsData = [data.brands]
+          totalItems = 1
+        } else {
+          console.log('Unknown response format:', data)
+        }
+
+        setBrands(brandsData)
+        setTotalCount(totalItems)
+      } catch (err: any) {
+        toast.error(err?.message || 'Lỗi tải dữ liệu')
+        setBrands([])
+        setTotalCount(0)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page, pageSize]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
+  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchData])
 
-  const filtered = useMemo(() => {
-    let result = [...brands]
+  // Reset to page 1 when filter changes
+  React.useEffect(() => {
+    setPage(1)
+  }, [filterValues])
 
-    if (filterValues.search) {
-      const searchLower = filterValues.search.toLowerCase().trim()
-      result = result.filter(b => b.name.toLowerCase().includes(searchLower))
+  const paginatedData = brands
+
+  const handleOnchangePagination = (newPage: number, newPageSize: number) => {
+    if (newPageSize !== pageSize) {
+      setPage(1)
+      setPageSize(newPageSize)
+    } else {
+      setPage(newPage)
     }
-
-    Object.entries(filterValues.filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '' && value !== null) {
-        if (key === 'del_flag') {
-          result = result.filter(b => b.del_flag === value)
-        }
-      }
-    })
-
-    if (filterValues.sort) {
-      const [field, direction] = filterValues.sort.split('_')
-      result.sort((a, b) => {
-        let aValue: any
-        let bValue: any
-
-        switch (field) {
-          case 'name':
-            aValue = a.name?.toLowerCase() || ''
-            bValue = b.name?.toLowerCase() || ''
-            break
-          case 'created':
-            aValue = new Date(a.created_at || 0)
-            bValue = new Date(b.created_at || 0)
-            break
-          default:
-            aValue = a.name?.toLowerCase() || ''
-            bValue = b.name?.toLowerCase() || ''
-        }
-
-        if (direction === 'desc') {
-          return aValue < bValue ? 1 : -1
-        }
-
-        return aValue > bValue ? 1 : -1
-      })
-    }
-
-    return result
-  }, [brands, filterValues])
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (page - 1) * pageSize
-    const endIndex = startIndex + pageSize
-
-    return filtered.slice(startIndex, endIndex)
-  }, [filtered, page, pageSize])
-
-  const totalPages = Math.ceil(filtered.length / pageSize)
-
-  const handleChangePagination = (newPage: number, newPageSize: number) => {
-    setPage(newPage)
-    setPageSize(newPageSize)
   }
 
   const handleOpenCreate = () => {
@@ -197,7 +262,10 @@ const BrandPage: NextPage = () => {
         setOpenCreate(false)
         setLogoFile(null)
         setLogoPreview(null)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Tạo thất bại')
       }
@@ -221,6 +289,7 @@ const BrandPage: NextPage = () => {
       setNameInput(full.name)
       setEditDescription(full.description || '')
       setEditLogoPreview(full.logo_url || null)
+      setEditLogoFile(null)
       setOpenEdit(true)
     } catch (e) {
       toast.error('Không tải được chi tiết thương hiệu')
@@ -249,7 +318,10 @@ const BrandPage: NextPage = () => {
         setSelected(null)
         setEditLogoFile(null)
         setEditLogoPreview(null)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Cập nhật thất bại')
       }
@@ -267,7 +339,10 @@ const BrandPage: NextPage = () => {
       const res = await deleteBrand(brand.id)
       if ((res as any)?.brand || (res as any)?.success) {
         toast.success('Xóa thương hiệu thành công')
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Xóa thất bại')
       }
@@ -305,12 +380,13 @@ const BrandPage: NextPage = () => {
           Thêm thương hiệu
         </Button>
       </Stack>
+
       {/* Advanced Filter */}
       <AdvancedFilter
         config={filterConfig}
         values={filterValues}
-        onChange={setFilterValues}
-        onReset={resetFilter}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
         loading={loading}
       />
 
@@ -343,77 +419,88 @@ const BrandPage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedData.map((brand, index) => (
-              <TableRow key={brand.id} hover sx={{ opacity: brand.del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell
-                  sx={{
-                    position: 'sticky',
-                    left: 0,
-                    zIndex: 1,
-                    backgroundColor: 'background.paper',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {(page - 1) * pageSize + index + 1}
-                </TableCell>
-                <TableCell>
-                  <Avatar
-                    src={brand.logo_url || undefined}
-                    alt={brand.name}
-                    variant='rounded'
-                    sx={{ width: 40, height: 40 }}
-                  >
-                    {brand.name?.charAt(0) || 'B'}
-                  </Avatar>
-                </TableCell>
-                <TableCell sx={{ textDecoration: brand.del_flag === '1' ? 'line-through' : 'none' }}>
-                  {brand.name}
-                </TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>{brand.description || '-'}</TableCell>
-                <TableCell width={120}>
-                  {brand.del_flag === '1' ? (
-                    <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
-                  ) : (
-                    <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
-                  )}
-                </TableCell>
-                <TableCell align='right'>
-                  <Stack direction='row' spacing={1} justifyContent='flex-end'>
-                    <IconButton size='small' onClick={() => handleOpenView(brand)}>
-                      <VisibilityIcon fontSize='small' />
-                    </IconButton>
-                    <IconButton size='small' disabled={brand.del_flag === '1'} onClick={() => handleOpenEdit(brand)}>
-                      <EditIcon fontSize='small' />
-                    </IconButton>
-                    <IconButton
-                      size='small'
-                      color='error'
-                      disabled={brand.del_flag === '1'}
-                      onClick={() => handleDelete(brand)}
-                    >
-                      <DeleteIcon fontSize='small' />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-            {paginatedData.length === 0 && (
+            {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align='center'>
-                  {loading ? 'Đang tải...' : 'Không có dữ liệu'}
+                <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    Đang tải dữ liệu...
+                  </Box>
                 </TableCell>
               </TableRow>
+            ) : paginatedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
+                  Không có dữ liệu
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedData.map((brand, index) => (
+                <TableRow key={brand.id} hover sx={{ opacity: brand.del_flag === '1' ? 0.6 : 1 }}>
+                  <TableCell
+                    sx={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      backgroundColor: 'background.paper',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {(page - 1) * pageSize + index + 1}
+                  </TableCell>
+                  <TableCell>
+                    <Avatar
+                      src={brand.logo_url || undefined}
+                      alt={brand.name}
+                      variant='rounded'
+                      sx={{ width: 40, height: 40 }}
+                    >
+                      {brand.name?.charAt(0) || 'B'}
+                    </Avatar>
+                  </TableCell>
+                  <TableCell sx={{ textDecoration: brand.del_flag === '1' ? 'line-through' : 'none' }}>
+                    {brand.name}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{brand.description || '-'}</TableCell>
+                  <TableCell width={120}>
+                    {brand.del_flag === '1' ? (
+                      <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
+                    ) : (
+                      <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
+                    )}
+                  </TableCell>
+                  <TableCell align='right'>
+                    <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                      <IconButton size='small' onClick={() => handleOpenView(brand)}>
+                        <VisibilityIcon fontSize='small' />
+                      </IconButton>
+                      <IconButton size='small' disabled={brand.del_flag === '1'} onClick={() => handleOpenEdit(brand)}>
+                        <EditIcon fontSize='small' />
+                      </IconButton>
+                      <IconButton
+                        size='small'
+                        color='error'
+                        disabled={brand.del_flag === '1'}
+                        onClick={() => handleDelete(brand)}
+                      >
+                        <DeleteIcon fontSize='small' />
+                      </IconButton>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
+
         <Box sx={{ mt: 3, mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
           <CustomPagination
-            page={page}
-            pageSize={pageSize}
-            rowLength={filtered.length}
-            totalPages={totalPages}
+            onChangePagination={handleOnchangePagination}
             pageSizeOptions={PAGE_SIZE_OPTION}
-            onChangePagination={handleChangePagination}
+            pageSize={pageSize}
+            totalPages={Math.ceil(totalCount / pageSize)}
+            page={page}
+            rowLength={totalCount}
+            isHideShowed={false}
           />
         </Box>
       </TableContainer>
@@ -504,8 +591,10 @@ const BrandPage: NextPage = () => {
                   onChange={e => {
                     const f = e.target.files?.[0] || null
                     setEditLogoFile(f)
-                    if (editLogoPreview) URL.revokeObjectURL(editLogoPreview)
-                    setEditLogoPreview(f ? URL.createObjectURL(f) : editLogoPreview)
+                    if (f && editLogoPreview && editLogoPreview.startsWith('blob:')) {
+                      URL.revokeObjectURL(editLogoPreview)
+                    }
+                    setEditLogoPreview(f ? URL.createObjectURL(f) : selected?.logo_url || null)
                   }}
                 />
               </Button>

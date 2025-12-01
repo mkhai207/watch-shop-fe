@@ -103,8 +103,23 @@ export const v1CreateDiscount = async (data: TV1CreateDiscountReq): Promise<{ di
   return res.data
 }
 
-export const v1GetDiscounts = async (params?: { page?: number; limit?: number }): Promise<TV1ListResponse> => {
-  const res = await axios.get(`${CONFIG_API.DISCOUNT.INDEX}`, { params })
+export const v1GetDiscounts = async (queryParams?: Record<string, any>): Promise<TV1ListResponse> => {
+  const url = CONFIG_API.DISCOUNT.INDEX
+  let finalUrl = url
+
+  if (queryParams) {
+    const params = new URLSearchParams()
+    Object.entries(queryParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== '' && value !== null) {
+        params.set(key, String(value))
+      }
+    })
+    if (params.toString()) {
+      finalUrl = `${url}?${params.toString()}`
+    }
+  }
+
+  const res = await axios.get(finalUrl)
 
   return res.data
 }

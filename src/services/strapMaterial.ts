@@ -3,9 +3,9 @@ import { CONFIG_API } from 'src/configs/api'
 import { TCreateStrapMaterial, TUpdateStrapMaterial } from 'src/types/strapMaterial'
 import axios from 'axios'
 
-export const getStrapMaterials = async () => {
+export const getStrapMaterials = async (params?: any) => {
   try {
-    const res = await axios.get(`${CONFIG_API.STRAP_MATERIAL.INDEX}`)
+    const res = await axios.get(`${CONFIG_API.STRAP_MATERIAL.INDEX}`, { params })
 
     return res.data
   } catch (error) {

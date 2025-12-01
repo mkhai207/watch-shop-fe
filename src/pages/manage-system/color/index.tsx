@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { NextPage } from 'next'
 import {
   Box,
@@ -31,16 +31,16 @@ import type { TColor, TCreateColor, TUpdateColor, GetColorsResponse, GetColorRes
 import Spinner from 'src/components/spinner'
 import toast from 'react-hot-toast'
 import { formatCompactVN } from 'src/utils/date'
-import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
+import AdvancedFilter, { FilterConfig, useAdvancedFilter, buildBackendQuery } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
+import { useDebounce } from 'src/hooks/useDebounce'
 
 const ColorPage: NextPage = () => {
   const [colors, setColors] = useState<TColor[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
-  const [totalItems, setTotalItems] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
@@ -64,12 +64,12 @@ const ColorPage: NextPage = () => {
         }
       ],
       sortOptions: [
-        { value: 'name_asc', label: 'Tên A-Z' },
-        { value: 'name_desc', label: 'Tên Z-A' },
-        { value: 'hex_code_asc', label: 'Mã màu A-Z' },
-        { value: 'hex_code_desc', label: 'Mã màu Z-A' },
-        { value: 'created_at_desc', label: 'Mới nhất' },
-        { value: 'created_at_asc', label: 'Cũ nhất' }
+        { value: 'name:asc', label: 'Tên A-Z' },
+        { value: 'name:desc', label: 'Tên Z-A' },
+        { value: 'hex_code:asc', label: 'Mã màu A-Z' },
+        { value: 'hex_code:desc', label: 'Mã màu Z-A' },
+        { value: 'created_at:desc', label: 'Mới nhất' },
+        { value: 'created_at:asc', label: 'Cũ nhất' }
       ],
       dateRangeFields: [
         { key: 'created_at', label: 'Ngày tạo' },
@@ -87,9 +87,32 @@ const ColorPage: NextPage = () => {
     initialValues: {
       search: '',
       filters: {},
-      sort: 'created_at_desc'
+      sort: 'created_at:desc'
     }
   })
+
+  const handleFilterChange = useCallback(
+    (newValues: typeof filterValues) => {
+      setFilterValues(newValues)
+    },
+    [setFilterValues]
+  )
+
+  const handleFilterReset = useCallback(() => {
+    resetFilter()
+  }, [resetFilter])
+
+  const debouncedSearchValue = useDebounce(filterValues.search || '', 300)
+
+  const debouncedFilterValues = React.useMemo(
+    () => ({
+      search: debouncedSearchValue,
+      filters: filterValues.filters,
+      sort: filterValues.sort,
+      dateRange: filterValues.dateRange
+    }),
+    [debouncedSearchValue, filterValues.filters, filterValues.sort, filterValues.dateRange]
+  )
 
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
@@ -133,112 +156,134 @@ const ColorPage: NextPage = () => {
     handleHexChange(hex.toUpperCase())
   }
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const res = await getColors()
-      const data = res as GetColorsResponse
+  // Fetch colors with pagination and filtering
+  const fetchData = useCallback(
+    async (queryParams?: any) => {
+      try {
+        setLoading(true)
 
-      setColors(data?.colors?.items || [])
-      setTotalItems(data?.colors?.totalItems || 0)
-      setTotalPages(data?.colors?.totalPages || 0)
-    } catch (err: any) {
-      toast.error(err?.message || 'Lỗi tải dữ liệu')
-    } finally {
-      setLoading(false)
-    }
-  }
+        // Prepare query parameters for backend API
+        const backendParams: Record<string, any> = {
+          page: page.toString(),
+          limit: pageSize.toString()
+        }
+
+        // Add filter parameters
+        if (queryParams) {
+          Object.entries(queryParams).forEach(([key, value]) => {
+            if (value !== undefined && value !== '' && value !== null) {
+              backendParams[key] = String(value)
+            }
+          })
+        }
+
+        const res = await getColors(backendParams)
+        const data = res as GetColorsResponse
+        let colorsData = []
+        let totalItems = 0
+
+        if (data?.colors?.items) {
+          colorsData = data.colors.items
+          totalItems = data.colors.totalItems || 0
+        } else if (Array.isArray(data?.colors)) {
+          // If backend doesn't support pagination yet, simulate it
+          const allColors = data.colors
+
+          // Apply client-side filtering for now
+          let filteredColors = [...allColors]
+
+          if (queryParams?.name) {
+            const searchLower = queryParams.name.toLowerCase().trim()
+            filteredColors = filteredColors.filter(
+              (c: TColor) =>
+                c.name.toLowerCase().includes(searchLower) ||
+                c.id.toLowerCase().includes(searchLower) ||
+                c.hex_code.toLowerCase().includes(searchLower)
+            )
+          }
+
+          if (queryParams?.hex_code) {
+            const searchLower = queryParams.hex_code.toLowerCase().trim()
+            filteredColors = filteredColors.filter((c: TColor) => c.hex_code.toLowerCase().includes(searchLower))
+          }
+
+          if (queryParams?.del_flag !== undefined) {
+            filteredColors = filteredColors.filter((c: TColor) => c.del_flag === queryParams.del_flag)
+          }
+
+          if (queryParams?.sort) {
+            const [field, direction] = queryParams.sort.split(':')
+            filteredColors.sort((a: TColor, b: TColor) => {
+              let aValue: any
+              let bValue: any
+
+              switch (field) {
+                case 'name':
+                  aValue = a.name.toLowerCase()
+                  bValue = b.name.toLowerCase()
+                  break
+                case 'hex_code':
+                  aValue = a.hex_code.toLowerCase()
+                  bValue = b.hex_code.toLowerCase()
+                  break
+                case 'created_at':
+                  aValue = new Date(a.created_at || 0)
+                  bValue = new Date(b.created_at || 0)
+                  break
+                default:
+                  aValue = a.name.toLowerCase()
+                  bValue = b.name.toLowerCase()
+              }
+
+              if (direction === 'desc') {
+                return aValue < bValue ? 1 : -1
+              }
+
+              return aValue > bValue ? 1 : -1
+            })
+          }
+
+          // Apply client-side pagination
+          totalItems = filteredColors.length
+          const startIndex = (page - 1) * pageSize
+          const endIndex = startIndex + pageSize
+          colorsData = filteredColors.slice(startIndex, endIndex)
+        } else {
+          console.log('Unknown response format:', data)
+        }
+
+        setColors(colorsData)
+        setTotalCount(totalItems)
+      } catch (err: any) {
+        toast.error(err?.message || 'Lỗi tải dữ liệu')
+        setColors([])
+        setTotalCount(0)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page, pageSize]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
+  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchData])
 
-  const filtered = useMemo(() => {
-    let result = [...colors]
+  // Reset to page 1 when filter changes
+  React.useEffect(() => {
+    setPage(1)
+  }, [filterValues])
 
-    if (filterValues.search) {
-      const searchLower = filterValues.search.toLowerCase().trim()
-      result = result.filter(
-        c =>
-          c.name.toLowerCase().includes(searchLower) ||
-          c.id.toLowerCase().includes(searchLower) ||
-          c.hex_code.toLowerCase().includes(searchLower)
-      )
+  const paginatedData = colors
+
+  const handleOnchangePagination = (newPage: number, newPageSize: number) => {
+    if (newPageSize !== pageSize) {
+      setPage(1)
+      setPageSize(newPageSize)
+    } else {
+      setPage(newPage)
     }
-
-    Object.entries(filterValues.filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '' && value !== null) {
-        if (key === 'del_flag') {
-          result = result.filter(c => c.del_flag === value)
-        }
-      }
-    })
-
-    if (filterValues.sort) {
-      const [field, direction] = filterValues.sort.split('_')
-      result.sort((a, b) => {
-        let aValue: any
-        let bValue: any
-
-        switch (field) {
-          case 'name':
-            aValue = a.name.toLowerCase()
-            bValue = b.name.toLowerCase()
-            break
-          case 'hex_code':
-            aValue = a.hex_code.toLowerCase()
-            bValue = b.hex_code.toLowerCase()
-            break
-          case 'created':
-            aValue = new Date(a.created_at || 0)
-            bValue = new Date(b.created_at || 0)
-            break
-          default:
-            aValue = a.name.toLowerCase()
-            bValue = b.name.toLowerCase()
-        }
-
-        if (direction === 'desc') {
-          return aValue < bValue ? 1 : -1
-        }
-
-        return aValue > bValue ? 1 : -1
-      })
-    }
-
-    return result
-  }, [colors, filterValues])
-
-  const paginatedData = useMemo(() => {
-    if (!filterValues.search && Object.keys(filterValues.filters).length === 0) {
-      return colors
-    }
-
-    const startIndex = (page - 1) * pageSize
-    const endIndex = startIndex + pageSize
-
-    return filtered.slice(startIndex, endIndex)
-  }, [colors, filtered, page, pageSize, filterValues])
-
-  const displayTotalPages = useMemo(() => {
-    if (!filterValues.search && Object.keys(filterValues.filters).length === 0) {
-      return totalPages
-    }
-
-    return Math.ceil(filtered.length / pageSize)
-  }, [totalPages, filtered.length, pageSize, filterValues])
-
-  const displayTotalItems = useMemo(() => {
-    if (!filterValues.search && Object.keys(filterValues.filters).length === 0) {
-      return totalItems
-    }
-
-    return filtered.length
-  }, [totalItems, filtered.length, filterValues])
-
-  const handleChangePagination = (newPage: number, newPageSize: number) => {
-    setPage(newPage)
-    setPageSize(newPageSize)
   }
 
   const handleOpenCreate = () => {
@@ -258,7 +303,10 @@ const ColorPage: NextPage = () => {
       if ((res as any)?.color) {
         toast.success('Tạo màu thành công')
         setOpenCreate(false)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Tạo thất bại')
       }
@@ -298,7 +346,10 @@ const ColorPage: NextPage = () => {
         toast.success('Cập nhật màu thành công')
         setOpenEdit(false)
         setSelected(null)
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Cập nhật thất bại')
       }
@@ -316,7 +367,10 @@ const ColorPage: NextPage = () => {
       const res = await deleteColor(color.id)
       if ((res as any)?.color || (res as any)?.success) {
         toast.success('Xóa màu thành công')
-        fetchData()
+
+        // Refresh data with current filters
+        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+        fetchData(queryParams)
       } else {
         throw new Error('Xóa thất bại')
       }
@@ -356,8 +410,8 @@ const ColorPage: NextPage = () => {
       <AdvancedFilter
         config={filterConfig}
         values={filterValues}
-        onChange={setFilterValues}
-        onReset={resetFilter}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
         loading={loading}
       />
 
@@ -460,12 +514,13 @@ const ColorPage: NextPage = () => {
         </Table>
         <Box sx={{ mt: 3, mb: 3, display: 'flex', justifyContent: 'center' }}>
           <CustomPagination
-            page={page}
-            pageSize={pageSize}
-            rowLength={displayTotalItems}
-            totalPages={displayTotalPages}
+            onChangePagination={handleOnchangePagination}
             pageSizeOptions={PAGE_SIZE_OPTION}
-            onChangePagination={handleChangePagination}
+            pageSize={pageSize}
+            totalPages={Math.ceil(totalCount / pageSize)}
+            page={page}
+            rowLength={totalCount}
+            isHideShowed={false}
           />
         </Box>
       </TableContainer>

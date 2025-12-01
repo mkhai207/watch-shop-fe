@@ -3,9 +3,24 @@ import { CONFIG_API } from 'src/configs/api'
 import { TCreateBrand, TUpdateBrand } from 'src/types/brand'
 import axios from 'axios'
 
-export const getBrands = async () => {
+export const getBrands = async (queryParams?: Record<string, any>) => {
   try {
-    const res = await axios.get(`${CONFIG_API.BRAND.INDEX}`)
+    const url = CONFIG_API.BRAND.INDEX
+    let finalUrl = url
+
+    if (queryParams) {
+      const params = new URLSearchParams()
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          params.set(key, String(value))
+        }
+      })
+      if (params.toString()) {
+        finalUrl = `${url}?${params.toString()}`
+      }
+    }
+
+    const res = await axios.get(finalUrl)
 
     return res.data
   } catch (error) {

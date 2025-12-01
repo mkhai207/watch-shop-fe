@@ -36,8 +36,13 @@ export interface UpdateOrderStatusRequest {
 
 export interface OrderStatusListResponse {
   orderStatuses: {
-    count: number
-    rows: OrderStatus[]
+    count?: number
+    rows?: OrderStatus[]
+    totalItems?: number
+    totalPages?: number
+    page?: number
+    limit?: number
+    items?: OrderStatus[]
   }
 }
 
@@ -49,9 +54,9 @@ export interface DeleteOrderStatusResponse {
   success: boolean
 }
 
-export const getOrderStatusList = async () => {
+export const getOrderStatusList = async (params?: any) => {
   try {
-    const res = await instanceAxios.get(CONFIG_API.ORDER_STATUS.INDEX)
+    const res = await instanceAxios.get(CONFIG_API.ORDER_STATUS.INDEX, { params })
     return res.data as OrderStatusListResponse
   } catch (error) {
     throw error
