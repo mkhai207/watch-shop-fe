@@ -177,11 +177,12 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ show, onClose }) => {
     setLoading(true)
     try {
       const [brandsRes, categoriesRes, movementTypesRes, colorsRes, strapMaterialsRes] = await Promise.all([
-        getBrands(),
-        getCategories(),
-        getMovementTypes(),
-        getColors(),
-        getStrapMaterials()
+        // Lấy nhiều bản ghi hơn cho mega menu
+        getBrands({ page: 1, limit: 1000 }),
+        getCategories({ page: 1, limit: 1000 }),
+        getMovementTypes({ page: 1, limit: 1000 }),
+        getColors({ page: 1, limit: 1000 }),
+        getStrapMaterials({ page: 1, limit: 1000 })
       ])
       const filterDeleted = (item: any) => item.del_flag !== '1'
       if (brandsRes?.brands?.items) setBrands(brandsRes.brands.items.filter(filterDeleted))

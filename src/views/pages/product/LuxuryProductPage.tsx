@@ -150,7 +150,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
   const handleLoadBrands = async () => {
     try {
-      const response = await getBrands()
+      // Lấy tối đa 1000 thương hiệu cho sidebar/filter
+      const response = await getBrands({ page: 1, limit: 1000 })
       if (response && response.brands && response.brands.items) {
         setBrands(response.brands.items)
       }
@@ -161,7 +162,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
   const handleLoadCategories = async () => {
     try {
-      const response = await getCategories()
+      // Lấy tối đa 1000 danh mục cho sidebar/filter
+      const response = await getCategories({ page: 1, limit: 1000 })
       const items = response?.categories?.items || response?.categorys?.items || []
       setCategories(items)
     } catch (error) {
@@ -171,7 +173,8 @@ const LuxuryProductPage: NextPage<TProps> = () => {
 
   const handleLoadMovementTypes = async () => {
     try {
-      const response = await getMovementTypes()
+      // Lấy tối đa 1000 loại máy cho sidebar/filter
+      const response = await getMovementTypes({ page: 1, limit: 1000 })
       if (response && response.movementTypes && response.movementTypes.items) {
         setMovementTypes(response.movementTypes.items)
       }
