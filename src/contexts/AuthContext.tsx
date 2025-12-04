@@ -18,6 +18,7 @@ import instanceAxios from 'src/helpers/axios'
 import { useDispatch } from 'react-redux'
 import { AppDispatch } from 'src/stores'
 import { getCartItemsAsync } from 'src/stores/apps/cart/action'
+import { clearCart } from 'src/stores/apps/cart'
 import getHomeRoute from 'src/components/acl/getHomeRoute'
 
 // ** Defaults
@@ -80,12 +81,24 @@ const AuthProvider = ({ children }: Props) => {
         params.rememberMe
           ? setLocalUserData(JSON.stringify(response.user), response.tokens.access.token, response.tokens.refresh.token)
           : null
-        const returnUrl = router.query.returnUrl
+        // Prefer returnUrl from query, but fall back to sessionStorage to survive validation errors & redirects
+        let returnUrl: any = router.query.returnUrl
+        if (!returnUrl && typeof window !== 'undefined') {
+          const stored = window.sessionStorage.getItem('returnUrl')
+          if (stored) {
+            returnUrl = stored
+          }
+        }
         setUser({ ...response.user })
         params.rememberMe ? window.localStorage.setItem('userData', JSON.stringify(response.user)) : null
 
         const homeRoute = getHomeRoute(response.user.role.code.toUpperCase() || '/')
         const redirectURL = returnUrl && returnUrl !== '/' ? returnUrl : homeRoute
+
+        // Clear stored returnUrl once we've used it
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('returnUrl')
+        }
 
         // Load cart right after successful login
         dispatch(getCartItemsAsync())
@@ -101,6 +114,8 @@ const AuthProvider = ({ children }: Props) => {
   const handleLogout = () => {
     setUser(null)
     clearLocalUserData()
+    // Clear cart items & status so header badge resets immediately
+    dispatch(clearCart())
     router.push('/')
   }
 

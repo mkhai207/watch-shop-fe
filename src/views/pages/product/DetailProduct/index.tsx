@@ -438,6 +438,16 @@ const DetailProductPage: NextPage<TProps> = () => {
   }
 
   const handleAddToCart = () => {
+    // Require login before allowing add-to-cart to avoid invalid requests when token is missing
+    if (!user?.id) {
+      router.push({
+        pathname: '/login',
+        query: { returnUrl: router.asPath }
+      })
+
+      return
+    }
+
     const triggerFlyToCart = () => {
       try {
         const cartBtn = document.getElementById('header-cart-button')

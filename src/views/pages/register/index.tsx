@@ -77,7 +77,15 @@ const RegisterPage: NextPage<TProps> = () => {
         toast.error(message)
       } else {
         toast.success(message)
-        router.push(ROUTE_CONFIG.LOGIN)
+        const returnUrl = router.query.returnUrl
+        router.push(
+          returnUrl
+            ? {
+                pathname: ROUTE_CONFIG.LOGIN,
+                query: { returnUrl }
+              }
+            : ROUTE_CONFIG.LOGIN
+        )
       }
     }
     dispatch(resetInitialState())
@@ -302,7 +310,14 @@ const RegisterPage: NextPage<TProps> = () => {
                   {'You already have an account?'}
                 </Grid>
                 <Grid item>
-                  <Link href='/login'>{'Login'}</Link>
+                  <Link
+                    href={{
+                      pathname: '/login',
+                      query: router.query
+                    }}
+                  >
+                    {'Login'}
+                  </Link>
                 </Grid>
               </Grid>
             </form>

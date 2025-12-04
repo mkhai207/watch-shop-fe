@@ -16,7 +16,7 @@ import { NextPage } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
@@ -47,6 +47,16 @@ const LoginPage: NextPage<TProps> = () => {
 
   const theme = useTheme()
   const { t } = useTranslation()
+
+  // Persist returnUrl so it survives intermediate redirects / validation errors
+  useEffect(() => {
+    if (!router.isReady) return
+
+    const qReturnUrl = router.query.returnUrl
+    if (qReturnUrl && typeof window !== 'undefined') {
+      window.sessionStorage.setItem('returnUrl', String(qReturnUrl))
+    }
+  }, [router.isReady, router.query.returnUrl])
 
   const schema = yup.object({
     userName: yup.string().required(t('email-is-required')),
@@ -282,7 +292,14 @@ const LoginPage: NextPage<TProps> = () => {
                 {t('dont-have-an-account')}
               </Grid>
               <Grid item>
-                <Link href='/register'>{'Sign Up'}</Link>
+                <Link
+                  href={{
+                    pathname: '/register',
+                    query: router.query
+                  }}
+                >
+                  {'Sign Up'}
+                </Link>
               </Grid>
             </Grid>
           </form>

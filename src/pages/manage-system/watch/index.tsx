@@ -345,20 +345,50 @@ const WatchPage: NextPage = () => {
   const [thumbUploading, setThumbUploading] = useState<boolean>(false)
   const [sliderUploading, setSliderUploading] = useState<boolean>(false)
 
+  const fetchAllItems = async <T,>(
+    fetchFn: (params?: any) => Promise<any>,
+    dataPath: string,
+    limit: number = 1000
+  ): Promise<T[]> => {
+    const aggregated: T[] = []
+    let currentPage = 1
+    let totalPages = 1
+    let totalItems = 0
+
+    while (currentPage <= totalPages) {
+      const res = await fetchFn({ page: currentPage, limit })
+      const data = res?.[dataPath] || res
+      
+      if (!data) break
+
+      const pageItems = data.items || data.rows || []
+      aggregated.push(...pageItems)
+
+      totalPages = data.totalPages || 1
+      totalItems = data.totalItems || aggregated.length
+
+      if (aggregated.length >= totalItems || pageItems.length < limit) break
+
+      currentPage += 1
+    }
+
+    return aggregated
+  }
+
   const fetchMasters = async () => {
     try {
       const [b, c, m, cl, sm] = await Promise.all([
-        getBrands(),
-        getCategories(),
-        getMovementTypes(),
-        getColors(),
-        getStrapMaterials()
+        fetchAllItems<TBrand>(getBrands, 'brands', 1000),
+        fetchAllItems<TCategory>(getCategories, 'categorys', 1000),
+        fetchAllItems<TMovementType>(getMovementTypes, 'movementTypes', 1000),
+        fetchAllItems<TColor>(getColors, 'colors', 1000),
+        fetchAllItems<TStrapMaterial>(getStrapMaterials, 'strapMaterials', 1000)
       ])
-      setBrands((b as any)?.brands?.items || [])
-      setCategories((c as any)?.categorys?.items || [])
-      setMovementTypes((m as any)?.movementTypes?.items || [])
-      setColors((cl as any)?.colors?.items || [])
-      setStrapMaterials((sm as any)?.strapMaterials?.rows || [])
+      setBrands(b)
+      setCategories(c)
+      setMovementTypes(m)
+      setColors(cl)
+      setStrapMaterials(sm)
     } catch {}
   }
 
@@ -701,11 +731,11 @@ const WatchPage: NextPage = () => {
           setViewingWatch(watchData)
 
           if (watchData.variants && Array.isArray(watchData.variants)) {
-            setViewVariants(watchData.variants)
+            setViewVariants(watchData.variants.filter((v: TWatchVariant) => v.del_flag !== '1'))
           } else {
             const vRes = await getWatchVariants()
             const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
-            setViewVariants(all.filter(i => String(i.watch_id) === createdWatchId))
+            setViewVariants(all.filter(i => String(i.watch_id) === createdWatchId && i.del_flag !== '1'))
           }
         }
       } else {
@@ -847,12 +877,12 @@ const WatchPage: NextPage = () => {
 
                           // Check if variants are already included in the watch data
                           if (watchData.variants && Array.isArray(watchData.variants)) {
-                            setViewVariants(watchData.variants)
+                            setViewVariants(watchData.variants.filter((v: TWatchVariant) => v.del_flag !== '1'))
                           } else {
                             // Fallback: fetch variants separately
                             const vRes = await getWatchVariants()
                             const all = ((vRes as any)?.variants?.items || []) as any[]
-                            setViewVariants(all.filter(v => String(v.watch_id) === String(row.id)) as any)
+                            setViewVariants(all.filter(v => String(v.watch_id) === String(row.id) && v.del_flag !== '1') as any)
                           }
                           setOpenViewWatch(true)
                         } finally {
@@ -1269,6 +1299,10 @@ const WatchPage: NextPage = () => {
                     displayEmpty
                     value={variantDraft.strap_material_id as any}
                     onChange={e => setVariantDraft(v => ({ ...v, strap_material_id: e.target.value as any }))}
+                    renderValue={value => {
+                      if (!value) return 'Vật liệu dây'
+                      return strapMaterials.find(s => String(s.id) === String(value))?.name || value
+                    }}
                   >
                     <MenuItem value=''>Vật liệu dây</MenuItem>
                     {strapMaterials
@@ -1320,10 +1354,10 @@ const WatchPage: NextPage = () => {
                       {(form.variants || []).map((v, idx) => (
                         <TableRow key={idx}>
                           <TableCell>
-                            {colors.find(c => c.id == (v as any).color_id)?.name || (v as any).color_id}
+                            {colors.find(c => String(c.id) === String((v as any).color_id))?.name || (v as any).color_id}
                           </TableCell>
                           <TableCell>
-                            {strapMaterials.find(s => s.id == (v as any).strap_material_id)?.name ||
+                            {strapMaterials.find(s => String(s.id) === String((v as any).strap_material_id))?.name ||
                               (v as any).strap_material_id}
                           </TableCell>
                           <TableCell>{(v as any).stock_quantity}</TableCell>
@@ -1468,12 +1502,12 @@ const WatchPage: NextPage = () => {
 
                   // Check if variants are already included in the watch data
                   if (watchData.variants && Array.isArray(watchData.variants)) {
-                    setViewVariants(watchData.variants)
+                    setViewVariants(watchData.variants.filter((v: TWatchVariant) => v.del_flag !== '1'))
                   } else {
                     // Fallback: fetch variants separately
                     const vRes = await getWatchVariants()
                     const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
-                    setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id)))
+                    setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id) && i.del_flag !== '1'))
                   }
                 }
               } catch (e: any) {
@@ -1721,7 +1755,9 @@ const WatchPage: NextPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {viewVariants.map(v => (
+                  {viewVariants
+                    .filter(v => v.del_flag !== '1')
+                    .map(v => (
                     <TableRow key={v.id}>
                       <TableCell>{v.id}</TableCell>
                       <TableCell>{colors.find(c => String(c.id) === String(v.color_id))?.name || v.color_id}</TableCell>
@@ -1758,12 +1794,12 @@ const WatchPage: NextPage = () => {
 
                                   // Check if variants are already included in the watch data
                                   if (watchData.variants && Array.isArray(watchData.variants)) {
-                                    setViewVariants(watchData.variants)
+                                    setViewVariants(watchData.variants.filter((v: TWatchVariant) => v.del_flag !== '1'))
                                   } else {
                                     // Fallback: fetch variants separately
                                     const vRes = await getWatchVariants()
                                     const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
-                                    setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id)))
+                                    setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id) && i.del_flag !== '1'))
                                   }
                                 }
                               } catch (e: any) {
@@ -2136,6 +2172,10 @@ const WatchPage: NextPage = () => {
                     displayEmpty
                     value={variantNew.strap_material_id as any}
                     onChange={e => setVariantNew(v => ({ ...v, strap_material_id: e.target.value as any }))}
+                    renderValue={value => {
+                      if (!value) return 'Vật liệu dây'
+                      return strapMaterials.find(s => String(s.id) === String(value))?.name || value
+                    }}
                   >
                     <MenuItem value=''>Vật liệu dây</MenuItem>
                     {strapMaterials

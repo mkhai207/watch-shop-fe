@@ -80,6 +80,16 @@ const OrderManagementPage: NextPage = () => {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
 
+  // Helper functions for status labels
+  const getStatusLabel = (status: OrderStatus) => {
+    return `${status.sort_order}. ${status.name}`
+  }
+
+  // Sort orderStatuses by sort_order
+  const sortedOrderStatuses = React.useMemo(() => {
+    return [...orderStatuses].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+  }, [orderStatuses])
+
   const filterConfig: FilterConfig = React.useMemo(() => {
     return {
       searchFields: [{ key: 'code', label: 'Mã đơn hàng', type: 'string' }],
@@ -89,9 +99,9 @@ const OrderManagementPage: NextPage = () => {
           label: 'Trạng thái',
           type: 'select',
           operator: 'eq',
-          options: orderStatuses.map(status => ({
+          options: sortedOrderStatuses.map(status => ({
             value: status.id,
-            label: status.name
+            label: getStatusLabel(status)
           }))
         }
       ],
@@ -102,7 +112,7 @@ const OrderManagementPage: NextPage = () => {
 
       dateRangeFields: [{ key: 'created_at', label: 'Ngày tạo đơn hàng' }]
     }
-  }, [orderStatuses])
+  }, [sortedOrderStatuses])
 
   const {
     values: filterValues,
@@ -142,10 +152,16 @@ const OrderManagementPage: NextPage = () => {
     try {
       setLoadingStatuses(true)
       const response = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS.INDEX}`)
-      const data: OrderStatusesResponse = response.data
-      setOrderStatuses(data.orderStatuses.rows || [])
+      const data = response.data
+      console.log('Order statuses API response:', data)
+      
+      // Parse response format: { orderStatuses: { items: [...] } }
+      const statuses = data?.orderStatuses?.items || data?.orderStatuses?.rows || []
+      console.log('Parsed order statuses:', statuses.length)
+      setOrderStatuses(statuses)
     } catch (error) {
       console.error('Error fetching order statuses:', error)
+      setOrderStatuses([])
     } finally {
       setLoadingStatuses(false)
     }
@@ -171,30 +187,56 @@ const OrderManagementPage: NextPage = () => {
         }
 
         const finalUrl = `${url}?${params.toString()}`
+        console.log('Fetching orders from:', finalUrl)
 
         const response = await instanceAxios.get(finalUrl)
         const data = response.data
+        console.log('Orders API response:', data)
+        
         let ordersData = []
         let totalItems = 0
 
-        if (data.orders?.items) {
+        // Try multiple response formats
+        if (data?.orders?.items) {
           ordersData = data.orders.items
-          totalItems = data.orders.totalItems || 0
-        } else if (data.orders?.rows) {
+          totalItems = data.orders.totalItems || data.orders.count || 0
+        } else if (data?.orders?.rows) {
           ordersData = data.orders.rows
-          totalItems = data.orders.count || 0
-        } else if (Array.isArray(data.orders)) {
+          totalItems = data.orders.count || data.orders.totalItems || 0
+        } else if (Array.isArray(data?.orders)) {
           ordersData = data.orders
           totalItems = ordersData.length
+        } else if (Array.isArray(data)) {
+          // If data is directly an array
+          ordersData = data
+          totalItems = data.length
+        } else if (data?.data) {
+          // If data is wrapped in a data property
+          if (Array.isArray(data.data)) {
+            ordersData = data.data
+            totalItems = data.data.length
+          } else if (data.data?.orders) {
+            ordersData = data.data.orders.items || data.data.orders.rows || []
+            totalItems = data.data.orders.totalItems || data.data.orders.count || 0
+          }
         } else {
-          console.log('Unknown response format:', data)
+          console.warn('Unknown response format:', data)
+          console.warn('Response keys:', Object.keys(data || {}))
         }
 
+        console.log('Parsed orders:', ordersData.length, 'Total:', totalItems)
         setOrders(ordersData)
         setTotalCount(totalItems)
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching orders:', error)
-        setSnackbar({ open: true, message: 'Lỗi khi tải dữ liệu đơn hàng', severity: 'error' })
+        console.error('Error response:', error?.response?.data)
+        setSnackbar({ 
+          open: true, 
+          message: error?.response?.data?.message || 'Lỗi khi tải dữ liệu đơn hàng', 
+          severity: 'error' 
+        })
+        setOrders([])
+        setTotalCount(0)
       } finally {
         setLoading(false)
       }
@@ -210,20 +252,11 @@ const OrderManagementPage: NextPage = () => {
   }, [])
 
   useEffect(() => {
-    if (loadingStatuses || orderStatuses.length === 0) {
-      console.log(
-        'Waiting for order statuses to load before fetching orders... loadingStatuses:',
-        loadingStatuses,
-        'orderStatuses.length:',
-        orderStatuses.length
-      )
-
-      return
-    }
-
+    // Don't wait for orderStatuses to load - fetch orders independently
+    // Order statuses are only needed for filter dropdown, not for fetching orders
     const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
     fetchOrders(queryParams)
-  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchOrders, orderStatuses.length, loadingStatuses])
+  }, [debouncedFilterValues, page, pageSize, filterConfig, fetchOrders])
 
   const paginatedData = orders
 
@@ -271,7 +304,8 @@ const OrderManagementPage: NextPage = () => {
 
     return {
       name: status?.name || `Trạng thái ${statusId}`,
-      color: status?.hex_code || '#999999'
+      color: status?.hex_code || '#999999',
+      sortOrder: status?.sort_order || 0
     }
   }
 
@@ -398,8 +432,8 @@ const OrderManagementPage: NextPage = () => {
 
   const totalOrders = totalCount
   const totalRevenue = orders.reduce((sum, order) => sum + order.final_amount, 0)
-  const pendingOrders = orders.filter(order => order.current_status_id === '1').length
-  const completedOrders = orders.filter(order => order.current_status_id === '5').length
+  const pendingOrders = orders.filter(order => order.current_status_id === '1' || order.current_status_id === '2').length
+  const completedOrders = orders.filter(order => order.current_status_id === '6').length
 
   return (
     <>
@@ -804,14 +838,14 @@ const OrderManagementPage: NextPage = () => {
                           >
                             {/* Hiển thị trạng thái hiện tại (display only) */}
                             <MenuItem value={order.current_status_id} sx={{ fontSize: '0.7rem' }}>
-                              {getStatusInfo(order.current_status_id).name}
+                              {getStatusInfo(order.current_status_id).sortOrder}. {getStatusInfo(order.current_status_id).name}
                             </MenuItem>
                             {/* Hiển thị các trạng thái có thể chọn */}
-                            {orderStatuses
+                            {sortedOrderStatuses
                               .filter(status => parseInt(status.id) > parseInt(order.current_status_id))
                               .map(status => (
                                 <MenuItem key={status.id} value={status.id} sx={{ fontSize: '0.7rem' }}>
-                                  {status.name}
+                                  {getStatusLabel(status)}
                                 </MenuItem>
                               ))}
                           </Select>
@@ -947,9 +981,9 @@ const OrderManagementPage: NextPage = () => {
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Trạng thái mới</InputLabel>
             <Select value={bulkAction} onChange={e => setBulkAction(e.target.value)} label='Trạng thái mới'>
-              {orderStatuses.map(status => (
+              {sortedOrderStatuses.map(status => (
                 <MenuItem key={status.id} value={status.id}>
-                  {status.name}
+                  {getStatusLabel(status)}
                 </MenuItem>
               ))}
             </Select>
@@ -958,9 +992,9 @@ const OrderManagementPage: NextPage = () => {
             <Typography variant='body2' fontWeight={600} sx={{ mb: 1 }}>
               Các tùy chọn cập nhật nhanh:
             </Typography>
-            {orderStatuses.map(status => (
+            {sortedOrderStatuses.map(status => (
               <Typography key={status.id} variant='caption' component='div'>
-                • <strong>{status.name}:</strong> {status.description}
+                • <strong>{getStatusLabel(status)}:</strong> {status.description}
               </Typography>
             ))}
           </Box>
@@ -1037,7 +1071,7 @@ const OrderManagementPage: NextPage = () => {
                 label='Trạng thái mới'
                 disabled={isUpdating}
               >
-                {orderStatuses.map(status => (
+                {sortedOrderStatuses.map(status => (
                   <MenuItem key={status.id} value={status.id}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box
@@ -1048,7 +1082,7 @@ const OrderManagementPage: NextPage = () => {
                           backgroundColor: status.hex_code
                         }}
                       />
-                      {status.name}
+                      {getStatusLabel(status)}
                     </Box>
                   </MenuItem>
                 ))}
@@ -1201,3 +1235,4 @@ const OrderManagementPage: NextPage = () => {
 ;(OrderManagementPage as any).guestGuard = false
 
 export default OrderManagementPage
+

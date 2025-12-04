@@ -26,6 +26,16 @@ export const cartSlice = createSlice({
   initialState,
   reducers: {
     resetCart: state => {
+      // Reset only status flags & messages; keep items (used after operations)
+      state.isLoading = false
+      state.isSuccess = false
+      state.isError = false
+      state.message = ''
+      state.error = ''
+    },
+    clearCart: state => {
+      // Fully clear cart, used on logout
+      state.items = []
       state.isLoading = false
       state.isSuccess = false
       state.isError = false
@@ -136,5 +146,5 @@ export const cartSlice = createSlice({
   }
 })
 
-export const { resetCart } = cartSlice.actions
+export const { resetCart, clearCart } = cartSlice.actions
 export default cartSlice.reducer

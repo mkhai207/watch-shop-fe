@@ -21,6 +21,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import { getDetailsProductPublic, getVariantId } from 'src/services/product'
 import { useRouter } from 'next/router'
 import { ROUTE_CONFIG } from 'src/configs/route'
+import { useAuth } from 'src/hooks/useAuth'
 
 interface BuyNowModalProps {
   open: boolean
@@ -49,6 +50,7 @@ const BuyNowModal = ({ open, onClose, productId, productName, productPrice, prod
   const [quantity, setQuantity] = useState<number>(1)
   const [variants, setVariants] = useState<TVariant[]>([])
   const router = useRouter()
+  const { user } = useAuth()
 
   useEffect(() => {
     if (open && productId) {
@@ -133,6 +135,16 @@ const BuyNowModal = ({ open, onClose, productId, productName, productPrice, prod
   }
 
   const handleBuyNow = async () => {
+    // Require login before buy-now to avoid invalid checkout data when token is missing
+    if (!user?.id) {
+      router.push({
+        pathname: '/login',
+        query: { returnUrl: router.asPath }
+      })
+
+      return
+    }
+
     if (!selectedColor || !selectedSize) {
       return
     }

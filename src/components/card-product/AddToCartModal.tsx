@@ -24,6 +24,8 @@ import { AppDispatch, RootState } from 'src/stores'
 import { resetCart } from 'src/stores/apps/cart'
 import { addToCartAsync } from 'src/stores/apps/cart/action'
 import { TProductDetail } from 'src/types/product'
+import { useAuth } from 'src/hooks/useAuth'
+import { useRouter } from 'next/router'
 
 interface AddToCartModalProps {
   open: boolean
@@ -61,6 +63,8 @@ const AddToCartModal = ({
   const [variants, setVariants] = useState<TVariant[]>([])
   const dispatch: AppDispatch = useDispatch()
   const { isLoading, isSuccess, isError, message } = useSelector((state: RootState) => state.cart)
+  const { user } = useAuth()
+  const router = useRouter()
 
   // Fetch product detail when modal opens
   useEffect(() => {
@@ -155,6 +159,16 @@ const AddToCartModal = ({
   //   }
 
   const handleAddToCart = () => {
+    // Require login before add-to-cart to prevent invalid requests when token is missing
+    if (!user?.id) {
+      router.push({
+        pathname: '/login',
+        query: { returnUrl: router.asPath }
+      })
+
+      return
+    }
+
     dispatch(
       addToCartAsync({
         product_id: productId || '',
