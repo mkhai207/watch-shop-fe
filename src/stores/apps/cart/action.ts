@@ -36,6 +36,10 @@ export const getCartItemsAsync = createAsyncThunk('cart/getCartItems', async () 
     return { status: 'success', data: response.cart.cartItems?.rows || [], message: '' }
   }
 
+  if (response?.response?.status === 500 || response?.code === 500) {
+    return { status: 'success', data: [], message: '' }
+  }
+
   return {
     data: null,
     message: response?.response?.data?.message || 'Failed to get cart'

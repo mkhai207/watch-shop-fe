@@ -81,7 +81,6 @@ const AuthProvider = ({ children }: Props) => {
         params.rememberMe
           ? setLocalUserData(JSON.stringify(response.user), response.tokens.access.token, response.tokens.refresh.token)
           : null
-        // Prefer returnUrl from query, but fall back to sessionStorage to survive validation errors & redirects
         let returnUrl: any = router.query.returnUrl
         if (!returnUrl && typeof window !== 'undefined') {
           const stored = window.sessionStorage.getItem('returnUrl')
@@ -114,7 +113,6 @@ const AuthProvider = ({ children }: Props) => {
   const handleLogout = () => {
     setUser(null)
     clearLocalUserData()
-    // Clear cart items & status so header badge resets immediately
     dispatch(clearCart())
     router.push('/')
   }

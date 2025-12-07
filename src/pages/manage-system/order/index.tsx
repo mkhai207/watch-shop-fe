@@ -41,24 +41,23 @@ import { CONFIG_API } from 'src/configs/api'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import instanceAxios from 'src/helpers/axios'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import { Order, OrderStatus, OrderStatusesResponse } from 'src/types/order'
+import { Order, OrderStatus } from 'src/types/order'
+import OrderDetailDialog from './OrderDetailDialog'
 
 const paymentMethodMap: Record<string, string> = {
-  '1': 'Chuyển khoản',
-  '2': 'Thẻ tín dụng',
-  '3': 'COD'
+  '0': 'COD',
+  '1': 'Thanh toán VNPay'
 }
 
 const OrderManagementPage: NextPage = () => {
   const [orders, setOrders] = useState<Order[]>([])
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingStatuses, setLoadingStatuses] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [selectedOrders, setSelectedOrders] = useState<string[]>([])
   const [bulkAction, setBulkAction] = useState('')
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | undefined>(undefined)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isQuickUpdateDialogOpen, setIsQuickUpdateDialogOpen] = useState(false)
   const [quickUpdateStatus, setQuickUpdateStatus] = useState('')
@@ -150,11 +149,10 @@ const OrderManagementPage: NextPage = () => {
 
   const fetchOrderStatuses = async () => {
     try {
-      setLoadingStatuses(true)
       const response = await instanceAxios.get(`${CONFIG_API.ORDER_STATUS.INDEX}`)
       const data = response.data
       console.log('Order statuses API response:', data)
-      
+
       // Parse response format: { orderStatuses: { items: [...] } }
       const statuses = data?.orderStatuses?.items || data?.orderStatuses?.rows || []
       console.log('Parsed order statuses:', statuses.length)
@@ -162,8 +160,6 @@ const OrderManagementPage: NextPage = () => {
     } catch (error) {
       console.error('Error fetching order statuses:', error)
       setOrderStatuses([])
-    } finally {
-      setLoadingStatuses(false)
     }
   }
 
@@ -192,7 +188,7 @@ const OrderManagementPage: NextPage = () => {
         const response = await instanceAxios.get(finalUrl)
         const data = response.data
         console.log('Orders API response:', data)
-        
+
         let ordersData = []
         let totalItems = 0
 
@@ -230,10 +226,10 @@ const OrderManagementPage: NextPage = () => {
       } catch (error: any) {
         console.error('Error fetching orders:', error)
         console.error('Error response:', error?.response?.data)
-        setSnackbar({ 
-          open: true, 
-          message: error?.response?.data?.message || 'Lỗi khi tải dữ liệu đơn hàng', 
-          severity: 'error' 
+        setSnackbar({
+          open: true,
+          message: error?.response?.data?.message || 'Lỗi khi tải dữ liệu đơn hàng',
+          severity: 'error'
         })
         setOrders([])
         setTotalCount(0)
@@ -309,13 +305,6 @@ const OrderManagementPage: NextPage = () => {
     }
   }
 
-  const getPaymentMethodChip = (paymentMethod?: string) => {
-    if (!paymentMethod) return <Chip label='Chưa chọn' color='default' size='small' />
-    const method = paymentMethodMap[paymentMethod] || 'Khác'
-
-    return <Chip label={method} color='primary' size='small' />
-  }
-
   const handleOrderSelect = (orderId: string, checked: boolean) => {
     if (checked) {
       setSelectedOrders([...selectedOrders, orderId])
@@ -378,7 +367,7 @@ const OrderManagementPage: NextPage = () => {
   }
 
   const viewOrderDetail = (order: Order) => {
-    setSelectedOrder(order)
+    setSelectedOrderId(order.id)
     setIsDetailDialogOpen(true)
   }
 
@@ -432,7 +421,9 @@ const OrderManagementPage: NextPage = () => {
 
   const totalOrders = totalCount
   const totalRevenue = orders.reduce((sum, order) => sum + order.final_amount, 0)
-  const pendingOrders = orders.filter(order => order.current_status_id === '1' || order.current_status_id === '2').length
+  const pendingOrders = orders.filter(
+    order => order.current_status_id === '1' || order.current_status_id === '2'
+  ).length
   const completedOrders = orders.filter(order => order.current_status_id === '6').length
 
   return (
@@ -838,7 +829,8 @@ const OrderManagementPage: NextPage = () => {
                           >
                             {/* Hiển thị trạng thái hiện tại (display only) */}
                             <MenuItem value={order.current_status_id} sx={{ fontSize: '0.7rem' }}>
-                              {getStatusInfo(order.current_status_id).sortOrder}. {getStatusInfo(order.current_status_id).name}
+                              {getStatusInfo(order.current_status_id).sortOrder}.{' '}
+                              {getStatusInfo(order.current_status_id).name}
                             </MenuItem>
                             {/* Hiển thị các trạng thái có thể chọn */}
                             {sortedOrderStatuses
@@ -872,104 +864,12 @@ const OrderManagementPage: NextPage = () => {
       </Card>
 
       {/* Order Detail Dialog */}
-      <Dialog open={isDetailDialogOpen} onClose={() => setIsDetailDialogOpen(false)} maxWidth='md' fullWidth>
-        <DialogTitle>Chi tiết đơn hàng {selectedOrder?.code}</DialogTitle>
-        <DialogContent>
-          {selectedOrder && (
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardHeader title='Thông tin khách hàng' />
-                    <CardContent>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Họ tên
-                        </Typography>
-                        <Typography variant='body1' fontWeight={600}>
-                          {selectedOrder.guess_name}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Email
-                        </Typography>
-                        <Typography variant='body1'>{selectedOrder.guess_email}</Typography>
-                      </Box>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Số điện thoại
-                        </Typography>
-                        <Typography variant='body1'>{selectedOrder.guess_phone}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant='body2' color='text.secondary'>
-                          Địa chỉ giao hàng
-                        </Typography>
-                        <Typography variant='body1'>{selectedOrder.shipping_address}</Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardHeader title='Thông tin thanh toán' />
-                    <CardContent>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Phương thức
-                        </Typography>
-                        {getPaymentMethodChip(selectedOrder.payment_method)}
-                      </Box>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Tạm tính
-                        </Typography>
-                        <Typography variant='body1'>{formatPrice(selectedOrder.total_amount)}</Typography>
-                      </Box>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Phí vận chuyển
-                        </Typography>
-                        <Typography variant='body1'>{formatPrice(selectedOrder.shipping_fee)}</Typography>
-                      </Box>
-                      {selectedOrder.discount_amount > 0 && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant='body2' color='text.secondary'>
-                            Giảm giá
-                          </Typography>
-                          <Typography variant='body1' color='success.main'>
-                            -{formatPrice(selectedOrder.discount_amount)}
-                          </Typography>
-                        </Box>
-                      )}
-                      <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                          Tổng cộng
-                        </Typography>
-                        <Typography variant='h6' fontWeight={700}>
-                          {formatPrice(selectedOrder.final_amount)}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-              {selectedOrder.note && (
-                <Card sx={{ mt: 2 }}>
-                  <CardHeader title='Ghi chú' />
-                  <CardContent>
-                    <Typography variant='body1'>{selectedOrder.note}</Typography>
-                  </CardContent>
-                </Card>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsDetailDialogOpen(false)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
+      <OrderDetailDialog
+        open={isDetailDialogOpen}
+        onClose={() => setIsDetailDialogOpen(false)}
+        orderId={selectedOrderId}
+        orderStatuses={orderStatuses}
+      />
 
       {/* Bulk Action Dialog */}
       <Dialog open={isBulkDialogOpen} onClose={() => setIsBulkDialogOpen(false)}>
@@ -1235,4 +1135,3 @@ const OrderManagementPage: NextPage = () => {
 ;(OrderManagementPage as any).guestGuard = false
 
 export default OrderManagementPage
-

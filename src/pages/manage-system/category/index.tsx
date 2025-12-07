@@ -331,11 +331,17 @@ const CategoryPage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (category: TCategory) => {
-    if (!confirm(`Xóa phân loại "${category.name}"?`)) return
+  const handleDelete = (category: TCategory) => {
+    setDeletingItem(category)
+    setDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingItem) return
+
     try {
       setActionLoading(true)
-      const res = await deleteCategory(category.id)
+      const res = await deleteCategory(deletingItem.id)
       if ((res as any)?.category || (res as any)?.success) {
         toast.success('Xóa phân loại thành công')
 
@@ -349,8 +355,13 @@ const CategoryPage: NextPage = () => {
       toast.error(err?.message || 'Xóa thất bại')
     } finally {
       setActionLoading(false)
+      setDeleteDialog(false)
+      setDeletingItem(null)
     }
   }
+
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<TCategory | null>(null)
 
   const [openView, setOpenView] = useState<boolean>(false)
   const [viewing, setViewing] = useState<TCategory | null>(null)
@@ -473,10 +484,9 @@ const CategoryPage: NextPage = () => {
               >
                 STT
               </TableCell>
-              <TableCell width={80}>Ảnh</TableCell>
+              <TableCell width={80}>Ảnh</TableCell>
               <TableCell>Tên phân loại</TableCell>
               <TableCell>Mô tả</TableCell>
-              <TableCell width={120}>Trạng thái</TableCell>
               <TableCell width={120} align='right'>
                 Thao tác
               </TableCell>
@@ -510,13 +520,6 @@ const CategoryPage: NextPage = () => {
                   {category.name}
                 </TableCell>
                 <TableCell sx={{ color: 'text.secondary' }}>{category.description || '-'}</TableCell>
-                <TableCell width={120}>
-                  {category.del_flag === '1' ? (
-                    <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
-                  ) : (
-                    <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
-                  )}
-                </TableCell>
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
                     <IconButton size='small' onClick={() => handleOpenView(category)}>
@@ -728,6 +731,24 @@ const CategoryPage: NextPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenView(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Bạn có chắc chắn muốn xóa danh mục <strong>"{deletingItem?.name}"</strong> không?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
+            Xóa
+          </Button>
         </DialogActions>
       </Dialog>
     </>

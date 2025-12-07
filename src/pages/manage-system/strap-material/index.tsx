@@ -57,6 +57,8 @@ const StrapMaterialPage: NextPage = () => {
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [openView, setOpenView] = useState<boolean>(false)
   const [selected, setSelected] = useState<TStrapMaterial | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<TStrapMaterial | null>(null)
 
   const [nameInput, setNameInput] = useState<string>('')
   const [codeInput, setCodeInput] = useState<string>('')
@@ -252,11 +254,17 @@ const StrapMaterialPage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (row: TStrapMaterial) => {
-    if (!confirm(`Xóa vật liệu dây đeo "${row.name}"?`)) return
+  const handleDelete = (row: TStrapMaterial) => {
+    setDeletingItem(row)
+    setDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingItem) return
+
     try {
       setActionLoading(true)
-      const res = await deleteStrapMaterial(row.id)
+      const res = await deleteStrapMaterial(deletingItem.id)
       if ((res as any)?.strapMaterial || (res as any)?.success) {
         toast.success('Xóa thành công')
         fetchData()
@@ -267,6 +275,8 @@ const StrapMaterialPage: NextPage = () => {
       toast.error(err?.message || 'Xóa thất bại')
     } finally {
       setActionLoading(false)
+      setDeleteDialog(false)
+      setDeletingItem(null)
     }
   }
 
@@ -559,6 +569,24 @@ const StrapMaterialPage: NextPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenView(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Bạn có chắc chắn muốn xóa vật liệu dây đeo <strong>"{deletingItem?.name}"</strong> không?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
+            Xóa
+          </Button>
         </DialogActions>
       </Dialog>
     </>

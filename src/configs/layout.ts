@@ -51,11 +51,6 @@ export const VerticalItems: MenuItem[] = [
         path: '/manage-system/color'
       },
       {
-        title: 'Đánh giá',
-        icon: 'mdi:star-outline',
-        path: '/manage-system/review'
-      },
-      {
         title: 'Trạng thái đơn hàng',
         icon: 'mdi:clipboard-list-outline',
         path: '/manage-system/order-status'
@@ -69,16 +64,6 @@ export const VerticalItems: MenuItem[] = [
         title: 'Loại máy',
         icon: 'mdi:cogs',
         path: '/manage-system/movement-type'
-      },
-      {
-        title: 'Báo cáo',
-        icon: 'mdi:chart-box-outline',
-        path: '/manage-system/analytics'
-      },
-      {
-        title: 'Cài đặt',
-        icon: 'mdi:cog-outline',
-        path: '/manage-system/settings'
       }
     ]
   }

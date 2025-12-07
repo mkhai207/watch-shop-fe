@@ -149,8 +149,6 @@ const OrderStatusManagement = () => {
   }
 
   const handleDelete = (status: OrderStatus) => {
-    if (!confirm(`Xóa trạng thái đơn hàng "${status.name}"?`)) return
-
     setDeletingId(status.id)
     setDeleteDialog(true)
   }
@@ -423,15 +421,18 @@ const OrderStatusManagement = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
         <DialogTitle>Xác nhận xóa</DialogTitle>
         <DialogContent>
           <Typography>
-            Bạn có chắc chắn muốn xóa trạng thái đơn hàng này không? Hành động này không thể hoàn tác.
+            Bạn có chắc chắn muốn xóa trạng thái <strong>"{orderStatuses.find(s => s.id === deletingId)?.name}"</strong>{' '}
+            không?
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialog(false)}>Hủy</Button>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
           <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
             Xóa
           </Button>

@@ -119,6 +119,8 @@ const ColorPage: NextPage = () => {
   const [openView, setOpenView] = useState<boolean>(false)
   const [selected, setSelected] = useState<TColor | null>(null)
   const [viewing, setViewing] = useState<TColor | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<TColor | null>(null)
   const [nameInput, setNameInput] = useState<string>('')
   const [hexInput, setHexInput] = useState<string>('')
 
@@ -360,11 +362,17 @@ const ColorPage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (color: TColor) => {
-    if (!confirm(`Xóa màu "${color.name}"?`)) return
+  const handleDelete = (color: TColor) => {
+    setDeletingItem(color)
+    setDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingItem) return
+
     try {
       setActionLoading(true)
-      const res = await deleteColor(color.id)
+      const res = await deleteColor(deletingItem.id)
       if ((res as any)?.color || (res as any)?.success) {
         toast.success('Xóa màu thành công')
 
@@ -378,6 +386,8 @@ const ColorPage: NextPage = () => {
       toast.error(err?.message || 'Xóa thất bại')
     } finally {
       setActionLoading(false)
+      setDeleteDialog(false)
+      setDeletingItem(null)
     }
   }
 
@@ -708,6 +718,24 @@ const ColorPage: NextPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenView(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Bạn có chắc chắn muốn xóa màu <strong>"{deletingItem?.name}"</strong> không?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
+            Xóa
+          </Button>
         </DialogActions>
       </Dialog>
     </>

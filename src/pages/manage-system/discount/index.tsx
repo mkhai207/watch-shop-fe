@@ -20,8 +20,7 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Typography,
-  Chip
+  Typography
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -29,6 +28,8 @@ import AddIcon from '@mui/icons-material/Add'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import Spinner from 'src/components/spinner'
+import DiscountDetailDialog from './DiscountDetailDialog'
+import DiscountEditDialog from './DiscountEditDialog'
 import toast from 'react-hot-toast'
 import { formatCompactVN } from 'src/utils/date'
 import AdvancedFilter, { FilterConfig, useAdvancedFilter, buildBackendQuery } from 'src/components/advanced-filter'
@@ -46,12 +47,6 @@ import {
 } from 'src/services/discount'
 
 const DiscountPage: NextPage = () => {
-  const compactToDateStr = (compact?: string): string => {
-    if (!compact || compact.length < 8) return ''
-    const s = String(compact)
-
-    return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
-  }
   const dateStrToCompact = (dateStr?: string): string => {
     if (!dateStr) return ''
     const s = dateStr.replaceAll('-', '')
@@ -339,17 +334,6 @@ const DiscountPage: NextPage = () => {
 
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [selected, setSelected] = useState<any>(null)
-  const [editForm, setEditForm] = useState<Omit<TV1CreateDiscountReq, 'code'>>({
-    name: '',
-    description: '',
-    min_order_value: 0,
-    discount_type: '0',
-    discount_value: 0,
-    effective_date: '',
-    valid_until: ''
-  })
-  const [editEffectiveDate, setEditEffectiveDate] = useState<string>('')
-  const [editValidUntil, setEditValidUntil] = useState<string>('')
 
   const handleOpenEdit = async (item: any) => {
     try {
@@ -357,17 +341,6 @@ const DiscountPage: NextPage = () => {
       const res = await v1GetDiscountById(item.id)
       const full = res?.discount || item
       setSelected(full)
-      setEditForm({
-        name: full.name,
-        description: full.description || '',
-        min_order_value: full.min_order_value,
-        discount_type: full.discount_type,
-        discount_value: full.discount_value,
-        effective_date: full.effective_date,
-        valid_until: full.valid_until
-      })
-      setEditEffectiveDate(compactToDateStr(full.effective_date))
-      setEditValidUntil(compactToDateStr(full.valid_until))
       setOpenEdit(true)
     } catch (e) {
       toast.error('Không tải được chi tiết khuyến mãi')
@@ -376,35 +349,17 @@ const DiscountPage: NextPage = () => {
     }
   }
 
-  const handleEdit = async () => {
-    if (!selected) return
-    if (!editForm.name.trim()) return toast.error('Tên khuyến mãi không được để trống')
-    try {
-      setActionLoading(true)
-      const res = await v1UpdateDiscount(selected.id, editForm)
-      if ((res as any)?.success) {
-        toast.success('Cập nhật khuyến mãi thành công')
-        setOpenEdit(false)
-        setSelected(null)
-
-        // Refresh data with current filters
-        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
-        fetchData(queryParams)
-      } else {
-        throw new Error('Cập nhật thất bại')
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Cập nhật thất bại')
-    } finally {
-      setActionLoading(false)
-    }
+  const handleDelete = (item: any) => {
+    setDeletingItem(item)
+    setDeleteDialog(true)
   }
 
-  const handleDelete = async (item: any) => {
-    if (!confirm(`Xóa khuyến mãi "${item.name}"?`)) return
+  const confirmDelete = async () => {
+    if (!deletingItem) return
+
     try {
       setActionLoading(true)
-      const res = await v1DeleteDiscount(item.id)
+      const res = await v1DeleteDiscount(deletingItem.id)
       if ((res as any)?.success) {
         toast.success('Xóa khuyến mãi thành công')
 
@@ -418,8 +373,13 @@ const DiscountPage: NextPage = () => {
       toast.error(err?.message || 'Xóa thất bại')
     } finally {
       setActionLoading(false)
+      setDeleteDialog(false)
+      setDeletingItem(null)
     }
   }
+
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<any>(null)
 
   const [openView, setOpenView] = useState<boolean>(false)
   const [viewing, setViewing] = useState<any>(null)
@@ -488,82 +448,102 @@ const DiscountPage: NextPage = () => {
               <TableCell align='right' width={160}>
                 ĐH tối thiểu
               </TableCell>
-              <TableCell width={180}>Hiệu lực</TableCell>
-              <TableCell width={120}>Trạng thái</TableCell>
+              <TableCell align='center' width={250}>
+                Hiệu lực
+              </TableCell>
               <TableCell align='right' width={120}>
                 Thao tác
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedData.map((item, index) => (
-              <TableRow key={item.id} hover sx={{ opacity: (item as any).del_flag === '1' ? 0.6 : 1 }}>
-                <TableCell
+            {paginatedData.map((item, index) => {
+              const parseCompactDate = (compactDate: string) => {
+                if (!compactDate || compactDate.length < 8) return null
+                const year = compactDate.substring(0, 4)
+                const month = compactDate.substring(4, 6)
+                const day = compactDate.substring(6, 8)
+
+                return new Date(`${year}-${month}-${day}`)
+              }
+
+              const validUntilDate = parseCompactDate((item as any).valid_until)
+              const now = new Date()
+              now.setHours(0, 0, 0, 0)
+              const isExpired = validUntilDate ? validUntilDate < now : false
+
+              return (
+                <TableRow
+                  key={item.id}
+                  hover
                   sx={{
-                    position: 'sticky',
-                    left: 0,
-                    zIndex: 1,
-                    backgroundColor: 'background.paper',
-                    whiteSpace: 'nowrap'
+                    opacity: (item as any).del_flag === '1' ? 0.6 : 1,
+                    bgcolor: isExpired ? theme => (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100') : 'inherit'
                   }}
                 >
-                  {(page - 1) * pageSize + index + 1}
-                </TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.code}</TableCell>
-                <TableCell sx={{ textDecoration: (item as any).del_flag === '1' ? 'line-through' : 'none' }}>
-                  {item.name}
-                </TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>{item.description || '-'}</TableCell>
-                <TableCell align='right'>{item.discount_type === '1' ? 'Phần trăm' : 'Cố định'}</TableCell>
-                <TableCell align='right'>
-                  {item.discount_type === '1'
-                    ? `${item.discount_value}%`
-                    : Number(item.discount_value).toLocaleString('vi-VN')}
-                </TableCell>
-                <TableCell align='right'>{item.min_order_value?.toLocaleString('vi-VN')}</TableCell>
-                <TableCell>
-                  <Stack>
-                    <Typography variant='caption' color='text.secondary'>
-                      Từ
-                    </Typography>
-                    <Typography>{formatCompactVN(item.effective_date)}</Typography>
-                    <Typography variant='caption' color='text.secondary' sx={{ mt: 0.5 }}>
-                      Đến
-                    </Typography>
-                    <Typography>{formatCompactVN(item.valid_until)}</Typography>
-                  </Stack>
-                </TableCell>
-                <TableCell width={120}>
-                  {(item as any).del_flag === '1' ? (
-                    <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
-                  ) : (
-                    <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
-                  )}
-                </TableCell>
-                <TableCell align='right'>
-                  <Stack direction='row' spacing={1} justifyContent='flex-end'>
-                    <IconButton size='small' onClick={() => handleOpenView(item)}>
-                      <VisibilityIcon fontSize='small' />
-                    </IconButton>
-                    <IconButton
-                      size='small'
-                      disabled={(item as any).del_flag === '1'}
-                      onClick={() => handleOpenEdit(item)}
+                  <TableCell
+                    sx={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      backgroundColor: isExpired
+                        ? theme => (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100')
+                        : 'background.paper',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {(page - 1) * pageSize + index + 1}
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.code}</TableCell>
+                  <TableCell sx={{ textDecoration: (item as any).del_flag === '1' ? 'line-through' : 'none' }}>
+                    {item.name}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>{item.description || '-'}</TableCell>
+                  <TableCell align='right'>{item.discount_type === '1' ? 'Phần trăm' : 'Cố định'}</TableCell>
+                  <TableCell align='right'>
+                    {item.discount_type === '1'
+                      ? `${item.discount_value}%`
+                      : Number(item.discount_value).toLocaleString('vi-VN')}
+                  </TableCell>
+                  <TableCell align='right'>{item.min_order_value?.toLocaleString('vi-VN')}</TableCell>
+                  <TableCell align='center'>
+                    <Typography
+                      variant='body2'
+                      sx={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: 230
+                      }}
                     >
-                      <EditIcon fontSize='small' />
-                    </IconButton>
-                    <IconButton
-                      size='small'
-                      color='error'
-                      disabled={(item as any).del_flag === '1'}
-                      onClick={() => handleDelete(item)}
-                    >
-                      <DeleteIcon fontSize='small' />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
+                      {formatCompactVN(item.effective_date)} - {formatCompactVN(item.valid_until)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align='right'>
+                    <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                      <IconButton size='small' onClick={() => handleOpenView(item)}>
+                        <VisibilityIcon fontSize='small' />
+                      </IconButton>
+                      <IconButton
+                        size='small'
+                        disabled={(item as any).del_flag === '1'}
+                        onClick={() => handleOpenEdit(item)}
+                      >
+                        <EditIcon fontSize='small' />
+                      </IconButton>
+                      <IconButton
+                        size='small'
+                        color='error'
+                        disabled={(item as any).del_flag === '1'}
+                        onClick={() => handleDelete(item)}
+                      >
+                        <DeleteIcon fontSize='small' />
+                      </IconButton>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
             {paginatedData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} align='center'>
@@ -700,181 +680,50 @@ const DiscountPage: NextPage = () => {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth='sm'>
-        <DialogTitle>Cập nhật khuyến mãi</DialogTitle>
-        <DialogContent>
-          <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  label='Tên'
-                  fullWidth
-                  value={editForm.name}
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label='Mô tả'
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  value={editForm.description}
-                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='number'
-                  label='Giá trị giảm'
-                  fullWidth
-                  value={editForm.discount_value}
-                  onChange={e => setEditForm({ ...editForm, discount_value: Number(e.target.value) })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Select
-                  fullWidth
-                  value={editForm.discount_type}
-                  onChange={e => setEditForm({ ...editForm, discount_type: e.target.value as any })}
-                >
-                  <MenuItem value='0'>Cố định</MenuItem>
-                  <MenuItem value='1'>Tỷ lệ %</MenuItem>
-                </Select>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='number'
-                  label='Đơn hàng tối thiểu'
-                  fullWidth
-                  value={editForm.min_order_value}
-                  onChange={e => setEditForm({ ...editForm, min_order_value: Number(e.target.value) })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='date'
-                  label='Hiệu lực từ'
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  value={editEffectiveDate}
-                  onChange={e => {
-                    const v = e.target.value
-                    setEditEffectiveDate(v)
-                    setEditForm({ ...editForm, effective_date: dateStrToCompact(v) })
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='date'
-                  label='Hiệu lực đến'
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  value={editValidUntil}
-                  onChange={e => {
-                    const v = e.target.value
-                    setEditValidUntil(v)
-                    setEditForm({ ...editForm, valid_until: dateStrToCompact(v) })
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEdit(false)}>Hủy</Button>
-          <Button variant='contained' onClick={handleEdit}>
-            Lưu
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DiscountEditDialog
+        open={openEdit}
+        discount={selected}
+        onClose={() => {
+          setOpenEdit(false)
+          setSelected(null)
+        }}
+        onSubmit={async data => {
+          if (!selected) return
+          if (!data.name.trim()) {
+            toast.error('Tên khuyến mãi không được để trống')
+            throw new Error('Tên không được để trống')
+          }
+          const res = await v1UpdateDiscount(selected.id, data)
+          if ((res as any)?.success) {
+            toast.success('Cập nhật khuyến mãi thành công')
+            setOpenEdit(false)
+            setSelected(null)
+            const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+            fetchData(queryParams)
+          } else {
+            throw new Error('Cập nhật thất bại')
+          }
+        }}
+      />
 
       {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin khuyến mãi</DialogTitle>
+      <DiscountDetailDialog open={openView} discount={viewing} onClose={() => setOpenView(false)} />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
         <DialogContent>
-          {viewing ? (
-            <Box sx={{ mt: 1 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Mã
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.code}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tên
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.name}</Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Mô tả
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.description || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Loại
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.discount_type === '1' ? 'Phần trăm' : 'Cố định'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Giá trị
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>
-                    {viewing.discount_type === '1'
-                      ? `${viewing.discount_value}%`
-                      : Number(viewing.discount_value).toLocaleString('vi-VN')}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    ĐH tối thiểu
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.min_order_value?.toLocaleString('vi-VN')}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tối đa giảm
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>
-                    {viewing.max_discount_amount == null ? '-' : viewing.max_discount_amount.toLocaleString('vi-VN')}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Hiệu lực từ
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.effective_date)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Hiệu lực đến
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.valid_until)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.created_at)}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.created_by}</Typography>
-                </Grid>
-              </Grid>
-            </Box>
-          ) : null}
+          <Typography>
+            Bạn có chắc chắn muốn xóa khuyến mãi <strong>"{deletingItem?.name}"</strong> không?
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenView(false)}>Đóng</Button>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
+            Xóa
+          </Button>
         </DialogActions>
       </Dialog>
     </>

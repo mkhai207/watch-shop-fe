@@ -57,6 +57,8 @@ const MovementTypePage: NextPage = () => {
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [openView, setOpenView] = useState<boolean>(false)
   const [selected, setSelected] = useState<TMovementType | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<TMovementType | null>(null)
 
   const [nameInput, setNameInput] = useState<string>('')
   const [codeInput, setCodeInput] = useState<string>('')
@@ -237,11 +239,17 @@ const MovementTypePage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (row: TMovementType) => {
-    if (!confirm(`Xóa loại máy "${row.name}"?`)) return
+  const handleDelete = (row: TMovementType) => {
+    setDeletingItem(row)
+    setDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingItem) return
+
     try {
       setActionLoading(true)
-      const res = await deleteMovementType(row.id)
+      const res = await deleteMovementType(deletingItem.id)
       if ((res as any)?.movementType || (res as any)?.success) {
         toast.success('Xóa thành công')
         fetchData()
@@ -252,6 +260,8 @@ const MovementTypePage: NextPage = () => {
       toast.error(err?.message || 'Xóa thất bại')
     } finally {
       setActionLoading(false)
+      setDeleteDialog(false)
+      setDeletingItem(null)
     }
   }
 
@@ -516,6 +526,24 @@ const MovementTypePage: NextPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenView(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Bạn có chắc chắn muốn xóa loại máy <strong>"{deletingItem?.name}"</strong> không?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
+            Xóa
+          </Button>
         </DialogActions>
       </Dialog>
     </>

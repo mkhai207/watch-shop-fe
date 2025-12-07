@@ -332,11 +332,17 @@ const BrandPage: NextPage = () => {
     }
   }
 
-  const handleDelete = async (brand: TBrand) => {
-    if (!confirm(`Xóa thương hiệu "${brand.name}"?`)) return
+  const handleDelete = (brand: TBrand) => {
+    setDeletingItem(brand)
+    setDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingItem) return
+
     try {
       setActionLoading(true)
-      const res = await deleteBrand(brand.id)
+      const res = await deleteBrand(deletingItem.id)
       if ((res as any)?.brand || (res as any)?.success) {
         toast.success('Xóa thương hiệu thành công')
 
@@ -350,8 +356,13 @@ const BrandPage: NextPage = () => {
       toast.error(err?.message || 'Xóa thất bại')
     } finally {
       setActionLoading(false)
+      setDeleteDialog(false)
+      setDeletingItem(null)
     }
   }
+
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<TBrand | null>(null)
 
   const [openView, setOpenView] = useState<boolean>(false)
   const [viewing, setViewing] = useState<TBrand | null>(null)
@@ -412,7 +423,6 @@ const BrandPage: NextPage = () => {
               <TableCell width={80}>Logo</TableCell>
               <TableCell>Tên thương hiệu</TableCell>
               <TableCell>Mô tả</TableCell>
-              <TableCell width={120}>Trạng thái</TableCell>
               <TableCell width={120} align='right'>
                 Thao tác
               </TableCell>
@@ -421,7 +431,7 @@ const BrandPage: NextPage = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
+                <TableCell colSpan={5} align='center' sx={{ py: 4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     Đang tải dữ liệu...
                   </Box>
@@ -429,7 +439,7 @@ const BrandPage: NextPage = () => {
               </TableRow>
             ) : paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
+                <TableCell colSpan={5} align='center' sx={{ py: 4 }}>
                   Không có dữ liệu
                 </TableCell>
               </TableRow>
@@ -461,13 +471,6 @@ const BrandPage: NextPage = () => {
                     {brand.name}
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>{brand.description || '-'}</TableCell>
-                  <TableCell width={120}>
-                    {brand.del_flag === '1' ? (
-                      <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
-                    ) : (
-                      <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
-                    )}
-                  </TableCell>
                   <TableCell align='right'>
                     <Stack direction='row' spacing={1} justifyContent='flex-end'>
                       <IconButton size='small' onClick={() => handleOpenView(brand)}>
@@ -672,6 +675,24 @@ const BrandPage: NextPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenView(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog} onClose={() => !actionLoading && setDeleteDialog(false)} maxWidth='xs'>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Bạn có chắc chắn muốn xóa thương hiệu <strong>"{deletingItem?.name}"</strong> không?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)} disabled={actionLoading}>
+            Hủy
+          </Button>
+          <Button onClick={confirmDelete} color='error' variant='contained' disabled={actionLoading}>
+            Xóa
+          </Button>
         </DialogActions>
       </Dialog>
     </>
