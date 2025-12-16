@@ -110,9 +110,6 @@ const MLFields: React.FC<MLFieldsProps> = ({ values, onChange, disabled = false 
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Typography variant='h6' sx={{ mb: 2, color: 'primary.main' }}>
-        🎯 Thông tin ML (Machine Learning)
-      </Typography>
       <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
         Các thông tin này sẽ được sử dụng để cải thiện thuật toán gợi ý và tìm kiếm sản phẩm
       </Typography>

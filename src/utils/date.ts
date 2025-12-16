@@ -36,3 +36,32 @@ export const formatCompactVN = (compact?: string | null): string => {
   // Display exactly as provided (no timezone conversion)
   return `${hour}:${minute}:${second} ${day}/${month}/${year}`
 }
+
+// Convert compact timestamp to YYYY-MM-DD for date input
+export const compactToDateInput = (compact?: string | null): string => {
+  if (!compact) return ''
+  const s = String(compact)
+  if (s.length < 8) return ''
+  const year = s.slice(0, 4)
+  const month = s.slice(4, 6)
+  const day = s.slice(6, 8)
+  return `${year}-${month}-${day}`
+}
+
+// Convert YYYY-MM-DD date input to compact timestamp (date only, time set to 000000)
+export const dateInputToCompact = (dateStr?: string): string => {
+  if (!dateStr) return ''
+  const cleaned = dateStr.replace(/-/g, '')
+  return `${cleaned}000000`
+}
+
+// Format compact date (just date portion) to dd/MM/yyyy
+export const formatCompactDateVN = (compact?: string | null): string => {
+  if (!compact) return ''
+  const s = String(compact)
+  if (s.length < 8) return ''
+  const year = s.slice(0, 4)
+  const month = s.slice(4, 6)
+  const day = s.slice(6, 8)
+  return `${day}/${month}/${year}`
+}
