@@ -607,10 +607,21 @@ const WatchPage: NextPage = () => {
   }
 
   const handleCreate = async () => {
-    if (!form.name.trim()) return toast.error('Tên không được để trống')
-    if (!form.code.trim()) return toast.error('Mã không được để trống')
-    if (!form.brand_id || !form.category_id || !form.movement_type_id)
-      return toast.error('Chọn đủ thương hiệu, phân loại, loại máy')
+    if (!form.name.trim()) {
+      toast.error('Tên không được để trống')
+
+      return
+    }
+    if (!form.code.trim()) {
+      toast.error('Mã không được để trống')
+
+      return
+    }
+    if (!form.brand_id || !form.category_id || !form.movement_type_id) {
+      toast.error('Chọn đủ thương hiệu, phân loại, loại máy')
+      
+      return
+    }
     try {
       setActionLoading(true)
       const payload = {
