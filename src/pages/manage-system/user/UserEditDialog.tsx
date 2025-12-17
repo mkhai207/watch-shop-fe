@@ -96,9 +96,9 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ open, user, onClose, on
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth>
-      <DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}>
         <Box display='flex' alignItems='center' justifyContent='space-between'>
-          <Typography variant='h6'>Chỉnh sửa người dùng</Typography>
+          <Typography variant='h6' sx={{ fontWeight: 700, color: 'inherit' }}>Chỉnh sửa người dùng</Typography>
           <IconButton onClick={onClose}>
             <Close />
           </IconButton>

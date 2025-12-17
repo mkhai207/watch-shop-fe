@@ -19,7 +19,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography
 } from '@mui/material'
 import Avatar from '@mui/material/Avatar'
@@ -32,17 +31,15 @@ import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { useDebounce } from 'src/hooks/useDebounce'
-import { createCategory, deleteCategory, getCategories, getCategoryById, updateCategory } from 'src/services/category'
-import { uploadImage } from 'src/services/file'
+import { deleteCategory, getCategories, getCategoryById } from 'src/services/category'
 import type {
   GetCategoryResponse,
   GetCategorysResponse,
-  TCategory,
-  TCreateCategory,
-  TUpdateCategory
+  TCategory
 } from 'src/types/category/manage'
 import { formatCompactVN } from 'src/utils/date'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
+import CreateCategoryDialog from './CreateCategoryDialog'
 
 const CategoryPage: NextPage = () => {
   const [categories, setCategories] = useState<TCategory[]>([])
@@ -52,10 +49,6 @@ const CategoryPage: NextPage = () => {
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [selected, setSelected] = useState<TCategory | null>(null)
-  const [nameInput, setNameInput] = useState<string>('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [descriptionInput, setDescriptionInput] = useState<string>('')
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
@@ -237,48 +230,10 @@ const CategoryPage: NextPage = () => {
     }
   }
 
-  const handleOpenCreate = () => {
-    setNameInput('')
-    setDescriptionInput('')
-    setImageFile(null)
-    setImagePreview(null)
-    setOpenCreate(true)
+  const handleCreateSuccess = () => {
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
   }
-
-  const handleCreate = async () => {
-    const payload: TCreateCategory = { name: nameInput.trim() }
-    if (!payload.name) return toast.error('Tên phân loại không được để trống')
-    try {
-      setActionLoading(true)
-      if (imageFile) {
-        const uploadRes = await uploadImage(imageFile)
-        const imageUrl = (uploadRes as any)?.uploadedImage?.url as string | undefined
-        if (imageUrl) payload.image_url = imageUrl
-      }
-      if (descriptionInput.trim()) payload.description = descriptionInput.trim()
-      const res = await createCategory(payload)
-      if ((res as any)?.category) {
-        toast.success('Tạo phân loại thành công')
-        setOpenCreate(false)
-        setImageFile(null)
-        setImagePreview(null)
-
-        // Refresh data with current filters
-        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
-        fetchData(queryParams)
-      } else {
-        throw new Error('Tạo thất bại')
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Tạo thất bại')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const [editDescription, setEditDescription] = useState<string>('')
-  const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
-  const [editImageFile, setEditImageFile] = useState<File | null>(null)
 
   const handleOpenEdit = async (category: TCategory) => {
     try {
@@ -286,9 +241,6 @@ const CategoryPage: NextPage = () => {
       const res = (await getCategoryById(category.id)) as GetCategoryResponse
       const full = res?.category || category
       setSelected(full)
-      setNameInput(full.name)
-      setEditDescription(full.description || '')
-      setEditImagePreview(full.image_url || null)
       setOpenEdit(true)
     } catch (e) {
       toast.error('Không tải được chi tiết phân loại')
@@ -297,38 +249,10 @@ const CategoryPage: NextPage = () => {
     }
   }
 
-  const handleEdit = async () => {
-    if (!selected) return
-    const payload: TUpdateCategory = { name: nameInput.trim() }
-    if (!payload.name) return toast.error('Tên phân loại không được để trống')
-    try {
-      setActionLoading(true)
-      if (editImageFile) {
-        const uploadRes = await uploadImage(editImageFile)
-        const imageUrl = (uploadRes as any)?.uploadedImage?.url as string | undefined
-        if (imageUrl) (payload as any).image_url = imageUrl
-      }
-      if (editDescription.trim()) (payload as any).description = editDescription.trim()
-
-      const res = await updateCategory(selected.id, payload)
-      if ((res as any)?.category) {
-        toast.success('Cập nhật phân loại thành công')
-        setOpenEdit(false)
-        setSelected(null)
-        setEditImageFile(null)
-        setEditImagePreview(null)
-
-        // Refresh data with current filters
-        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
-        fetchData(queryParams)
-      } else {
-        throw new Error('Cập nhật thất bại')
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Cập nhật thất bại')
-    } finally {
-      setActionLoading(false)
-    }
+  const handleEditSuccess = () => {
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
+    setSelected(null)
   }
 
   const handleDelete = (category: TCategory) => {
@@ -385,7 +309,7 @@ const CategoryPage: NextPage = () => {
         <Typography variant='h5' fontWeight={700}>
           Quản lý phân loại
         </Typography>
-        <Button variant='contained' startIcon={<AddIcon />} onClick={handleOpenCreate}>
+        <Button variant='contained' startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
           Thêm phân loại
         </Button>
       </Stack>
@@ -486,8 +410,7 @@ const CategoryPage: NextPage = () => {
               </TableCell>
               <TableCell width={80}>Ảnh</TableCell>
               <TableCell>Tên phân loại</TableCell>
-              <TableCell>Mô tả</TableCell>
-              <TableCell width={120} align='right'>
+              <TableCell>Mô tả</TableCell>              <TableCell sx={{ whiteSpace: 'nowrap' }}>Ngày tạo</TableCell>              <TableCell width={120} align='right'>
                 Thao tác
               </TableCell>
             </TableRow>
@@ -520,6 +443,7 @@ const CategoryPage: NextPage = () => {
                   {category.name}
                 </TableCell>
                 <TableCell sx={{ color: 'text.secondary' }}>{category.description || '-'}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCompactVN(category.created_at)}</TableCell>
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
                     <IconButton size='small' onClick={() => handleOpenView(category)}>
@@ -546,7 +470,7 @@ const CategoryPage: NextPage = () => {
             ))}
             {paginatedData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align='center'>
+                <TableCell colSpan={7} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
                 </TableCell>
               </TableRow>
@@ -567,166 +491,82 @@ const CategoryPage: NextPage = () => {
       </TableContainer>
 
       {/* Create Dialog */}
-      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thêm phân loại</DialogTitle>
-        <DialogContent>
-          <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
-            <TextField
-              autoFocus
-              fullWidth
-              label='Tên phân loại'
-              value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              sx={{ mt: 2 }}
-              label='Mô tả'
-              value={descriptionInput}
-              onChange={e => setDescriptionInput(e.target.value)}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button component='label' variant='outlined'>
-                Chọn ảnh
-                <input
-                  hidden
-                  type='file'
-                  accept='image/*'
-                  onChange={e => {
-                    const f = e.target.files?.[0] || null
-                    setImageFile(f)
-                    if (imagePreview) URL.revokeObjectURL(imagePreview)
-                    setImagePreview(f ? URL.createObjectURL(f) : null)
-                  }}
-                />
-              </Button>
-              <Typography variant='caption' sx={{ ml: 2 }}>
-                {imageFile ? imageFile.name : 'Chưa chọn ảnh'}
-              </Typography>
-              {imagePreview ? (
-                <Box sx={{ mt: 2 }}>
-                  <Avatar src={imagePreview} variant='rounded' sx={{ width: 72, height: 72 }} />
-                </Box>
-              ) : null}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCreate(false)}>Hủy</Button>
-          <Button variant='contained' onClick={handleCreate}>
-            Tạo
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CreateCategoryDialog open={openCreate} onClose={() => setOpenCreate(false)} onSuccess={handleCreateSuccess} />
 
       {/* Edit Dialog */}
-      <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Cập nhật phân loại</DialogTitle>
-        <DialogContent>
-          <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
-            <TextField
-              autoFocus
-              fullWidth
-              label='Tên phân loại'
-              value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              sx={{ mt: 2 }}
-              label='Mô tả'
-              value={editDescription}
-              onChange={e => setEditDescription(e.target.value)}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button component='label' variant='outlined'>
-                Đổi ảnh
-                <input
-                  hidden
-                  type='file'
-                  accept='image/*'
-                  onChange={e => {
-                    const f = e.target.files?.[0] || null
-                    setEditImageFile(f)
-                    if (editImagePreview) URL.revokeObjectURL(editImagePreview)
-                    setEditImagePreview(f ? URL.createObjectURL(f) : editImagePreview)
-                  }}
-                />
-              </Button>
-              <Typography variant='caption' sx={{ ml: 2 }}>
-                {editImageFile ? editImageFile.name : 'Giữ nguyên nếu không chọn ảnh'}
-              </Typography>
-              {editImagePreview ? (
-                <Box sx={{ mt: 2 }}>
-                  <Avatar src={editImagePreview} variant='rounded' sx={{ width: 72, height: 72 }} />
-                </Box>
-              ) : null}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEdit(false)}>Hủy</Button>
-          <Button variant='contained' onClick={handleEdit}>
-            Lưu
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CreateCategoryDialog
+        open={openEdit}
+        onClose={() => {
+          setOpenEdit(false)
+          setSelected(null)
+        }}
+        onSuccess={handleEditSuccess}
+        editData={selected}
+      />
 
       {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin phân loại</DialogTitle>
+      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='sm'>
+        <DialogTitle
+          sx={{
+            color: 'primary.main',
+            fontWeight: 700,
+            borderBottom: theme => `1px solid ${theme.palette.divider}`
+          }}
+        >
+          Thông tin phân loại
+        </DialogTitle>
         <DialogContent>
           {viewing ? (
-            <Box sx={{ mt: 1 }}>
-              <Stack direction='row' spacing={2} alignItems='center'>
-                <Avatar src={viewing.image_url || undefined} variant='rounded' sx={{ width: 72, height: 72 }} />
-                <Box>
-                  <Typography variant='h6'>{viewing.name}</Typography>
-                  <Chip
-                    label={viewing.del_flag === '1' ? 'Đã xóa' : 'Hoạt động'}
-                    color={viewing.del_flag === '1' ? 'error' : 'success'}
-                    size='small'
-                    variant='outlined'
-                  />
-                </Box>
-              </Stack>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant='subtitle2' color='text.secondary'>
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              {/* Ảnh và Tên */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Stack direction='row' spacing={2} alignItems='center'>
+                  <Avatar src={viewing.image_url || undefined} variant='rounded' sx={{ width: 72, height: 72 }} />
+                  <Box>
+                    <Typography variant='caption' color='text.secondary'>
+                      Tên phân loại
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5, fontWeight: 500 }}>
+                      {viewing.name}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+
+              {/* Mô tả */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant='caption' color='text.secondary'>
                   Mô tả
                 </Typography>
-                <Typography sx={{ mt: 0.5 }}>{viewing.description || '-'}</Typography>
-              </Box>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Typography variant='body2' sx={{ mt: 0.5 }}>
+                  {viewing.description || '-'}
+                </Typography>
+              </Paper>
+
+              {/* Thông tin hệ thống */}
+              <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.created_at) || '-'}</Typography>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', height: '100%', width: '100%' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Ngày tạo
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5 }}>
+                      {formatCompactVN(viewing.created_at) || '-'}
+                    </Typography>
+                  </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.updated_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.created_by || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.updated_by || '-'}</Typography>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', height: '100%', width: '100%' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Ngày cập nhật
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5 }}>
+                      {formatCompactVN(viewing.updated_at) || '-'}
+                    </Typography>
+                  </Paper>
                 </Grid>
               </Grid>
-            </Box>
+            </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>

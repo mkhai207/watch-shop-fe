@@ -147,7 +147,9 @@ const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({ open, onClose, or
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth>
-      <DialogTitle>Chi tiết đơn hàng {orderData?.code || (orderId && `(${orderId})`)}</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}>
+        Chi tiết đơn hàng {orderData?.code || (orderId && `(${orderId})`)}
+      </DialogTitle>
       <DialogContent>
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>

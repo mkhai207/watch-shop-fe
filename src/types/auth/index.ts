@@ -5,21 +5,11 @@ export type TLoginAuth = {
 
 export type TRegisterAuth = {
   email: string
+  userName: string
   password: string
-  username: string
-  first_name: string
-  last_name: string
-  phone_number: string
-  gender: string
-  date_of_birth: string
-  address: string
-  role_id: number
-  age_group: string
-  gender_preference: string
-  price_range_preference: string
-  brand_preferences: string[]
-  category_preferences: string[]
-  style_preferences: string[]
+  fistName: string
+  lastName: string
+  roleId: number
 }
 
 export type TPermission = {

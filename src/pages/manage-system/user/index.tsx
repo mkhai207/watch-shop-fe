@@ -26,6 +26,7 @@ import {
 import type { NextPage } from 'next'
 import React, { useEffect, useState, useCallback } from 'react'
 import { useDebounce } from 'src/hooks/useDebounce'
+import { useAuth } from 'src/hooks/useAuth'
 import toast from 'react-hot-toast'
 import AdvancedFilter, { FilterConfig, useAdvancedFilter, buildBackendQuery } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
@@ -35,6 +36,7 @@ import { IUser } from 'src/types/user'
 import { getUsers, deleteUser } from 'src/services/user'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
 import dayjs from 'dayjs'
+import { formatCompactVN } from 'src/utils/date'
 import UserDetailDialog from './UserDetailDialog'
 import UserEditDialog from './UserEditDialog'
 import UserCreateDialog from './UserCreateDialog'
@@ -187,7 +189,14 @@ const UserPage: NextPage = () => {
     setOpenEdit(true)
   }
 
+  const { user: currentUser } = useAuth()
+
   const handleDeleteUser = (user: IUser) => {
+    if (currentUser && String(user.id) === String(currentUser.id)) {
+      toast.error('Không thể xóa tài khoản đang đăng nhập')
+
+      return
+    }
     setSelected(user)
     setOpenDelete(true)
   }
@@ -253,9 +262,9 @@ const UserPage: NextPage = () => {
         <TableContainer>
           <Table sx={{ minWidth: 750 }}>
             <TableHead>
-              <TableRow>
+              <TableRow>  
                 <TableCell align='center'>STT</TableCell>
-                <TableCell>Avatar</TableCell>
+                <TableCell>Ảnh đại diện</TableCell>
                 <TableCell>Họ và tên</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Số điện thoại</TableCell>
@@ -312,7 +321,7 @@ const UserPage: NextPage = () => {
                         size='small'
                       />
                     </TableCell>
-                    <TableCell>{dayjs(user.created_at, 'YYYYMMDDHHMMSS').format('DD/MM/YYYY')}</TableCell>
+                    <TableCell>{formatCompactVN(user.created_at)}</TableCell>
                     <TableCell align='center'>
                       <Stack direction='row' spacing={1} justifyContent='center'>
                         <Tooltip title='Xem chi tiết'>

@@ -19,11 +19,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography
 } from '@mui/material'
 import Avatar from '@mui/material/Avatar'
-import Chip from '@mui/material/Chip'
 import type { NextPage } from 'next'
 import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
@@ -32,11 +30,11 @@ import CustomPagination from 'src/components/custom-pagination'
 import Spinner from 'src/components/spinner'
 import { PAGE_SIZE_OPTION } from 'src/configs/gridConfig'
 import { useDebounce } from 'src/hooks/useDebounce'
-import { createBrand, deleteBrand, getBrandById, getBrands, updateBrand } from 'src/services/brand'
-import { uploadImage } from 'src/services/file'
-import type { GetBrandResponse, GetBrandsResponse, TBrand, TCreateBrand, TUpdateBrand } from 'src/types/brand'
+import { deleteBrand, getBrandById, getBrands } from 'src/services/brand'
+import type { GetBrandResponse, GetBrandsResponse, TBrand } from 'src/types/brand'
 import { formatCompactVN } from 'src/utils/date'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
+import CreateBrandDialog from './CreateBrandDialog'
 
 const BrandPage: NextPage = () => {
   const [brands, setBrands] = useState<TBrand[]>([])
@@ -46,10 +44,6 @@ const BrandPage: NextPage = () => {
   const [openCreate, setOpenCreate] = useState<boolean>(false)
   const [openEdit, setOpenEdit] = useState<boolean>(false)
   const [selected, setSelected] = useState<TBrand | null>(null)
-  const [nameInput, setNameInput] = useState<string>('')
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [descriptionInput, setDescriptionInput] = useState<string>('')
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
@@ -237,48 +231,10 @@ const BrandPage: NextPage = () => {
     }
   }
 
-  const handleOpenCreate = () => {
-    setNameInput('')
-    setDescriptionInput('')
-    setLogoFile(null)
-    setLogoPreview(null)
-    setOpenCreate(true)
+  const handleCreateSuccess = () => {
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
   }
-
-  const handleCreate = async () => {
-    const payload: TCreateBrand = { name: nameInput.trim() }
-    if (!payload.name) return toast.error('Tên thương hiệu không được để trống')
-    try {
-      setActionLoading(true)
-      if (logoFile) {
-        const uploadRes = await uploadImage(logoFile)
-        const imageUrl = (uploadRes as any)?.uploadedImage?.url as string | undefined
-        if (imageUrl) payload.logo_url = imageUrl
-      }
-      if (descriptionInput.trim()) payload.description = descriptionInput.trim()
-      const res = await createBrand(payload)
-      if ((res as any)?.brand) {
-        toast.success('Tạo thương hiệu thành công')
-        setOpenCreate(false)
-        setLogoFile(null)
-        setLogoPreview(null)
-
-        // Refresh data with current filters
-        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
-        fetchData(queryParams)
-      } else {
-        throw new Error('Tạo thất bại')
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Tạo thất bại')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const [editDescription, setEditDescription] = useState<string>('')
-  const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null)
-  const [editLogoFile, setEditLogoFile] = useState<File | null>(null)
 
   const handleOpenEdit = async (brand: TBrand) => {
     try {
@@ -286,10 +242,6 @@ const BrandPage: NextPage = () => {
       const res = (await getBrandById(brand.id)) as GetBrandResponse
       const full = res?.brand || brand
       setSelected(full)
-      setNameInput(full.name)
-      setEditDescription(full.description || '')
-      setEditLogoPreview(full.logo_url || null)
-      setEditLogoFile(null)
       setOpenEdit(true)
     } catch (e) {
       toast.error('Không tải được chi tiết thương hiệu')
@@ -298,38 +250,10 @@ const BrandPage: NextPage = () => {
     }
   }
 
-  const handleEdit = async () => {
-    if (!selected) return
-    const payload: TUpdateBrand = { name: nameInput.trim() }
-    if (!payload.name) return toast.error('Tên thương hiệu không được để trống')
-    try {
-      setActionLoading(true)
-      if (editLogoFile) {
-        const uploadRes = await uploadImage(editLogoFile)
-        const imageUrl = (uploadRes as any)?.uploadedImage?.url as string | undefined
-        if (imageUrl) (payload as any).logo_url = imageUrl
-      }
-      if (editDescription.trim()) (payload as any).description = editDescription.trim()
-
-      const res = await updateBrand(selected.id, payload)
-      if ((res as any)?.brand) {
-        toast.success('Cập nhật thương hiệu thành công')
-        setOpenEdit(false)
-        setSelected(null)
-        setEditLogoFile(null)
-        setEditLogoPreview(null)
-
-        // Refresh data with current filters
-        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
-        fetchData(queryParams)
-      } else {
-        throw new Error('Cập nhật thất bại')
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Cập nhật thất bại')
-    } finally {
-      setActionLoading(false)
-    }
+  const handleEditSuccess = () => {
+    const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+    fetchData(queryParams)
+    setSelected(null)
   }
 
   const handleDelete = (brand: TBrand) => {
@@ -387,7 +311,7 @@ const BrandPage: NextPage = () => {
         <Typography variant='h5' fontWeight={700}>
           Quản lý thương hiệu
         </Typography>
-        <Button variant='contained' startIcon={<AddIcon />} onClick={handleOpenCreate}>
+        <Button variant='contained' startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
           Thêm thương hiệu
         </Button>
       </Stack>
@@ -423,6 +347,7 @@ const BrandPage: NextPage = () => {
               <TableCell width={80}>Logo</TableCell>
               <TableCell>Tên thương hiệu</TableCell>
               <TableCell>Mô tả</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>Ngày tạo</TableCell>
               <TableCell width={120} align='right'>
                 Thao tác
               </TableCell>
@@ -431,7 +356,7 @@ const BrandPage: NextPage = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align='center' sx={{ py: 4 }}>
+                <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     Đang tải dữ liệu...
                   </Box>
@@ -439,7 +364,7 @@ const BrandPage: NextPage = () => {
               </TableRow>
             ) : paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align='center' sx={{ py: 4 }}>
+                <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
                   Không có dữ liệu
                 </TableCell>
               </TableRow>
@@ -471,6 +396,7 @@ const BrandPage: NextPage = () => {
                     {brand.name}
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>{brand.description || '-'}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCompactVN(brand.created_at)}</TableCell>
                   <TableCell align='right'>
                     <Stack direction='row' spacing={1} justifyContent='flex-end'>
                       <IconButton size='small' onClick={() => handleOpenView(brand)}>
@@ -509,168 +435,82 @@ const BrandPage: NextPage = () => {
       </TableContainer>
 
       {/* Create Dialog */}
-      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thêm thương hiệu</DialogTitle>
-        <DialogContent>
-          <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
-            <TextField
-              autoFocus
-              fullWidth
-              label='Tên thương hiệu'
-              value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              sx={{ mt: 2 }}
-              label='Mô tả'
-              value={descriptionInput}
-              onChange={e => setDescriptionInput(e.target.value)}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button component='label' variant='outlined'>
-                Chọn logo
-                <input
-                  hidden
-                  type='file'
-                  accept='image/*'
-                  onChange={e => {
-                    const f = e.target.files?.[0] || null
-                    setLogoFile(f)
-                    if (logoPreview) URL.revokeObjectURL(logoPreview)
-                    setLogoPreview(f ? URL.createObjectURL(f) : null)
-                  }}
-                />
-              </Button>
-              <Typography variant='caption' sx={{ ml: 2 }}>
-                {logoFile ? logoFile.name : 'Chưa chọn ảnh'}
-              </Typography>
-              {logoPreview ? (
-                <Box sx={{ mt: 2 }}>
-                  <Avatar src={logoPreview} variant='rounded' sx={{ width: 72, height: 72 }} />
-                </Box>
-              ) : null}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCreate(false)}>Hủy</Button>
-          <Button variant='contained' onClick={handleCreate}>
-            Tạo
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CreateBrandDialog open={openCreate} onClose={() => setOpenCreate(false)} onSuccess={handleCreateSuccess} />
 
       {/* Edit Dialog */}
-      <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Cập nhật thương hiệu</DialogTitle>
-        <DialogContent>
-          <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
-            <TextField
-              autoFocus
-              fullWidth
-              label='Tên thương hiệu'
-              value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              sx={{ mt: 2 }}
-              label='Mô tả'
-              value={editDescription}
-              onChange={e => setEditDescription(e.target.value)}
-            />
-            <Box sx={{ mt: 2 }}>
-              <Button component='label' variant='outlined'>
-                Đổi logo
-                <input
-                  hidden
-                  type='file'
-                  accept='image/*'
-                  onChange={e => {
-                    const f = e.target.files?.[0] || null
-                    setEditLogoFile(f)
-                    if (f && editLogoPreview && editLogoPreview.startsWith('blob:')) {
-                      URL.revokeObjectURL(editLogoPreview)
-                    }
-                    setEditLogoPreview(f ? URL.createObjectURL(f) : selected?.logo_url || null)
-                  }}
-                />
-              </Button>
-              <Typography variant='caption' sx={{ ml: 2 }}>
-                {editLogoFile ? editLogoFile.name : 'Giữ nguyên nếu không chọn ảnh'}
-              </Typography>
-              {editLogoPreview ? (
-                <Box sx={{ mt: 2 }}>
-                  <Avatar src={editLogoPreview} variant='rounded' sx={{ width: 72, height: 72 }} />
-                </Box>
-              ) : null}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEdit(false)}>Hủy</Button>
-          <Button variant='contained' onClick={handleEdit}>
-            Lưu
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CreateBrandDialog
+        open={openEdit}
+        onClose={() => {
+          setOpenEdit(false)
+          setSelected(null)
+        }}
+        onSuccess={handleEditSuccess}
+        editData={selected}
+      />
 
       {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin thương hiệu</DialogTitle>
+      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='sm'>
+        <DialogTitle
+          sx={{
+            color: 'primary.main',
+            fontWeight: 700,
+            borderBottom: theme => `1px solid ${theme.palette.divider}`
+          }}
+        >
+          Thông tin thương hiệu
+        </DialogTitle>
         <DialogContent>
           {viewing ? (
-            <Box sx={{ mt: 1 }}>
-              <Stack direction='row' spacing={2} alignItems='center'>
-                <Avatar src={viewing.logo_url || undefined} variant='rounded' sx={{ width: 72, height: 72 }} />
-                <Box>
-                  <Typography variant='h6'>{viewing.name}</Typography>
-                  <Chip
-                    label={viewing.del_flag === '1' ? 'Đã xóa' : 'Hoạt động'}
-                    color={viewing.del_flag === '1' ? 'error' : 'success'}
-                    size='small'
-                    variant='outlined'
-                  />
-                </Box>
-              </Stack>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant='subtitle2' color='text.secondary'>
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              {/* Logo và Tên */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Stack direction='row' spacing={2} alignItems='center'>
+                  <Avatar src={viewing.logo_url || undefined} variant='rounded' sx={{ width: 72, height: 72 }} />
+                  <Box>
+                    <Typography variant='caption' color='text.secondary'>
+                      Tên thương hiệu
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5, fontWeight: 500 }}>
+                      {viewing.name}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+
+              {/* Mô tả */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant='caption' color='text.secondary'>
                   Mô tả
                 </Typography>
-                <Typography sx={{ mt: 0.5 }}>{viewing.description || '-'}</Typography>
-              </Box>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Typography variant='body2' sx={{ mt: 0.5 }}>
+                  {viewing.description || '-'}
+                </Typography>
+              </Paper>
+
+              {/* Thông tin hệ thống */}
+              <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.created_at) || '-'}</Typography>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', height: '100%', width: '100%' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Ngày tạo
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5 }}>
+                      {formatCompactVN(viewing.created_at) || '-'}
+                    </Typography>
+                  </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.updated_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.created_by || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.updated_by || '-'}</Typography>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', height: '100%', width: '100%' }}>
+                    <Typography variant='caption' color='text.secondary'>
+                      Ngày cập nhật
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5 }}>
+                      {formatCompactVN(viewing.updated_at) || '-'}
+                    </Typography>
+                  </Paper>
                 </Grid>
               </Grid>
-            </Box>
+            </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>

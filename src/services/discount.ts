@@ -96,11 +96,18 @@ export type TV1ListResponse = {
 }
 
 export const v1CreateDiscount = async (data: TV1CreateDiscountReq): Promise<{ discount: TV1Discount }> => {
-  const res = await axiosInstance.post(`${CONFIG_API.DISCOUNT.INDEX}`, data, {
-    headers: { 'Content-Type': 'application/json' }
-  })
-
-  return res.data
+  try {
+    console.log('Creating discount with data:', data)
+    const res = await axiosInstance.post(`${CONFIG_API.DISCOUNT.INDEX}`, data, {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    console.log('Create discount response:', res.data)
+    return res.data
+  } catch (error: any) {
+    console.error('Error creating discount:', error)
+    console.error('Error response:', error?.response?.data)
+    throw error
+  }
 }
 
 export const v1GetDiscounts = async (queryParams?: Record<string, any>): Promise<TV1ListResponse> => {
@@ -134,11 +141,20 @@ export const v1UpdateDiscount = async (
   id: string,
   data: Omit<TV1CreateDiscountReq, 'code'>
 ): Promise<{ success: boolean }> => {
-  const res = await axiosInstance.put(`${CONFIG_API.DISCOUNT.INDEX}/${id}`, data, {
-    headers: { 'Content-Type': 'application/json' }
-  })
-
-  return res.data
+  try {
+    console.log('Updating discount ID:', id)
+    console.log('Update data:', data)
+    const res = await axiosInstance.put(`${CONFIG_API.DISCOUNT.INDEX}/${id}`, data, {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    console.log('Update response:', res.data)
+    return res.data
+  } catch (error: any) {
+    console.error('Error updating discount:', error)
+    console.error('Error response data:', error?.response?.data)
+    console.error('Error status:', error?.response?.status)
+    throw error
+  }
 }
 
 export const v1DeleteDiscount = async (id: string): Promise<{ success: boolean }> => {

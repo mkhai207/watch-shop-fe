@@ -34,7 +34,7 @@ export const formatCompactVN = (compact?: string | null): string => {
   const minute = s.slice(10, 12)
   const second = s.slice(12, 14)
   // Display exactly as provided (no timezone conversion)
-  return `${hour}:${minute}:${second} ${day}/${month}/${year}`
+  return `${day}/${month}/${year} ${hour}:${minute}:${second}`
 }
 
 // Convert compact timestamp to YYYY-MM-DD for date input

@@ -7,11 +7,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -19,7 +16,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
@@ -42,7 +38,6 @@ import {
   v1GetDiscountById,
   v1GetDiscounts,
   v1UpdateDiscount,
-  type TV1CreateDiscountReq,
   type TV1Discount
 } from 'src/services/discount'
 
@@ -277,59 +272,9 @@ const DiscountPage: NextPage = () => {
   }
 
   const [openCreate, setOpenCreate] = useState<boolean>(false)
-  const [createForm, setCreateForm] = useState<TV1CreateDiscountReq>({
-    code: '',
-    name: '',
-    description: '',
-    min_order_value: 0,
-    discount_type: '0',
-    discount_value: 0,
-    effective_date: '',
-    valid_until: '',
-    max_discount_amount: null
-  })
-  const [createEffectiveDate, setCreateEffectiveDate] = useState<string>('')
-  const [createValidUntil, setCreateValidUntil] = useState<string>('')
 
   const handleOpenCreate = () => {
-    setCreateForm({
-      code: '',
-      name: '',
-      description: '',
-      min_order_value: 0,
-      discount_type: '0',
-      discount_value: 0,
-      effective_date: '',
-      valid_until: '',
-      max_discount_amount: null
-    })
-    setCreateEffectiveDate('')
-    setCreateValidUntil('')
     setOpenCreate(true)
-  }
-
-  const handleCreate = async () => {
-    if (!createForm.code.trim()) return toast.error('Mã khuyến mãi không được để trống')
-    if (!createForm.name.trim()) return toast.error('Tên khuyến mãi không được để trống')
-    if (!createForm.effective_date || !createForm.valid_until) return toast.error('Vui lòng nhập ngày hiệu lực')
-    try {
-      setActionLoading(true)
-      const res = await v1CreateDiscount(createForm)
-      if ((res as any)?.discount) {
-        toast.success('Tạo khuyến mãi thành công')
-        setOpenCreate(false)
-
-        // Refresh data with current filters
-        const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
-        fetchData(queryParams)
-      } else {
-        throw new Error('Tạo thất bại')
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Tạo thất bại')
-    } finally {
-      setActionLoading(false)
-    }
   }
 
   const [openEdit, setOpenEdit] = useState<boolean>(false)
@@ -451,6 +396,9 @@ const DiscountPage: NextPage = () => {
               <TableCell align='center' width={250}>
                 Hiệu lực
               </TableCell>
+              <TableCell align='center' width={140}>
+                Ngày tạo
+              </TableCell>
               <TableCell align='right' width={120}>
                 Thao tác
               </TableCell>
@@ -519,6 +467,11 @@ const DiscountPage: NextPage = () => {
                       {formatCompactVN(item.effective_date)} - {formatCompactVN(item.valid_until)}
                     </Typography>
                   </TableCell>
+                  <TableCell align='center'>
+                    <Typography variant='body2' sx={{ whiteSpace: 'nowrap' }}>
+                      {formatCompactVN(item.created_at)}
+                    </Typography>
+                  </TableCell>
                   <TableCell align='right'>
                     <Stack direction='row' spacing={1} justifyContent='flex-end'>
                       <IconButton size='small' onClick={() => handleOpenView(item)}>
@@ -546,7 +499,7 @@ const DiscountPage: NextPage = () => {
             })}
             {paginatedData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} align='center'>
+                <TableCell colSpan={10} align='center'>
                   {loading ? 'Đang tải...' : 'Không có dữ liệu'}
                 </TableCell>
               </TableRow>
@@ -567,117 +520,29 @@ const DiscountPage: NextPage = () => {
       </TableContainer>
 
       {/* Create Dialog */}
-      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='sm'>
-        <DialogTitle>Thêm khuyến mãi</DialogTitle>
-        <DialogContent>
-          <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label='Mã'
-                  fullWidth
-                  value={createForm.code}
-                  onChange={e => setCreateForm({ ...createForm, code: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={8}>
-                <TextField
-                  label='Tên'
-                  fullWidth
-                  value={createForm.name}
-                  onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label='Mô tả'
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  value={createForm.description}
-                  onChange={e => setCreateForm({ ...createForm, description: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='number'
-                  label='Giá trị giảm'
-                  fullWidth
-                  value={createForm.discount_value}
-                  onChange={e => setCreateForm({ ...createForm, discount_value: Number(e.target.value) })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Select
-                  fullWidth
-                  value={createForm.discount_type}
-                  onChange={e => setCreateForm({ ...createForm, discount_type: e.target.value as any })}
-                >
-                  <MenuItem value='0'>Cố định</MenuItem>
-                  <MenuItem value='1'>Tỷ lệ %</MenuItem>
-                </Select>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='number'
-                  label='Đơn hàng tối thiểu'
-                  fullWidth
-                  value={createForm.min_order_value}
-                  onChange={e => setCreateForm({ ...createForm, min_order_value: Number(e.target.value) })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='number'
-                  label='Mức giảm tối đa'
-                  fullWidth
-                  value={createForm.max_discount_amount ?? ''}
-                  onChange={e =>
-                    setCreateForm({
-                      ...createForm,
-                      max_discount_amount: e.target.value === '' ? null : Number(e.target.value)
-                    })
-                  }
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='date'
-                  label='Hiệu lực từ'
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  value={createEffectiveDate}
-                  onChange={e => {
-                    const v = e.target.value
-                    setCreateEffectiveDate(v)
-                    setCreateForm({ ...createForm, effective_date: dateStrToCompact(v) })
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type='date'
-                  label='Hiệu lực đến'
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  value={createValidUntil}
-                  onChange={e => {
-                    const v = e.target.value
-                    setCreateValidUntil(v)
-                    setCreateForm({ ...createForm, valid_until: dateStrToCompact(v) })
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCreate(false)}>Hủy</Button>
-          <Button variant='contained' onClick={handleCreate}>
-            Tạo
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DiscountEditDialog
+        open={openCreate}
+        discount={null}
+        onClose={() => setOpenCreate(false)}
+        onSubmit={async data => {
+          try {
+            const res = await v1CreateDiscount(data)
+            if ((res as any)?.discount) {
+              toast.success('Tạo khuyến mãi thành công')
+              setOpenCreate(false)
+              const queryParams = buildBackendQuery(debouncedFilterValues, filterConfig)
+              fetchData(queryParams)
+            } else {
+              toast.error('Tạo khuyến mãi thất bại')
+              throw new Error('Tạo khuyến mãi thất bại')
+            }
+          } catch (error: any) {
+            const errorMsg = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+            toast.error(`Tạo khuyến mãi thất bại: ${errorMsg}`)
+            throw error
+          }
+        }}
+      />
 
       {/* Edit Dialog */}
       <DiscountEditDialog

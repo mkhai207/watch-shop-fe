@@ -58,6 +58,9 @@ interface EditWatchDialogProps {
   onVariantDraftChange?: (draft: Omit<TWatchVariant, 'id' | 'watch_id' | 'price'>) => void
   onAddVariantDraft?: () => void
   onRemoveVariantDraft?: (index: number) => void
+  formErrors?: Partial<Record<keyof TCreateWatch | 'variants', string>>
+  onClearFieldError?: (field: keyof TCreateWatch | 'variants') => void
+  onFieldBlurValidate?: (field: keyof TCreateWatch, value: any) => void
 }
 
 const InfoField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -97,7 +100,10 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
   onUploadSlider,
   onVariantDraftChange,
   onAddVariantDraft,
-  onRemoveVariantDraft
+  onRemoveVariantDraft,
+  formErrors,
+  onClearFieldError,
+  onFieldBlurValidate
 }) => {
   const [expandMlInfo, setExpandMlInfo] = React.useState(false)
   const sliderImages = React.useMemo(
@@ -203,7 +209,13 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       fullWidth
                       size='small'
                       value={editForm.code}
-                      onChange={e => onFormChange({ ...editForm, code: e.target.value })}
+                      onChange={e => {
+                        onFormChange({ ...editForm, code: e.target.value })
+                        onClearFieldError?.('code')
+                      }}
+                      onBlur={e => onFieldBlurValidate?.('code', e.target.value)}
+                      error={!!formErrors?.code}
+                      helperText={formErrors?.code || ''}
                       sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
                     />
                   </InfoField>
@@ -212,7 +224,13 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       fullWidth
                       size='small'
                       value={editForm.name}
-                      onChange={e => onFormChange({ ...editForm, name: e.target.value })}
+                      onChange={e => {
+                        onFormChange({ ...editForm, name: e.target.value })
+                        onClearFieldError?.('name')
+                      }}
+                      onBlur={e => onFieldBlurValidate?.('name', e.target.value)}
+                      error={!!formErrors?.name}
+                      helperText={formErrors?.name || ''}
                       sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
                     />
                   </InfoField>
@@ -221,7 +239,13 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       fullWidth
                       size='small'
                       value={editForm.model || ''}
-                      onChange={e => onFormChange({ ...editForm, model: e.target.value })}
+                      onChange={e => {
+                        onFormChange({ ...editForm, model: e.target.value })
+                        onClearFieldError?.('model')
+                      }}
+                      onBlur={e => onFieldBlurValidate?.('model', e.target.value)}
+                      error={!!formErrors?.model}
+                      helperText={formErrors?.model || ''}
                       sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
                     />
                   </InfoField>
@@ -231,7 +255,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       size='small'
                       displayEmpty
                       value={editForm.brand_id as any}
-                      onChange={e => onFormChange({ ...editForm, brand_id: e.target.value as any })}
+                      onChange={e => {
+                        onFormChange({ ...editForm, brand_id: e.target.value as any })
+                        onClearFieldError?.('brand_id')
+                      }}
+                      error={!!formErrors?.brand_id}
                       sx={{ bgcolor: 'background.paper' }}
                     >
                       <MenuItem value=''>Chọn thương hiệu</MenuItem>
@@ -243,6 +271,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                           </MenuItem>
                         ))}
                     </Select>
+                    {formErrors?.brand_id && (
+                      <Typography variant='caption' color='error' sx={{ mt: 0.5, display: 'block' }}>
+                        {formErrors.brand_id}
+                      </Typography>
+                    )}
                   </InfoField>
                   <InfoField label='Phân loại'>
                     <Select
@@ -250,7 +283,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       size='small'
                       displayEmpty
                       value={editForm.category_id as any}
-                      onChange={e => onFormChange({ ...editForm, category_id: e.target.value as any })}
+                      onChange={e => {
+                        onFormChange({ ...editForm, category_id: e.target.value as any })
+                        onClearFieldError?.('category_id')
+                      }}
+                      error={!!formErrors?.category_id}
                       sx={{ bgcolor: 'background.paper' }}
                     >
                       <MenuItem value=''>Chọn phân loại</MenuItem>
@@ -262,6 +299,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                           </MenuItem>
                         ))}
                     </Select>
+                    {formErrors?.category_id && (
+                      <Typography variant='caption' color='error' sx={{ mt: 0.5, display: 'block' }}>
+                        {formErrors.category_id}
+                      </Typography>
+                    )}
                   </InfoField>
                   <InfoField label='Loại máy'>
                     <Select
@@ -269,7 +311,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       size='small'
                       displayEmpty
                       value={editForm.movement_type_id as any}
-                      onChange={e => onFormChange({ ...editForm, movement_type_id: e.target.value as any })}
+                      onChange={e => {
+                        onFormChange({ ...editForm, movement_type_id: e.target.value as any })
+                        onClearFieldError?.('movement_type_id')
+                      }}
+                      error={!!formErrors?.movement_type_id}
                       sx={{ bgcolor: 'background.paper' }}
                     >
                       <MenuItem value=''>Chọn loại máy</MenuItem>
@@ -281,6 +327,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                           </MenuItem>
                         ))}
                     </Select>
+                    {formErrors?.movement_type_id && (
+                      <Typography variant='caption' color='error' sx={{ mt: 0.5, display: 'block' }}>
+                        {formErrors.movement_type_id}
+                      </Typography>
+                    )}
                   </InfoField>
                   <Grid item xs={12}>
                     <Box sx={{ p: 1.5, borderRadius: 1.5, bgcolor: theme => theme.palette.action.hover }}>
@@ -293,7 +344,13 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                         minRows={2}
                         size='small'
                         value={editForm.description || ''}
-                        onChange={e => onFormChange({ ...editForm, description: e.target.value })}
+                        onChange={e => {
+                          onFormChange({ ...editForm, description: e.target.value })
+                          onClearFieldError?.('description')
+                        }}
+                        onBlur={e => onFieldBlurValidate?.('description', e.target.value)}
+                        error={!!formErrors?.description}
+                        helperText={formErrors?.description || ''}
                         sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
                       />
                     </Box>
@@ -346,17 +403,31 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       <TextField
                         fullWidth
                         size='small'
-                        value={editForm.base_price ? editForm.base_price.toLocaleString('vi-VN') : ''}
+                        value={editForm.base_price !== undefined && editForm.base_price !== null ? editForm.base_price.toLocaleString('vi-VN') : ''}
                         onChange={e => {
                           const value = e.target.value.replace(/\./g, '')
-                          const numValue = value === '' ? 0 : Number(value)
-                          if (!isNaN(numValue)) {
-                            onFormChange({ ...editForm, base_price: numValue })
+                          if (value === '') {
+                            onFormChange({ ...editForm, base_price: '' as any })
+                          } else {
+                            const numValue = Number(value)
+                            if (!isNaN(numValue)) {
+                              onFormChange({ ...editForm, base_price: numValue })
+                            }
                           }
+                          onClearFieldError?.('base_price')
                         }}
                         onFocus={e => {
-                          if (editForm.base_price === 0) e.target.select()
+                          e.target.select()
                         }}
+                        onBlur={e => {
+                          const value = e.target.value.replace(/\./g, '')
+                          if (value === '') {
+                            onFormChange({ ...editForm, base_price: 0 })
+                          }
+                          onFieldBlurValidate?.('base_price', value || '0')
+                        }}
+                        error={!!formErrors?.base_price}
+                        helperText={formErrors?.base_price || ''}
                         sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
                       />
                     </Box>
@@ -705,6 +776,11 @@ const EditWatchDialog: React.FC<EditWatchDialogProps> = ({
                       </TableBody>
                     </Table>
                   </TableContainer>
+                  {formErrors?.variants && (
+                    <Typography variant='caption' color='error' sx={{ mt: 0.5, display: 'block' }}>
+                      {formErrors.variants}
+                    </Typography>
+                  )}
                 </Grid>
               </Grid>
             </Box>

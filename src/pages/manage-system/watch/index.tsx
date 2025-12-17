@@ -1,5 +1,4 @@
 import AddIcon from '@mui/icons-material/Add'
-import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -28,6 +27,7 @@ import {
 } from '@mui/material'
 import type { NextPage } from 'next'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import AdvancedFilter, { FilterConfig, useAdvancedFilter } from 'src/components/advanced-filter'
 import CustomPagination from 'src/components/custom-pagination'
@@ -39,6 +39,7 @@ import { getColors } from 'src/services/color'
 import { uploadImage, uploadMultipleImages } from 'src/services/file'
 import { getMovementTypes } from 'src/services/movementType'
 import { getStrapMaterials } from 'src/services/strapMaterial'
+import { dateInputToCompact, formatCompactVN } from 'src/utils/date'
 import {
   createWatch,
   createWatchVariant,
@@ -63,9 +64,17 @@ import type {
   TWatchVariant
 } from 'src/types/watch'
 import ManageSystemLayout from 'src/views/layouts/ManageSystemLayout'
-import MLFields from 'src/components/ml-fields/MLFields'
 import WatchDetailDialog from './WatchDetailDialog'
 import EditWatchDialog from './EditWatchDialog'
+
+const getTodayReleaseDate = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return dateInputToCompact(`${year}-${month}-${day}`)
+}
 
 const WatchPage: NextPage = () => {
   const [items, setItems] = useState<TWatch[]>([])
@@ -83,6 +92,9 @@ const WatchPage: NextPage = () => {
   const [movementTypes, setMovementTypes] = useState<TMovementType[]>([])
   const [colors, setColors] = useState<TColor[]>([])
   const [strapMaterials, setStrapMaterials] = useState<TStrapMaterial[]>([])
+
+  // Form validation state
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof TCreateWatch | 'variants', string>>>({})
 
   const filterConfig: FilterConfig = React.useMemo(() => {
     return {
@@ -320,7 +332,7 @@ const WatchPage: NextPage = () => {
     strap_size: undefined,
     gender: '0',
     water_resistance: '',
-    release_date: '',
+    release_date: getTodayReleaseDate(),
     base_price: 0,
     rating: 0,
     status: '1',
@@ -550,7 +562,52 @@ const WatchPage: NextPage = () => {
     }
   }, [items, filterValues.search, filterValues.filters, filterValues.sort, page, pageSize])
 
+  const validateFieldOnBlur = useCallback((field: keyof TCreateWatch, value: any) => {
+    setFormErrors(prev => {
+      const newErrors = { ...prev }
+      
+      if (field === 'base_price') {
+        const num = Number(value)
+        if (Number.isNaN(num)) {
+          newErrors[field] = 'Giá cơ bản không hợp lệ'
+        } else if (num <= 0) {
+          newErrors[field] = 'Giá cơ bản phải lớn hơn 0'
+        } else {
+          delete newErrors[field]
+        }
+
+        return newErrors
+      }
+
+      const str = typeof value === 'string' ? value.trim() : value
+      if (!str) {
+        const messages: Record<string, string> = {
+          code: 'Mã không được để trống',
+          name: 'Tên không được để trống',
+          description: 'Mô tả không được để trống',
+          model: 'Model không được để trống'
+        }
+        const msg = messages[field as string] || 'Trường này không được để trống'
+        newErrors[field] = msg
+      } else {
+        delete newErrors[field]
+      }
+      
+      return newErrors
+    })
+  }, [])
+
+  const clearFieldError = useCallback((field: keyof TCreateWatch | 'variants') => {
+    setFormErrors(prev => {
+      const newErrors = { ...prev }
+      delete newErrors[field]
+
+      return newErrors
+    })
+  }, [])
+
   const resetForm = () => {
+    setFormErrors({})
     setForm({
       code: '',
       name: '',
@@ -561,7 +618,7 @@ const WatchPage: NextPage = () => {
       strap_size: undefined,
       gender: '0',
       water_resistance: '',
-      release_date: '',
+      release_date: getTodayReleaseDate(),
       base_price: 0,
       rating: 0,
       status: '1',
@@ -584,7 +641,17 @@ const WatchPage: NextPage = () => {
 
   const handleAddVariantDraft = () => {
     const v = { ...variantDraft } as any
-    if (!v.color_id || !v.strap_material_id) return toast.error('Chọn màu và vật liệu dây đeo')
+    if (!v.color_id || !v.strap_material_id) {
+      setFormErrors(prev => ({ ...prev, variants: 'Chọn màu và vật liệu dây đeo' }))
+
+      return toast.error('Chọn màu và vật liệu dây đeo')
+    }
+    const stockNumber = Number(v.stock_quantity)
+    if (Number.isNaN(stockNumber) || stockNumber < 0 || !Number.isInteger(stockNumber)) {
+      setFormErrors(prev => ({ ...prev, variants: 'Tồn kho phải là số nguyên >= 0' }))
+
+      return toast.error('Tồn kho phải là số nguyên >= 0')
+    }
     const current = [...(form.variants || [])] as any[]
     const idx = current.findIndex(
       i => String(i.color_id) === String(v.color_id) && String(i.strap_material_id) === String(v.strap_material_id)
@@ -597,6 +664,7 @@ const WatchPage: NextPage = () => {
       current.push(v)
     }
     setForm(prev => ({ ...prev, variants: current }))
+    clearFieldError('variants')
     setVariantDraft({ color_id: '' as any, strap_material_id: '' as any, stock_quantity: 0 } as any)
   }
 
@@ -607,18 +675,43 @@ const WatchPage: NextPage = () => {
   }
 
   const handleCreate = async () => {
-    if (!form.name.trim()) {
-      toast.error('Tên không được để trống')
-
-      return
+    // Validate all fields
+    const errors: Partial<Record<keyof TCreateWatch | 'variants', string>> = {}
+    
+    if (!form.code.trim()) errors.code = 'Mã không được để trống'
+    if (!form.name.trim()) errors.name = 'Tên không được để trống'
+    if (!(form.description || '').trim()) errors.description = 'Mô tả không được để trống'
+    if (!(form.model || '').trim()) errors.model = 'Model không được để trống'
+    
+    const basePrice = Number(form.base_price)
+    if (Number.isNaN(basePrice)) {
+      errors.base_price = 'Giá cơ bản không hợp lệ'
+    } else if (basePrice <= 0) {
+      errors.base_price = 'Giá cơ bản phải lớn hơn 0'
     }
-    if (!form.code.trim()) {
-      toast.error('Mã không được để trống')
-
-      return
+    
+    if (!form.brand_id) errors.brand_id = 'Chọn thương hiệu'
+    if (!form.category_id) errors.category_id = 'Chọn phân loại'
+    if (!form.movement_type_id) errors.movement_type_id = 'Chọn loại máy'
+    
+    if (!form.variants || form.variants.length === 0) {
+      errors.variants = 'Cần ít nhất 1 biến thể'
+    } else {
+      form.variants.forEach((v: any, idx: number) => {
+        if (!v.color_id || !v.strap_material_id) {
+          errors.variants = `Biến thể #${idx + 1} thiếu màu hoặc vật liệu dây`
+        }
+        const stock = Number(v.stock_quantity)
+        if (Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
+          errors.variants = `Tồn kho biến thể #${idx + 1} phải là số nguyên >= 0`
+        }
+      })
     }
-    if (!form.brand_id || !form.category_id || !form.movement_type_id) {
-      toast.error('Chọn đủ thương hiệu, phân loại, loại máy')
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      const firstError = Object.values(errors)[0]
+      toast.error(firstError)
       
       return
     }
@@ -677,7 +770,7 @@ const WatchPage: NextPage = () => {
     strap_size: undefined,
     gender: '0',
     water_resistance: '',
-    release_date: '',
+    release_date: getTodayReleaseDate(),
     base_price: 0,
     rating: 0,
     status: '1',
@@ -861,15 +954,16 @@ const WatchPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90}>STT</TableCell>
-              <TableCell width={160}>Mã</TableCell>
-              <TableCell width={100}>Ảnh mô tả</TableCell>
-              <TableCell>Tên</TableCell>
-              <TableCell width={140}>Giá cơ bản</TableCell>
-              <TableCell width={120}>Giới tính</TableCell>
-              <TableCell width={120}>Trạng thái</TableCell>
+              <TableCell width={90} sx={{ whiteSpace: 'nowrap' }}>STT</TableCell>
+              <TableCell width={160} sx={{ whiteSpace: 'nowrap' }}>Mã</TableCell>
+              <TableCell width={100} sx={{ whiteSpace: 'nowrap' }}>Ảnh</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>Tên</TableCell>
+              <TableCell width={140} sx={{ whiteSpace: 'nowrap' }}>Giá</TableCell>
+              <TableCell width={120} sx={{ whiteSpace: 'nowrap' }}>Giới tính</TableCell>
+              <TableCell width={120} sx={{ whiteSpace: 'nowrap' }}>Trạng thái</TableCell>
+              <TableCell width={180} sx={{ whiteSpace: 'nowrap' }}>Ngày tạo</TableCell>
               {/* <TableCell width={120}>Biến thể</TableCell> */}
-              <TableCell width={160} align='right'>
+              <TableCell width={160} align='right' sx={{ whiteSpace: 'nowrap' }}>
                 Thao tác
               </TableCell>
             </TableRow>
@@ -934,6 +1028,7 @@ const WatchPage: NextPage = () => {
                     />
                   )}
                 </TableCell>
+                <TableCell>{formatCompactVN(row.created_at)}</TableCell>
                 {/* <TableCell>{variantCountByWatchId[String(row.id)] || 0}</TableCell> */}
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
@@ -1033,6 +1128,9 @@ const WatchPage: NextPage = () => {
         onClose={() => setOpenCreate(false)}
         onFormChange={setForm}
         onSave={handleCreate}
+        formErrors={formErrors}
+        onClearFieldError={clearFieldError}
+        onFieldBlurValidate={validateFieldOnBlur}
         onUploadThumbnail={async (file: File) => {
           try {
             setThumbUploading(true)

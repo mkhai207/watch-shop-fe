@@ -11,7 +11,9 @@ import {
   Chip,
   Grid,
   Divider,
-  IconButton
+  IconButton,
+  Stack,
+  Paper
 } from '@mui/material'
 import { Close } from '@mui/icons-material'
 import { IUser } from 'src/types/user'
@@ -74,9 +76,9 @@ const UserDetailDialog: React.FC<UserDetailDialogProps> = ({ open, user, onClose
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth>
-      <DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}>
         <Box display='flex' alignItems='center' justifyContent='space-between'>
-          <Typography variant='h6'>Chi tiết người dùng</Typography>
+          <Typography variant='h6' sx={{ fontWeight: 700, color: 'inherit' }}>Chi tiết người dùng</Typography>
           <IconButton onClick={onClose}>
             <Close />
           </IconButton>
@@ -117,73 +119,90 @@ const UserDetailDialog: React.FC<UserDetailDialogProps> = ({ open, user, onClose
             <Divider sx={{ mb: 3 }} />
 
             {/* Basic Information */}
-            <Typography variant='h6' gutterBottom>
+            <Typography variant='h6' gutterBottom sx={{ mb: 2 }}>
               Thông tin cơ bản
             </Typography>
-            <Grid container spacing={3} mb={3}>
-              <Grid item xs={12} md={6}>
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+            <Grid container spacing={2} mb={3}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Họ
                   </Typography>
-                  <Typography variant='body1'>{displayUser.first_name || 'Chưa cập nhật'}</Typography>
-                </Box>
-
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
-                    Tên
+                  <Typography variant='body2' fontWeight={500}>
+                    {displayUser.first_name || 'Chưa cập nhật'}
                   </Typography>
-                  <Typography variant='body1'>{displayUser.last_name || 'Chưa cập nhật'}</Typography>
-                </Box>
-
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
-                    Tên đăng nhập
-                  </Typography>
-                  <Typography variant='body1'>{displayUser.username}</Typography>
-                </Box>
-
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
-                    Email
-                  </Typography>
-                  <Typography variant='body1'>{displayUser.email}</Typography>
                 </Box>
               </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
+                    Tên
+                  </Typography>
+                  <Typography variant='body2' fontWeight={500}>
+                    {displayUser.last_name || 'Chưa cập nhật'}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
+                    Tên đăng nhập
+                  </Typography>
+                  <Typography variant='body2' fontWeight={500}>
+                    {displayUser.username}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
+                    Email
+                  </Typography>
+                  <Typography variant='body2' fontWeight={500}>
+                    {displayUser.email}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Số điện thoại
                   </Typography>
-                  <Typography variant='body1'>{displayUser.phone_number || 'Chưa cập nhật'}</Typography>
+                  <Typography variant='body2' fontWeight={500}>
+                    {displayUser.phone_number || 'Chưa cập nhật'}
+                  </Typography>
                 </Box>
-
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Giới tính
                   </Typography>
-                  <Typography variant='body1'>
+                  <Typography variant='body2' fontWeight={500}>
                     {displayUser.gender === '0' ? 'Nam' : displayUser.gender === '1' ? 'Nữ' : 'Chưa cập nhật'}
                   </Typography>
                 </Box>
-
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Ngày sinh
                   </Typography>
-                  <Typography variant='body1'>
+                  <Typography variant='body2' fontWeight={500}>
                     {displayUser.date_of_birth
                       ? dayjs(displayUser.date_of_birth, 'YYYYMMDD').format('DD/MM/YYYY')
                       : 'Chưa cập nhật'}
                   </Typography>
                 </Box>
-
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Địa chỉ
                   </Typography>
-                  <Typography variant='body1'>{displayUser.address || 'Chưa cập nhật'}</Typography>
+                  <Typography variant='body2' fontWeight={500}>
+                    {displayUser.address || 'Chưa cập nhật'}
+                  </Typography>
                 </Box>
               </Grid>
             </Grid>
@@ -200,19 +219,19 @@ const UserDetailDialog: React.FC<UserDetailDialogProps> = ({ open, user, onClose
                   <Grid item xs={12} md={6}>
                     {displayUser.age_group && (
                       <Box mb={2}>
-                        <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+                        <Typography variant='subtitle2' color='text.secondary' gutterBottom fontWeight={600}>
                           Nhóm tuổi
                         </Typography>
-                        <Typography variant='body1'>{displayUser.age_group}</Typography>
+                        <Typography variant='body1' color='text.primary'>{displayUser.age_group}</Typography>
                       </Box>
                     )}
 
                     {displayUser.gender_preference && (
                       <Box mb={2}>
-                        <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+                        <Typography variant='subtitle2' color='text.secondary' gutterBottom fontWeight={600}>
                           Sở thích giới tính
                         </Typography>
-                        <Typography variant='body1'>{displayUser.gender_preference}</Typography>
+                        <Typography variant='body1' color='text.primary'>{displayUser.gender_preference}</Typography>
                       </Box>
                     )}
                   </Grid>
@@ -220,10 +239,10 @@ const UserDetailDialog: React.FC<UserDetailDialogProps> = ({ open, user, onClose
                   <Grid item xs={12} md={6}>
                     {displayUser.price_range_preference && (
                       <Box mb={2}>
-                        <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+                        <Typography variant='subtitle2' color='text.secondary' gutterBottom fontWeight={600}>
                           Khoảng giá yêu thích
                         </Typography>
-                        <Typography variant='body1'>{displayUser.price_range_preference}</Typography>
+                        <Typography variant='body1' color='text.primary'>{displayUser.price_range_preference}</Typography>
                       </Box>
                     )}
                   </Grid>
@@ -234,27 +253,27 @@ const UserDetailDialog: React.FC<UserDetailDialogProps> = ({ open, user, onClose
             )}
 
             {/* System Information */}
-            <Typography variant='h6' gutterBottom>
+            <Typography variant='h6' gutterBottom sx={{ mb: 2 }}>
               Thông tin hệ thống
             </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Ngày tạo
                   </Typography>
-                  <Typography variant='body1'>
+                  <Typography variant='body2' fontWeight={500}>
                     {dayjs(displayUser.created_at, 'YYYYMMDDHHMMSS').format('DD/MM/YYYY HH:mm:ss')}
                   </Typography>
                 </Box>
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Box mb={2}>
-                  <Typography variant='subtitle2' color='text.secondary' gutterBottom>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant='caption' color='text.secondary' display='block' mb={0.5}>
                     Ngày cập nhật
                   </Typography>
-                  <Typography variant='body1'>
+                  <Typography variant='body2' fontWeight={500}>
                     {displayUser.updated_at
                       ? dayjs(displayUser.updated_at, 'YYYYMMDDHHMMSS').format('DD/MM/YYYY HH:mm:ss')
                       : 'Chưa cập nhật'}
