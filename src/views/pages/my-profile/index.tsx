@@ -21,10 +21,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Autocomplete
+  Autocomplete,
+  Badge
 } from '@mui/material'
 import { NextPage } from 'next'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from 'src/hooks/useAuth'
 import toast from 'react-hot-toast'
@@ -33,6 +34,7 @@ import Spinner from 'src/components/spinner'
 import { CONFIG_API } from 'src/configs/api'
 import instanceAxios from 'src/helpers/axios'
 import { formatCompactVN } from 'src/utils/date'
+import { uploadImage } from 'src/services/file'
 
 type TProps = {}
 
@@ -54,6 +56,7 @@ interface UserData {
   brand_preferences: string[]
   category_preferences: string[]
   style_preferences: string[]
+  avatar_url?: string
   created_at: string
   created_by: string | null
   updated_at: string
@@ -88,6 +91,9 @@ const MyProfilePage: NextPage<TProps> = () => {
   const [defaultAddress, setDefaultAddress] = useState<AddressData | null>(null)
   const [openEditDialog, setOpenEditDialog] = useState(false)
   const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -108,6 +114,8 @@ const MyProfilePage: NextPage<TProps> = () => {
     confirm_password: ''
   })
   const [updateLoading, setUpdateLoading] = useState(false)
+  const [avatarUploadLoading, setAvatarUploadLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchUserData = async () => {
     try {
@@ -263,12 +271,6 @@ const MyProfilePage: NextPage<TProps> = () => {
         return
       }
 
-      if (!editForm.phone_number.trim()) {
-        toast.error('Số điện thoại không được để trống')
-
-        return
-      }
-
       const updateData = {
         first_name: editForm.first_name,
         last_name: editForm.last_name,
@@ -302,6 +304,59 @@ const MyProfilePage: NextPage<TProps> = () => {
       toast.error(error?.response?.data?.message || error?.message || 'Cập nhật thất bại')
     } finally {
       setUpdateLoading(false)
+    }
+  }
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file ảnh')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 5MB')
+      return
+    }
+
+    try {
+      setAvatarUploadLoading(true)
+
+      // Upload image
+      const uploadResponse = await uploadImage(file)
+
+      if (uploadResponse?.uploadedImage?.url) {
+        // Update user with new avatar_url
+        const updateResponse = await instanceAxios.put(`${CONFIG_API.AUTH.UPDATE_USER}/${userData?.id}`, {
+          avatar_url: uploadResponse.uploadedImage.url
+        })
+
+        if (updateResponse?.data) {
+          toast.success('Cập nhật ảnh đại diện thành công')
+          await fetchUserData()
+        } else {
+          throw new Error('Cập nhật thất bại')
+        }
+      } else {
+        throw new Error('Upload ảnh thất bại')
+      }
+    } catch (error: any) {
+      console.error('Avatar upload error:', error)
+      toast.error(error?.response?.data?.message || error?.message || 'Cập nhật ảnh đại diện thất bại')
+    } finally {
+      setAvatarUploadLoading(false)
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -402,17 +457,44 @@ const MyProfilePage: NextPage<TProps> = () => {
         <Box sx={{ position: 'relative', zIndex: 1 }}>
           <Grid container spacing={3} alignItems='center'>
             <Grid item xs={12} sm='auto'>
-              <Avatar
-                sx={{
-                  width: 120,
-                  height: 120,
-                  border: '4px solid rgba(255, 255, 255, 0.3)',
-                  fontSize: '3rem',
-                  bgcolor: 'rgba(255, 255, 255, 0.2)'
-                }}
+              <input
+                ref={fileInputRef}
+                type='file'
+                accept='image/*'
+                style={{ display: 'none' }}
+                onChange={handleAvatarChange}
+              />
+              <Badge
+                overlap='circular'
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                badgeContent={
+                  <IconButton
+                    size='small'
+                    onClick={handleAvatarClick}
+                    disabled={avatarUploadLoading}
+                    sx={{
+                      bgcolor: 'white',
+                      boxShadow: 2,
+                      '&:hover': { bgcolor: 'grey.100' }
+                    }}
+                  >
+                    <IconifyIcon icon='mdi:pencil' fontSize={20} color='primary' />
+                  </IconButton>
+                }
               >
-                <IconifyIcon icon='mdi:account' fontSize={60} />
-              </Avatar>
+                <Avatar
+                  src={userData.avatar_url}
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    border: '4px solid rgba(255, 255, 255, 0.3)',
+                    fontSize: '3rem',
+                    bgcolor: 'rgba(255, 255, 255, 0.2)'
+                  }}
+                >
+                  {!userData.avatar_url && <IconifyIcon icon='mdi:account' fontSize={60} />}
+                </Avatar>
+              </Badge>
             </Grid>
             <Grid item xs={12} sm>
               <Typography variant='h4' fontWeight='bold' gutterBottom>
@@ -951,28 +1033,49 @@ const MyProfilePage: NextPage<TProps> = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                type='password'
+                type={showCurrentPassword ? 'text' : 'password'}
                 label='Mật khẩu hiện tại'
                 value={passwordForm.current_password}
                 onChange={e => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton onClick={() => setShowCurrentPassword(!showCurrentPassword)} edge='end' size='small'>
+                      <IconifyIcon icon={showCurrentPassword ? 'mdi:eye-off' : 'mdi:eye'} />
+                    </IconButton>
+                  )
+                }}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                type='password'
+                type={showNewPassword ? 'text' : 'password'}
                 label='Mật khẩu mới'
                 value={passwordForm.new_password}
                 onChange={e => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton onClick={() => setShowNewPassword(!showNewPassword)} edge='end' size='small'>
+                      <IconifyIcon icon={showNewPassword ? 'mdi:eye-off' : 'mdi:eye'} />
+                    </IconButton>
+                  )
+                }}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                type='password'
+                type={showConfirmPassword ? 'text' : 'password'}
                 label='Xác nhận mật khẩu mới'
                 value={passwordForm.confirm_password}
                 onChange={e => setPasswordForm(prev => ({ ...prev, confirm_password: e.target.value }))}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge='end' size='small'>
+                      <IconifyIcon icon={showConfirmPassword ? 'mdi:eye-off' : 'mdi:eye'} />
+                    </IconButton>
+                  )
+                }}
               />
             </Grid>
           </Grid>

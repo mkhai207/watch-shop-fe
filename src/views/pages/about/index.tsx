@@ -5,6 +5,7 @@ import { useRouter } from 'next/router'
 
 const AboutPage = () => {
   const router = useRouter()
+
   return (
     <>
       <Head>

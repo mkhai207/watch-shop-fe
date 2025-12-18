@@ -285,7 +285,7 @@ const DiscountEditDialog = ({ open, discount, onClose, onSubmit }: DiscountEditD
       setEffectiveDate(todayStr)
       setValidUntil(sevenDaysStr)
     }
-    
+
     // Reset validation states when dialog opens
     setCodeError('')
     setCodeTouched(false)
@@ -314,13 +314,13 @@ const DiscountEditDialog = ({ open, discount, onClose, onSubmit }: DiscountEditD
     setLoading(true)
     try {
       // Prepare data and remove null/undefined fields
-      let submitData = { ...formData }
-      
+      const submitData = { ...formData }
+
       // Remove max_discount_amount if it's null or undefined
       if (submitData.max_discount_amount === null || submitData.max_discount_amount === undefined) {
         delete submitData.max_discount_amount
       }
-      
+
       // When editing, remove 'code' field as backend doesn't allow updating it
       if (isEditMode) {
         const { code, ...dataWithoutCode } = submitData
@@ -370,7 +370,7 @@ const DiscountEditDialog = ({ open, discount, onClose, onSubmit }: DiscountEditD
               error={!!nameError}
               helperText={nameError}
               required
-            />  
+            />
           </Grid>
 
           <Grid item xs={12}>
@@ -504,7 +504,7 @@ const DiscountEditDialog = ({ open, discount, onClose, onSubmit }: DiscountEditD
           Hủy
         </Button>
         <Button onClick={handleSubmit} variant='contained' disabled={loading}>
-          {loading ? (isEditMode ? 'Đang lưu...' : 'Đang tạo...') : (isEditMode ? 'Lưu' : 'Tạo mới')}
+          {loading ? (isEditMode ? 'Đang lưu...' : 'Đang tạo...') : isEditMode ? 'Lưu' : 'Tạo mới'}
         </Button>
       </DialogActions>
     </Dialog>

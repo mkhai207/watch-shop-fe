@@ -10,9 +10,13 @@ export const loginAuth = async (data: TLoginAuth) => {
 }
 
 export const registerAuth = async (data: TRegisterAuth) => {
-  const res = await axios.post(`${CONFIG_API.AUTH.INDEX}/register`, data)
-  
-  return res.data
+  try {
+    const res = await axios.post(`${CONFIG_API.AUTH.INDEX}/register`, data)
+    return res.data
+  } catch (error: any) {
+    // Trả về error để action xử lý
+    return Promise.reject(error)
+  }
 }
 
 export const updateAuthMe = async (data: TRegisterAuth) => {

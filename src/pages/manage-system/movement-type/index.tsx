@@ -64,6 +64,11 @@ const MovementTypePage: NextPage = () => {
   const [codeInput, setCodeInput] = useState<string>('')
   const [descriptionInput, setDescriptionInput] = useState<string>('')
 
+  const [nameError, setNameError] = useState<string>('')
+  const [codeError, setCodeError] = useState<string>('')
+  const [nameTouched, setNameTouched] = useState<boolean>(false)
+  const [codeTouched, setCodeTouched] = useState<boolean>(false)
+
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTION[0])
   const [totalItems, setTotalItems] = useState(0)
@@ -163,6 +168,28 @@ const MovementTypePage: NextPage = () => {
     setNameInput('')
     setCodeInput('')
     setDescriptionInput('')
+    setNameError('')
+    setCodeError('')
+    setNameTouched(false)
+    setCodeTouched(false)
+  }
+
+  const handleNameBlur = () => {
+    setNameTouched(true)
+    if (!nameInput.trim()) {
+      setNameError('Tên loại máy không được để trống')
+    } else {
+      setNameError('')
+    }
+  }
+
+  const handleCodeBlur = () => {
+    setCodeTouched(true)
+    if (!codeInput.trim()) {
+      setCodeError('Mã loại máy không được để trống')
+    } else {
+      setCodeError('')
+    }
   }
 
   const handleOpenCreate = () => {
@@ -174,7 +201,7 @@ const MovementTypePage: NextPage = () => {
     const payload: TCreateMovementType = {
       name: nameInput.trim(),
       code: codeInput.trim(),
-      description: descriptionInput.trim() || null
+      description: descriptionInput.trim() || ''
     }
     if (!payload.name) return toast.error('Tên không được để trống')
     if (!payload.code) return toast.error('Mã không được để trống')
@@ -204,6 +231,10 @@ const MovementTypePage: NextPage = () => {
       setNameInput(full.name)
       setCodeInput(full.code)
       setDescriptionInput(full.description || '')
+      setNameError('')
+      setCodeError('')
+      setNameTouched(false)
+      setCodeTouched(false)
       setOpenEdit(true)
     } catch (e) {
       toast.error('Không tải được chi tiết')
@@ -217,7 +248,7 @@ const MovementTypePage: NextPage = () => {
     const payload: TUpdateMovementType = {
       name: nameInput.trim(),
       code: codeInput.trim(),
-      description: descriptionInput.trim() || null
+      description: descriptionInput.trim() || ''
     }
     if (!payload.name) return toast.error('Tên không được để trống')
     if (!payload.code) return toast.error('Mã không được để trống')
@@ -320,7 +351,9 @@ const MovementTypePage: NextPage = () => {
               </TableCell>
               <TableCell width={140}>Mã</TableCell>
               <TableCell>Tên loại máy</TableCell>
-              <TableCell width={120}>Trạng thái</TableCell>
+              <TableCell width={150} sx={{ whiteSpace: 'nowrap' }}>
+                Ngày tạo
+              </TableCell>
               <TableCell width={140} align='right'>
                 Thao tác
               </TableCell>
@@ -344,13 +377,7 @@ const MovementTypePage: NextPage = () => {
                 <TableCell sx={{ textDecoration: row.del_flag === '1' ? 'line-through' : 'none' }}>
                   {row.name}
                 </TableCell>
-                <TableCell width={120}>
-                  {row.del_flag === '1' ? (
-                    <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
-                  ) : (
-                    <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
-                  )}
-                </TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCompactVN(row.created_at) || '-'}</TableCell>
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
                     <IconButton size='small' onClick={() => handleOpenView(row)}>
@@ -394,22 +421,37 @@ const MovementTypePage: NextPage = () => {
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thêm loại máy</DialogTitle>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Thêm loại máy</DialogTitle>
         <DialogContent>
           <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
             <TextField
-              autoFocus
               fullWidth
               label='Tên loại máy'
               value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
+              onChange={e => {
+                setNameInput(e.target.value)
+                if (nameTouched && e.target.value.trim()) {
+                  setNameError('')
+                }
+              }}
+              onBlur={handleNameBlur}
+              error={nameTouched && !!nameError}
+              helperText={nameTouched ? nameError || ' ' : ' '}
             />
             <TextField
               sx={{ mt: 2 }}
               fullWidth
               label='Mã (không dấu, viết hoa)'
               value={codeInput}
-              onChange={e => setCodeInput(e.target.value)}
+              onChange={e => {
+                setCodeInput(e.target.value)
+                if (codeTouched && e.target.value.trim()) {
+                  setCodeError('')
+                }
+              }}
+              onBlur={handleCodeBlur}
+              error={codeTouched && !!codeError}
+              helperText={codeTouched ? codeError || ' ' : ' '}
             />
             <TextField
               sx={{ mt: 2 }}
@@ -432,22 +474,37 @@ const MovementTypePage: NextPage = () => {
 
       {/* Edit Dialog */}
       <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Cập nhật loại máy</DialogTitle>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Cập nhật loại máy</DialogTitle>
         <DialogContent>
           <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
             <TextField
-              autoFocus
               fullWidth
               label='Tên loại máy'
               value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
+              onChange={e => {
+                setNameInput(e.target.value)
+                if (nameTouched && e.target.value.trim()) {
+                  setNameError('')
+                }
+              }}
+              onBlur={handleNameBlur}
+              error={nameTouched && !!nameError}
+              helperText={nameTouched ? nameError || ' ' : ' '}
             />
             <TextField
               sx={{ mt: 2 }}
               fullWidth
               label='Mã (không dấu, viết hoa)'
               value={codeInput}
-              onChange={e => setCodeInput(e.target.value)}
+              onChange={e => {
+                setCodeInput(e.target.value)
+                if (codeTouched && e.target.value.trim()) {
+                  setCodeError('')
+                }
+              }}
+              onBlur={handleCodeBlur}
+              error={codeTouched && !!codeError}
+              helperText={codeTouched ? codeError || ' ' : ' '}
             />
             <TextField
               sx={{ mt: 2 }}
@@ -469,59 +526,62 @@ const MovementTypePage: NextPage = () => {
       </Dialog>
 
       {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin loại máy</DialogTitle>
+      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='sm'>
+        <DialogTitle
+          sx={{
+            color: 'primary.main',
+            fontWeight: 700,
+            borderBottom: theme => `1px solid ${theme.palette.divider}`
+          }}
+        >
+          Thông tin loại máy
+        </DialogTitle>
         <DialogContent>
           {selected ? (
-            <Box sx={{ mt: 1 }}>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant='h6'>{selected.name}</Typography>
-                  <Typography variant='body2' color='text.secondary' sx={{ fontFamily: 'monospace' }}>
-                    {selected.code}
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              {/* Tên và Mã */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant='caption' color='text.secondary'>
+                  Tên loại máy
+                </Typography>
+                <Typography variant='body2' sx={{ mt: 0.5, fontWeight: 500 }}>
+                  {selected.name}
+                </Typography>
+                <Typography variant='caption' color='text.secondary' sx={{ mt: 1, display: 'block' }}>
+                  Mã: {selected.code}
+                </Typography>
+              </Paper>
+
+              {/* Mô tả */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant='caption' color='text.secondary'>
+                  Mô tả
+                </Typography>
+                <Typography variant='body2' sx={{ mt: 0.5 }}>
+                  {selected.description || '-'}
+                </Typography>
+              </Paper>
+
+              {/* Thông tin hệ thống */}
+              <Stack direction='row' spacing={2}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Ngày tạo
                   </Typography>
-                  <Chip
-                    label={selected.del_flag === '1' ? 'Đã xóa' : 'Hoạt động'}
-                    color={selected.del_flag === '1' ? 'error' : 'success'}
-                    size='small'
-                    variant='outlined'
-                    sx={{ mt: 1 }}
-                  />
-                </Box>
-                <Box>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Mô tả
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {formatCompactVN(selected.created_at) || '-'}
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{selected.description || '-'}</Typography>
-                </Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant='subtitle2' color='text.secondary'>
-                      Tạo lúc
-                    </Typography>
-                    <Typography sx={{ mt: 0.5 }}>{formatCompactVN(selected.created_at) || '-'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant='subtitle2' color='text.secondary'>
-                      Cập nhật lúc
-                    </Typography>
-                    <Typography sx={{ mt: 0.5 }}>{formatCompactVN(selected.updated_at) || '-'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant='subtitle2' color='text.secondary'>
-                      Tạo bởi
-                    </Typography>
-                    <Typography sx={{ mt: 0.5 }}>{selected.created_by || '-'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant='subtitle2' color='text.secondary'>
-                      Cập nhật bởi
-                    </Typography>
-                    <Typography sx={{ mt: 0.5 }}>{selected.updated_by || '-'}</Typography>
-                  </Grid>
-                </Grid>
+                </Paper>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Ngày cập nhật
+                  </Typography>
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {formatCompactVN(selected.updated_at) || '-'}
+                  </Typography>
+                </Paper>
               </Stack>
-            </Box>
+            </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>

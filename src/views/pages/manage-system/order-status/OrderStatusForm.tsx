@@ -26,6 +26,12 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
     color: '',
     sort_order: 1
   })
+  const [codeError, setCodeError] = useState<string>('')
+  const [nameError, setNameError] = useState<string>('')
+  const [hexError, setHexError] = useState<string>('')
+  const [codeTouched, setCodeTouched] = useState<boolean>(false)
+  const [nameTouched, setNameTouched] = useState<boolean>(false)
+  const [hexTouched, setHexTouched] = useState<boolean>(false)
 
   const PRESET_COLORS = useMemo(
     () => [
@@ -65,6 +71,12 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
         color: status.color,
         sort_order: status.sort_order
       })
+      setCodeError('')
+      setNameError('')
+      setHexError('')
+      setCodeTouched(false)
+      setNameTouched(false)
+      setHexTouched(false)
     }
   }, [status])
 
@@ -80,10 +92,48 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
       ...prev,
       hex_code: value
     }))
+    if (hexTouched) {
+      if (!value.trim()) {
+        setHexError('Mã màu không được để trống')
+      } else if (!isValidHex(value)) {
+        setHexError('Định dạng hợp lệ: #RRGGBB')
+      } else {
+        setHexError('')
+      }
+    }
   }
 
   const handlePickColor = (hex: string) => {
     handleHexChange(hex.toUpperCase())
+  }
+
+  const handleCodeBlur = () => {
+    setCodeTouched(true)
+    if (!formData.code.trim()) {
+      setCodeError('Mã trạng thái không được để trống')
+    } else {
+      setCodeError('')
+    }
+  }
+
+  const handleNameBlur = () => {
+    setNameTouched(true)
+    if (!formData.name.trim()) {
+      setNameError('Tên trạng thái không được để trống')
+    } else {
+      setNameError('')
+    }
+  }
+
+  const handleHexBlur = () => {
+    setHexTouched(true)
+    if (!formData.hex_code.trim()) {
+      setHexError('Mã màu không được để trống')
+    } else if (!isValidHex(formData.hex_code)) {
+      setHexError('Định dạng hợp lệ: #RRGGBB')
+    } else {
+      setHexError('')
+    }
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -157,9 +207,16 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
             fullWidth
             label='Mã trạng thái *'
             value={formData.code}
-            onChange={handleChange('code')}
+            onChange={e => {
+              handleChange('code')(e)
+              if (codeTouched && e.target.value.trim()) {
+                setCodeError('')
+              }
+            }}
+            onBlur={handleCodeBlur}
             placeholder='VD: PENDING, PAID, SHIPPING'
-            required
+            error={codeTouched && !!codeError}
+            helperText={codeTouched ? codeError || ' ' : ' '}
           />
         </Grid>
 
@@ -168,9 +225,16 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
             fullWidth
             label='Tên trạng thái *'
             value={formData.name}
-            onChange={handleChange('name')}
+            onChange={e => {
+              handleChange('name')(e)
+              if (nameTouched && e.target.value.trim()) {
+                setNameError('')
+              }
+            }}
+            onBlur={handleNameBlur}
             placeholder='VD: Chờ xác nhận, Đã thanh toán'
-            required
+            error={nameTouched && !!nameError}
+            helperText={nameTouched ? nameError || ' ' : ' '}
           />
         </Grid>
 
@@ -189,12 +253,13 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label='Mã màu hex'
+            label='Mã màu hex *'
             value={formData.hex_code}
             onChange={e => handleHexChange(e.target.value)}
+            onBlur={handleHexBlur}
             placeholder='#2196F3'
-            helperText={formData.hex_code && !isValidHex(formData.hex_code) ? 'Định dạng hợp lệ: #RRGGBB' : ' '}
-            error={!!formData.hex_code && !isValidHex(formData.hex_code)}
+            helperText={hexTouched ? hexError || ' ' : ' '}
+            error={hexTouched && !!hexError}
             InputProps={{
               startAdornment: (
                 <Box

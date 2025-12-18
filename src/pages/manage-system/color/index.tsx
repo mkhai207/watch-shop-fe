@@ -7,7 +7,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
   Paper,
   Stack,
@@ -123,6 +122,10 @@ const ColorPage: NextPage = () => {
   const [deletingItem, setDeletingItem] = useState<TColor | null>(null)
   const [nameInput, setNameInput] = useState<string>('')
   const [hexInput, setHexInput] = useState<string>('')
+  const [nameError, setNameError] = useState<string>('')
+  const [hexError, setHexError] = useState<string>('')
+  const [nameTouched, setNameTouched] = useState<boolean>(false)
+  const [hexTouched, setHexTouched] = useState<boolean>(false)
 
   const PRESET_COLORS = useMemo(
     () => [
@@ -153,9 +156,36 @@ const ColorPage: NextPage = () => {
   const isValidHex = (value: string) => /^#([0-9A-Fa-f]{6})$/.test(value)
   const handleHexChange = (value: string) => {
     setHexInput(value)
+    if (hexTouched) {
+      if (value && !isValidHex(value)) {
+        setHexError('Định dạng hợp lệ: #RRGGBB')
+      } else {
+        setHexError('')
+      }
+    }
   }
   const handlePickColor = (hex: string) => {
     handleHexChange(hex.toUpperCase())
+  }
+
+  const handleNameBlur = () => {
+    setNameTouched(true)
+    if (!nameInput.trim()) {
+      setNameError('Tên màu không được để trống')
+    } else {
+      setNameError('')
+    }
+  }
+
+  const handleHexBlur = () => {
+    setHexTouched(true)
+    if (!hexInput.trim()) {
+      setHexError('Mã màu không được để trống')
+    } else if (!isValidHex(hexInput)) {
+      setHexError('Định dạng hợp lệ: #RRGGBB')
+    } else {
+      setHexError('')
+    }
   }
 
   // Fetch colors with pagination and filtering
@@ -291,6 +321,10 @@ const ColorPage: NextPage = () => {
   const handleOpenCreate = () => {
     setNameInput('')
     setHexInput('')
+    setNameError('')
+    setHexError('')
+    setNameTouched(false)
+    setHexTouched(false)
     setOpenCreate(true)
   }
 
@@ -327,6 +361,10 @@ const ColorPage: NextPage = () => {
       setSelected(full)
       setNameInput(full.name)
       setHexInput(full.hex_code)
+      setNameError('')
+      setHexError('')
+      setNameTouched(false)
+      setHexTouched(false)
       setOpenEdit(true)
     } catch (e) {
       toast.error('Không tải được chi tiết màu')
@@ -446,7 +484,9 @@ const ColorPage: NextPage = () => {
               </TableCell>
               <TableCell>Tên màu</TableCell>
               <TableCell width={160}>Mã màu</TableCell>
-              <TableCell width={120}>Trạng thái</TableCell>
+              <TableCell width={150} sx={{ whiteSpace: 'nowrap' }}>
+                Ngày tạo
+              </TableCell>
               <TableCell width={120} align='right'>
                 Thao tác
               </TableCell>
@@ -486,13 +526,7 @@ const ColorPage: NextPage = () => {
                     </Typography>
                   </Box>
                 </TableCell>
-                <TableCell width={120}>
-                  {color.del_flag === '1' ? (
-                    <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
-                  ) : (
-                    <Chip label='Hoạt động' color='success' size='small' variant='outlined' />
-                  )}
-                </TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatCompactVN(color.created_at) || '-'}</TableCell>
                 <TableCell align='right'>
                   <Stack direction='row' spacing={1} justifyContent='flex-end'>
                     <IconButton size='small' onClick={() => handleOpenView(color)}>
@@ -537,15 +571,20 @@ const ColorPage: NextPage = () => {
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thêm màu</DialogTitle>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Thêm màu</DialogTitle>
         <DialogContent>
           <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
             <TextField
-              autoFocus
               fullWidth
               label='Tên màu'
               value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
+              onChange={e => {
+                setNameInput(e.target.value)
+                if (e.target.value.trim()) setNameError('')
+              }}
+              onBlur={handleNameBlur}
+              error={nameTouched && !!nameError}
+              helperText={nameTouched ? nameError || ' ' : ' '}
             />
             <TextField
               sx={{ mt: 2 }}
@@ -553,8 +592,9 @@ const ColorPage: NextPage = () => {
               label='Mã màu (vd: #000000)'
               value={hexInput}
               onChange={e => handleHexChange(e.target.value)}
-              helperText={hexInput && !isValidHex(hexInput) ? 'Định dạng hợp lệ: #RRGGBB' : ' '}
-              error={!!hexInput && !isValidHex(hexInput)}
+              onBlur={handleHexBlur}
+              error={hexTouched && !!hexError}
+              helperText={hexTouched ? hexError || ' ' : ' '}
             />
             <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
               <input
@@ -602,15 +642,20 @@ const ColorPage: NextPage = () => {
 
       {/* Edit Dialog */}
       <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Cập nhật màu</DialogTitle>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Cập nhật màu</DialogTitle>
         <DialogContent>
           <Box component='form' onSubmit={e => e.preventDefault()} sx={{ mt: 1 }}>
             <TextField
-              autoFocus
               fullWidth
               label='Tên màu'
               value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
+              onChange={e => {
+                setNameInput(e.target.value)
+                if (e.target.value.trim()) setNameError('')
+              }}
+              onBlur={handleNameBlur}
+              error={nameTouched && !!nameError}
+              helperText={nameTouched ? nameError || ' ' : ' '}
             />
             <TextField
               sx={{ mt: 2 }}
@@ -618,8 +663,9 @@ const ColorPage: NextPage = () => {
               label='Mã màu (vd: #000000)'
               value={hexInput}
               onChange={e => handleHexChange(e.target.value)}
-              helperText={hexInput && !isValidHex(hexInput) ? 'Định dạng hợp lệ: #RRGGBB' : ' '}
-              error={!!hexInput && !isValidHex(hexInput)}
+              onBlur={handleHexBlur}
+              error={hexTouched && !!hexError}
+              helperText={hexTouched ? hexError || ' ' : ' '}
             />
             <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
               <input
@@ -666,54 +712,74 @@ const ColorPage: NextPage = () => {
       </Dialog>
 
       {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin màu</DialogTitle>
+      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='sm'>
+        <DialogTitle
+          sx={{
+            color: 'primary.main',
+            fontWeight: 700,
+            borderBottom: theme => `1px solid ${theme.palette.divider}`
+          }}
+        >
+          Thông tin màu sắc
+        </DialogTitle>
         <DialogContent>
           {viewing ? (
-            <Box sx={{ mt: 1 }}>
-              <Stack direction='row' spacing={2} alignItems='center'>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    backgroundColor: viewing.hex_code
-                  }}
-                />
-                <Box>
-                  <Typography variant='h6'>{viewing.name}</Typography>
-                  <Chip label={viewing.hex_code} size='small' variant='outlined' />
-                </Box>
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              {/* Màu sắc và Tên */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Stack direction='row' spacing={2} alignItems='center'>
+                  <Box
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      backgroundColor: viewing.hex_code,
+                      flexShrink: 0
+                    }}
+                  />
+                  <Box>
+                    <Typography variant='caption' color='text.secondary'>
+                      Tên màu
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5, fontWeight: 500 }}>
+                      {viewing.name}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+
+              {/* Mã màu */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant='caption' color='text.secondary'>
+                  Mã màu (Hex)
+                </Typography>
+                <Typography variant='body2' sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+                  {viewing.hex_code}
+                </Typography>
+              </Paper>
+
+              {/* Thông tin hệ thống */}
+              <Stack direction='row' spacing={2}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Ngày tạo
+                  </Typography>
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {formatCompactVN(viewing.created_at) || '-'}
+                  </Typography>
+                </Paper>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Ngày cập nhật
+                  </Typography>
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {formatCompactVN(viewing.updated_at) || '-'}
+                  </Typography>
+                </Paper>
               </Stack>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.created_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật lúc
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.updated_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.created_by || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật bởi
-                  </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.updated_by || '-'}</Typography>
-                </Grid>
-              </Grid>
-            </Box>
+            </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>

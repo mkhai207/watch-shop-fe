@@ -331,7 +331,7 @@ const OrderStatusManagement = () => {
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth='md' fullWidth>
-        <DialogTitle>Thêm trạng thái đơn hàng mới</DialogTitle>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Thêm trạng thái đơn hàng mới</DialogTitle>
         <DialogContent>
           <OrderStatusForm status={null} onSubmit={handleFormSubmit} onCancel={() => setOpenCreate(false)} />
         </DialogContent>
@@ -339,80 +339,115 @@ const OrderStatusManagement = () => {
 
       {/* Edit Dialog */}
       <Dialog open={openEdit} onClose={() => setOpenEdit(false)} maxWidth='md' fullWidth>
-        <DialogTitle>Chỉnh sửa trạng thái đơn hàng</DialogTitle>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Chỉnh sửa trạng thái đơn hàng</DialogTitle>
         <DialogContent>
           <OrderStatusForm status={selected} onSubmit={handleFormSubmit} onCancel={() => setOpenEdit(false)} />
         </DialogContent>
       </Dialog>
 
       {/* View Dialog */}
-      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='xs'>
-        <DialogTitle>Thông tin trạng thái đơn hàng</DialogTitle>
+      <Dialog open={openView} onClose={() => setOpenView(false)} fullWidth maxWidth='sm'>
+        <DialogTitle
+          sx={{
+            color: 'primary.main',
+            fontWeight: 700,
+            borderBottom: theme => `1px solid ${theme.palette.divider}`
+          }}
+        >
+          Thông tin trạng thái đơn hàng
+        </DialogTitle>
         <DialogContent>
           {viewing ? (
-            <Box sx={{ mt: 1 }}>
-              <Stack direction='row' spacing={2} alignItems='center'>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    backgroundColor: getStatusColor(viewing.hex_code),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                />
-                <Box>
-                  <Typography variant='h6'>{viewing.name}</Typography>
-                  <Typography variant='body2' color='text.secondary'>
-                    {viewing.code}
-                  </Typography>
-                </Box>
-              </Stack>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant='subtitle2' color='text.secondary'>
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              {/* Icon và Tên */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Stack direction='row' spacing={2} alignItems='center'>
+                  <Box
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 2,
+                      backgroundColor: getStatusColor(viewing.hex_code),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  />
+                  <Box>
+                    <Typography variant='caption' color='text.secondary'>
+                      Tên trạng thái
+                    </Typography>
+                    <Typography variant='body2' sx={{ mt: 0.5, fontWeight: 500 }}>
+                      {viewing.name}
+                    </Typography>
+                    <Typography variant='caption' color='text.secondary' sx={{ mt: 0.5, display: 'block' }}>
+                      Mã: {viewing.code}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+
+              {/* Mô tả */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant='caption' color='text.secondary'>
                   Mô tả
                 </Typography>
-                <Typography sx={{ mt: 0.5 }}>{viewing.description || '-'}</Typography>
-              </Box>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
+                <Typography variant='body2' sx={{ mt: 0.5 }}>
+                  {viewing.description || '-'}
+                </Typography>
+              </Paper>
+
+              {/* Màu sắc và Thứ tự */}
+              <Stack direction='row' spacing={2}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
                     Màu sắc
                   </Typography>
                   <Stack direction='row' spacing={1} alignItems='center' sx={{ mt: 0.5 }}>
                     <Box
                       sx={{
-                        width: 16,
-                        height: 16,
+                        width: 20,
+                        height: 20,
                         borderRadius: '50%',
-                        backgroundColor: getStatusColor(viewing.hex_code)
+                        backgroundColor: getStatusColor(viewing.hex_code),
+                        border: '1px solid',
+                        borderColor: 'divider'
                       }}
                     />
-                    <Typography>{viewing.color}</Typography>
+                    <Typography variant='body2'>{viewing.color}</Typography>
                   </Stack>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
+                </Paper>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
                     Thứ tự
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{viewing.sort_order}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Tạo lúc
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {viewing.sort_order}
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.created_at) || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' color='text.secondary'>
-                    Cập nhật lúc
+                </Paper>
+              </Stack>
+
+              {/* Thông tin hệ thống */}
+              <Stack direction='row' spacing={2}>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Ngày tạo
                   </Typography>
-                  <Typography sx={{ mt: 0.5 }}>{formatCompactVN(viewing.updated_at) || '-'}</Typography>
-                </Grid>
-              </Grid>
-            </Box>
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {formatCompactVN(viewing.created_at) || '-'}
+                  </Typography>
+                </Paper>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', flex: 1 }}>
+                  <Typography variant='caption' color='text.secondary'>
+                    Ngày cập nhật
+                  </Typography>
+                  <Typography variant='body2' sx={{ mt: 0.5 }}>
+                    {formatCompactVN(viewing.updated_at) || '-'}
+                  </Typography>
+                </Paper>
+              </Stack>
+            </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>

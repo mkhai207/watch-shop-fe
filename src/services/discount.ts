@@ -148,6 +148,7 @@ export const v1UpdateDiscount = async (
       headers: { 'Content-Type': 'application/json' }
     })
     console.log('Update response:', res.data)
+
     return res.data
   } catch (error: any) {
     console.error('Error updating discount:', error)

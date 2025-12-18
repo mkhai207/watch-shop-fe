@@ -47,8 +47,9 @@ export const authSlice = createSlice({
       state.isLoading = false
       state.isSuccess = false
       state.isError = true
-      state.message = ''
-      state.error = ''
+      // Lấy message từ rejectWithValue
+      state.message = (action.payload as any)?.message || 'Có lỗi xảy ra'
+      state.error = (action.payload as any)?.message || 'Có lỗi xảy ra'
     })
 
     // ** update me
