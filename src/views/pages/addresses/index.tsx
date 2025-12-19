@@ -65,13 +65,11 @@ const AddressPage = () => {
   const fetchAddresses = async () => {
     setLoading(true)
     try {
-      // Try v1 list first (same as checkout)
       const v1 = await listAddressesV1()
       const rows = v1?.addresses?.rows
       if (Array.isArray(rows)) {
         setAddresses(rows)
       } else {
-        // Fallback to old API
         const response = await getAddressesByUserId()
         if (response?.status === 'success' && response?.data) {
           setAddresses(response.data)
@@ -99,13 +97,11 @@ const AddressPage = () => {
     try {
       let response
 
-      // If setting as default, first remove default status from all other addresses
       if (data.is_default) {
         const updatePromises = addresses
           .filter(addr => addr.is_default === true && addr.id !== editingAddress?.id)
           .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
 
-        // Wait for all updates to complete
         await Promise.all(updatePromises)
       }
 
@@ -115,7 +111,6 @@ const AddressPage = () => {
           toast.success('Cập nhật địa chỉ thành công')
         }
       } else {
-        // Use v1 API for creating (same as checkout)
         const v1Data = {
           city: data.city,
           district: data.district,
@@ -182,15 +177,12 @@ const AddressPage = () => {
     const address = addresses.find(addr => addr.id === selectedContact)
     if (address) {
       try {
-        // First, remove default status from all other addresses
         const updatePromises = addresses
           .filter(addr => addr.is_default === true && addr.id !== address.id)
           .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
 
-        // Wait for all updates to complete
         await Promise.all(updatePromises)
 
-        // Then set the selected address as default
         const response = await updateAddressDefaultStatus(parseInt(address.id), true)
 
         if (response) {
@@ -290,7 +282,7 @@ const AddressPage = () => {
                     {/* Tags and Actions */}
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        {address.is_default === true && (
+                        {address.is_default === '1' && (
                           <Chip
                             label='Mặc định'
                             size='small'
@@ -312,7 +304,7 @@ const AddressPage = () => {
                         >
                           Cập nhật
                         </Typography>
-                        {address.is_default !== true && (
+                        {address.is_default !== '1' && (
                           <Typography
                             variant='caption'
                             sx={{ color: '#f44336', cursor: 'pointer' }}
@@ -321,7 +313,7 @@ const AddressPage = () => {
                             Xóa
                           </Typography>
                         )}
-                        {address.is_default !== true && (
+                        {address.is_default !== '1' && (
                           <Button
                             variant='outlined'
                             size='small'

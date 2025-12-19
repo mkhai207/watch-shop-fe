@@ -1,4 +1,4 @@
-import { Close as CloseIcon, Star as StarIcon } from '@mui/icons-material'
+import { Close as CloseIcon, Star as StarIcon, AddPhotoAlternate as AddPhotoIcon } from '@mui/icons-material'
 import {
   Box,
   Button,
@@ -29,11 +29,13 @@ interface ReviewModalProps {
   onSuccess?: () => void
 }
 
+const MAX_IMAGES = 5
+
 const ReviewModal = ({ open, onClose, orderId, productIds, productNames, onSuccess }: ReviewModalProps) => {
   const { user } = useAuth()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
-  const [imageUrl, setImageUrl] = useState<string>('')
+  const [imageUrls, setImageUrls] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const { uploadFile, isUploading: uploadLoading, error: uploadError, reset } = useFileUpload()
 
@@ -55,7 +57,7 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames, onSucce
       const response = await createReviewV1({
         rating,
         comment: comment.trim(),
-        image_url: imageUrl || undefined,
+        image_url: imageUrls.join(',') || undefined,
         user_id: Number(user?.id),
         order_id: Number(orderId)
       })
@@ -78,28 +80,35 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames, onSucce
   const handleClose = () => {
     setRating(0)
     setComment('')
-    setImageUrl('')
+    setImageUrls([])
     reset()
     onClose()
   }
 
   const handleImageUpload = async (file: File) => {
     if (!file) return
+
+    if (imageUrls.length >= MAX_IMAGES) {
+      toast.error(`Chỉ được tải tối đa ${MAX_IMAGES} ảnh`)
+      return
+    }
+
     if (file.size > 5 * 1024 * 1024) {
       toast.error('File quá lớn. Vui lòng chọn file nhỏ hơn 5MB')
+
       return
     }
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
     if (!allowedTypes.includes(file.type)) {
       toast.error('Chỉ chấp nhận file JPG, JPEG hoặc PNG')
+
       return
     }
     try {
-      setImageUrl('')
       const res = await uploadFile(file)
       const url = (res as any)?.uploadedImage?.url || (res as any)?.url
       if (url) {
-        setImageUrl(url)
+        setImageUrls(prev => [...prev, url])
         toast.success('Tải ảnh thành công')
       } else {
         toast.error('Upload ảnh thất bại')
@@ -109,16 +118,15 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames, onSucce
     }
   }
 
-  const removeImage = () => {
-    setImageUrl('')
-    reset()
+  const removeImage = (index: number) => {
+    setImageUrls(prev => prev.filter((_, i) => i !== index))
   }
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth='md' fullWidth>
       <DialogTitle>
         <Box display='flex' alignItems='center' justifyContent='space-between'>
-          <Typography variant='h6' fontWeight='bold'>
+          <Typography variant='h6' fontWeight='bold' color={'primary.main'}>
             Đánh giá đơn hàng
           </Typography>
           <IconButton onClick={handleClose}>
@@ -185,69 +193,109 @@ const ReviewModal = ({ open, onClose, orderId, productIds, productNames, onSucce
               <Typography variant='subtitle1' fontWeight='medium' mb={1}>
                 Ảnh
               </Typography>
-              <WrapperFileUpload
-                uploadFunc={handleImageUpload}
-                objectAcceptFile={{
-                  'image/jpeg': ['.jpg', '.jpeg'],
-                  'image/png': ['.png']
-                }}
-              >
-                <Button
-                  variant='outlined'
-                  startIcon={<IconifyIcon icon='mdi:camera' />}
-                  sx={{ mb: 2 }}
-                  disabled={uploadLoading}
-                >
-                  {uploadLoading ? 'Đang upload...' : imageUrl ? 'Đổi ảnh' : 'Chọn ảnh'}
-                </Button>
-              </WrapperFileUpload>
+
+              <Grid container spacing={2}>
+                {/* Display uploaded images */}
+                {imageUrls.map((url, index) => (
+                  <Grid item key={index}>
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: 100,
+                        height: 100,
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                        border: '2px solid',
+                        borderColor: 'primary.main',
+                        boxShadow: 2
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`Review image ${index + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <IconButton
+                        size='small'
+                        onClick={() => removeImage(index)}
+                        sx={{
+                          position: 'absolute',
+                          top: 2,
+                          right: 2,
+                          backgroundColor: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          padding: '4px',
+                          '&:hover': { backgroundColor: 'rgba(0,0,0,0.8)' }
+                        }}
+                      >
+                        <CloseIcon fontSize='small' />
+                      </IconButton>
+                    </Box>
+                  </Grid>
+                ))}
+
+                {/* Add photo box */}
+                {imageUrls.length < MAX_IMAGES && (
+                  <Grid item>
+                    <WrapperFileUpload
+                      uploadFunc={handleImageUpload}
+                      objectAcceptFile={{
+                        'image/jpeg': ['.jpg', '.jpeg'],
+                        'image/png': ['.png']
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 100,
+                          height: 100,
+                          borderRadius: 2,
+                          border: '2px dashed',
+                          borderColor: uploadLoading ? 'grey.400' : 'grey.300',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: uploadLoading ? 'not-allowed' : 'pointer',
+                          backgroundColor: uploadLoading ? 'grey.100' : 'grey.50',
+                          pointerEvents: uploadLoading ? 'none' : 'auto',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            borderColor: uploadLoading ? 'grey.400' : 'primary.main',
+                            backgroundColor: uploadLoading ? 'grey.100' : 'primary.lighter',
+                            transform: uploadLoading ? 'none' : 'scale(1.02)'
+                          }
+                        }}
+                      >
+                        {uploadLoading ? (
+                          <Typography variant='caption' color='text.secondary'>
+                            Đang tải...
+                          </Typography>
+                        ) : (
+                          <>
+                            <AddPhotoIcon sx={{ fontSize: 32, color: 'grey.400', mb: 0.5 }} />
+                            <Typography variant='caption' color='text.secondary' textAlign='center'>
+                              Thêm ảnh
+                            </Typography>
+                          </>
+                        )}
+                      </Box>
+                    </WrapperFileUpload>
+                  </Grid>
+                )}
+
+                {/* Counter */}
+                <Grid item sx={{ display: 'flex', alignItems: 'center', pl: 1 }}>
+                  <Typography variant='subtitle1' fontWeight='bold' sx={{ color: 'primary.main' }}>
+                    {imageUrls.length}/{MAX_IMAGES}
+                  </Typography>
+                </Grid>
+              </Grid>
 
               {/* Display upload error */}
               {uploadError && (
                 <Typography variant='body2' color='error' sx={{ mt: 1 }}>
                   {uploadError}
                 </Typography>
-              )}
-
-              {/* Display uploaded image */}
-              {imageUrl && (
-                <Box mt={2}>
-                  <Grid container spacing={1}>
-                    <Grid item>
-                      <Box
-                        sx={{
-                          position: 'relative',
-                          width: 100,
-                          height: 100,
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          border: '1px solid',
-                          borderColor: 'grey.300'
-                        }}
-                      >
-                        <img
-                          src={imageUrl}
-                          alt='Review image'
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        <IconButton
-                          size='small'
-                          onClick={removeImage}
-                          sx={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 4,
-                            backgroundColor: 'rgba(0,0,0,0.5)',
-                            color: 'white',
-                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.7)' }
-                          }}
-                        >
-                          <CloseIcon fontSize='small' />
-                        </IconButton>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Box>
               )}
             </Box>
           </Grid>

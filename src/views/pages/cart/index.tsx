@@ -60,9 +60,9 @@ const CartPage: NextPage<TProps> = () => {
 
     const currentQuantity = localQuantities[itemId] || item.quantity || 1
     const desiredQuantity = currentQuantity + change
-    const maxQuantity = Number((item as any)?.variant?.quantity) || Infinity
+    const stockQuantity = Number((item as any)?.variant?.stock_quantity)
+    const maxQuantity = stockQuantity > 0 ? stockQuantity : 1
 
-    // If decreasing below 1, confirm delete
     if (desiredQuantity < 1) {
       setConfirmState({
         open: true,
@@ -73,12 +73,8 @@ const CartPage: NextPage<TProps> = () => {
       return
     }
 
-    // Cap at available stock
     if (desiredQuantity > maxQuantity) {
-      const message = `Số lượng vượt quá hàng tồn (${maxQuantity}).`
-      setInfoState({ open: true, title: 'Không thể cập nhật', message })
-      setLocalQuantities(prev => ({ ...prev, [itemId]: maxQuantity }))
-      dispatch(updateCartItemAsync({ itemId, data: { quantity: maxQuantity } }))
+      toast.error(`Số lượng vượt quá hàng tồn kho (còn ${maxQuantity} sản phẩm)`)
 
       return
     }
@@ -621,7 +617,12 @@ const CartPage: NextPage<TProps> = () => {
                                   <IconButton
                                     size='small'
                                     onClick={() => handleQuantityChange(item.id, 1)}
-                                    disabled={item.quantity >= ((item as any)?.variant?.quantity || Infinity)}
+                                    disabled={
+                                      item.quantity >=
+                                      (Number((item as any)?.variant?.stock_quantity) > 0
+                                        ? Number((item as any)?.variant?.stock_quantity)
+                                        : 1)
+                                    }
                                   >
                                     <svg
                                       width='16'
@@ -636,6 +637,15 @@ const CartPage: NextPage<TProps> = () => {
                                     </svg>
                                   </IconButton>
                                 </Box>
+
+                                {/* Stock info */}
+                                <Typography variant='caption' color='text.secondary'>
+                                  Còn{' '}
+                                  {Number((item as any)?.variant?.stock_quantity) > 0
+                                    ? (item as any)?.variant?.stock_quantity
+                                    : 0}{' '}
+                                  sản phẩm
+                                </Typography>
 
                                 <Button
                                   variant='text'

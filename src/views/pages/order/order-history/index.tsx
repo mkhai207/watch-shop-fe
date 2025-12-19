@@ -271,19 +271,16 @@ const OrderHistoryPage = () => {
     const selectedOrderId = localStorage.getItem('selectedOrderId')
 
     if (shouldOpenDetail === 'true' && selectedOrderId && orders.data.length > 0) {
-      // Find the order in the current list
       const order = orders.data.find(o => String(o.id) === selectedOrderId)
       console.log('Found order:', order)
 
       if (order) {
-        // Add a small delay to ensure the page is fully loaded
         setTimeout(() => {
           console.log('Opening detail dialog for order:', order.id)
           handleViewDetails(order)
         }, 500)
       }
 
-      // Clear the flags
       localStorage.removeItem('openOrderDetail')
       localStorage.removeItem('selectedOrderId')
       localStorage.removeItem('selectedOrderCode')
@@ -331,7 +328,7 @@ const OrderHistoryPage = () => {
                           {order.code}
                         </Typography>
                         <Typography variant='body2' color='text.secondary'>
-                          Đặt hàng lúc {dayjs(order.created_at).format('DD/MM/YYYY HH:mm')}
+                          Ngày đặt hàng: {dayjs(order.created_at).format('DD/MM/YYYY HH:mm')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -354,20 +351,20 @@ const OrderHistoryPage = () => {
                       <Grid item xs={12} md={6}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <ReceiptIcon sx={{ color: '#666', fontSize: 20 }} />
-                          <Typography variant='body2' color='text.secondary'>
-                            Người nhận: <strong>{order.guess_name}</strong>
+                          <Typography variant='body2' sx={{ color: '#000' }}>
+                            Người nhận: <strong>{order.name || 'N/A'}</strong>
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <PaymentIcon sx={{ color: '#666', fontSize: 20 }} />
+                          <Typography variant='body2' sx={{ color: '#000' }}>
+                            SĐT: <strong>{order.phone || 'N/A'}</strong>
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <ShippingIcon sx={{ color: '#666', fontSize: 20 }} />
-                          <Typography variant='body2' color='text.secondary'>
-                            {order.shipping_address}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PaymentIcon sx={{ color: '#666', fontSize: 20 }} />
-                          <Typography variant='body2' color='text.secondary'>
-                            {order.guess_phone}
+                          <Typography variant='body2' sx={{ color: '#000' }}>
+                            Địa chỉ: <strong>{order.shipping_address || 'N/A'}</strong>
                           </Typography>
                         </Box>
                       </Grid>

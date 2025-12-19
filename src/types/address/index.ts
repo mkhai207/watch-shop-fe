@@ -6,7 +6,7 @@ export interface TAddress {
   updated_by: string | null
   city: string
   district: string
-  is_default: boolean
+  is_default: string
   phone_number: string
   recipient_name: string
   street: string
