@@ -16,6 +16,7 @@ import {
   Paper,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -23,6 +24,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material'
 import type { NextPage } from 'next'
@@ -372,7 +374,7 @@ const WatchPage: NextPage = () => {
     while (currentPage <= totalPages) {
       const res = await fetchFn({ page: currentPage, limit })
       const data = res?.[dataPath] || res
-      
+
       if (!data) break
 
       const pageItems = data.items || data.rows || []
@@ -565,7 +567,7 @@ const WatchPage: NextPage = () => {
   const validateFieldOnBlur = useCallback((field: keyof TCreateWatch, value: any) => {
     setFormErrors(prev => {
       const newErrors = { ...prev }
-      
+
       if (field === 'base_price') {
         const num = Number(value)
         if (Number.isNaN(num)) {
@@ -592,7 +594,7 @@ const WatchPage: NextPage = () => {
       } else {
         delete newErrors[field]
       }
-      
+
       return newErrors
     })
   }, [])
@@ -677,23 +679,23 @@ const WatchPage: NextPage = () => {
   const handleCreate = async () => {
     // Validate all fields
     const errors: Partial<Record<keyof TCreateWatch | 'variants', string>> = {}
-    
+
     if (!form.code.trim()) errors.code = 'Mã không được để trống'
     if (!form.name.trim()) errors.name = 'Tên không được để trống'
     if (!(form.description || '').trim()) errors.description = 'Mô tả không được để trống'
     if (!(form.model || '').trim()) errors.model = 'Model không được để trống'
-    
+
     const basePrice = Number(form.base_price)
     if (Number.isNaN(basePrice)) {
       errors.base_price = 'Giá cơ bản không hợp lệ'
     } else if (basePrice <= 0) {
       errors.base_price = 'Giá cơ bản phải lớn hơn 0'
     }
-    
+
     if (!form.brand_id) errors.brand_id = 'Chọn thương hiệu'
     if (!form.category_id) errors.category_id = 'Chọn phân loại'
     if (!form.movement_type_id) errors.movement_type_id = 'Chọn loại máy'
-    
+
     if (!form.variants || form.variants.length === 0) {
       errors.variants = 'Cần ít nhất 1 biến thể'
     } else {
@@ -707,12 +709,12 @@ const WatchPage: NextPage = () => {
         }
       })
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       const firstError = Object.values(errors)[0]
       toast.error(firstError)
-      
+
       return
     }
     try {
@@ -851,6 +853,29 @@ const WatchPage: NextPage = () => {
     openVariantDialog(watch)
   }
 
+  const handleToggleStatus = async (watch: TWatch) => {
+    try {
+      setActionLoading(true)
+      const newStatus = !watch.status
+      const payload = {
+        code: watch.code,
+        name: watch.name,
+        base_price: watch.base_price,
+        category_id: Number(watch.category_id),
+        brand_id: Number(watch.brand_id),
+        movement_type_id: Number(watch.movement_type_id),
+        status: newStatus
+      }
+      await updateWatch(String(watch.id), payload as any)
+      toast.success(newStatus ? 'Đã bật trạng thái bán' : 'Đã tắt trạng thái bán')
+      await fetchData()
+    } catch (err: any) {
+      toast.error(err?.message || 'Cập nhật trạng thái thất bại')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const openVariantDialog = async (row: TWatch) => {
     try {
       setActionLoading(true)
@@ -954,16 +979,36 @@ const WatchPage: NextPage = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width={90} sx={{ whiteSpace: 'nowrap' }}>STT</TableCell>
-              <TableCell width={160} sx={{ whiteSpace: 'nowrap' }}>Mã</TableCell>
-              <TableCell width={100} sx={{ whiteSpace: 'nowrap' }}>Ảnh</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>Tên</TableCell>
-              <TableCell width={140} sx={{ whiteSpace: 'nowrap' }}>Giá</TableCell>
-              <TableCell width={120} sx={{ whiteSpace: 'nowrap' }}>Giới tính</TableCell>
-              <TableCell width={120} sx={{ whiteSpace: 'nowrap' }}>Trạng thái</TableCell>
-              <TableCell width={180} sx={{ whiteSpace: 'nowrap' }}>Ngày tạo</TableCell>
+              <TableCell width={90} sx={{ whiteSpace: 'nowrap' }}>
+                STT
+              </TableCell>
+              <TableCell width={160} sx={{ whiteSpace: 'nowrap' }}>
+                Mã
+              </TableCell>
+              <TableCell width={100} sx={{ whiteSpace: 'nowrap' }}>
+                Ảnh
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>Tên sản phẩm</TableCell>
+              <TableCell width={140} sx={{ whiteSpace: 'nowrap' }}>
+                Giá
+              </TableCell>
+              <TableCell width={140} sx={{ whiteSpace: 'nowrap' }}>
+                SL bán
+              </TableCell>
+              <TableCell width={140} sx={{ whiteSpace: 'nowrap' }}>
+                Tồn kho
+              </TableCell>
+              <TableCell width={120} sx={{ whiteSpace: 'nowrap' }}>
+                Giới tính
+              </TableCell>
+              <TableCell width={120} align='center' sx={{ whiteSpace: 'nowrap' }}>
+                Trạng thái
+              </TableCell>
+              <TableCell width={180} sx={{ whiteSpace: 'nowrap' }}>
+                Ngày tạo
+              </TableCell>
               {/* <TableCell width={120}>Biến thể</TableCell> */}
-              <TableCell width={160} align='right' sx={{ whiteSpace: 'nowrap' }}>
+              <TableCell width={160} align='center' sx={{ whiteSpace: 'nowrap' }}>
                 Thao tác
               </TableCell>
             </TableRow>
@@ -1015,13 +1060,15 @@ const WatchPage: NextPage = () => {
                 </TableCell>
                 <TableCell>{row.name}</TableCell>
                 <TableCell>{(row.base_price || 0).toLocaleString('vi-VN')}</TableCell>
+                <TableCell>{Number(row.sold || 0)}</TableCell>
+                <TableCell>{Number(row.totalInventory || 0)}</TableCell>
                 <TableCell>{row.gender === '1' ? 'Nữ' : 'Nam'}</TableCell>
                 <TableCell>
                   {row.del_flag === '1' ? (
                     <Chip label='Đã xóa' color='error' size='small' variant='outlined' />
                   ) : (
                     <Chip
-                      label={row.status ? 'Đang bán' : 'Ngừng bán'}
+                      label={row.status ? 'Đang kinh doanh' : 'Ngừng kinh doanh'}
                       color={row.status ? 'success' : 'default'}
                       size='small'
                       variant='outlined'
@@ -1031,11 +1078,8 @@ const WatchPage: NextPage = () => {
                 <TableCell>{formatCompactVN(row.created_at)}</TableCell>
                 {/* <TableCell>{variantCountByWatchId[String(row.id)] || 0}</TableCell> */}
                 <TableCell align='right'>
-                  <Stack direction='row' spacing={1} justifyContent='flex-end'>
-                    <IconButton
-                      size='small'
-                      onClick={() => handleViewWatch(row)}
-                    >
+                  <Stack direction='row' spacing={1} justifyContent='flex-end' alignItems='center'>
+                    <IconButton size='small' onClick={() => handleViewWatch(row)}>
                       <VisibilityIcon fontSize='small' />
                     </IconButton>
                     <IconButton
@@ -1058,7 +1102,7 @@ const WatchPage: NextPage = () => {
                             release_date: w.release_date || '',
                             base_price: (w.base_price as any) || 0,
                             rating: (w.rating as any) || 0,
-                            status: String(w.status || '1') as any,
+                            status: w.status as any,
                             thumbnail: w.thumbnail || '',
                             slider: w.slider || '',
                             category_id: (w.category_id as any) || '',
@@ -1085,6 +1129,28 @@ const WatchPage: NextPage = () => {
                     <IconButton size='small' onClick={() => openVariantDialog(row)}>
                       <PlaylistAddIcon fontSize='small' />
                     </IconButton>
+                    <Tooltip title={row.status ? 'Ngừng kinh doanh' : 'Mở lại kinh doanh'}>
+                      <Switch
+                        checked={Boolean(row.status)}
+                        onChange={() => handleToggleStatus(row)}
+                        size='small'
+                        disabled={row.del_flag === '1'}
+                        sx={{
+                          '& .MuiSwitch-switchBase': {
+                            color: '#bdbdbd',
+                            '&.Mui-checked': {
+                              color: 'success.main'
+                            },
+                            '&.Mui-checked + .MuiSwitch-track': {
+                              backgroundColor: 'success.main'
+                            }
+                          },
+                          '& .MuiSwitch-track': {
+                            backgroundColor: '#bdbdbd'
+                          }
+                        }}
+                      />
+                    </Tooltip>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -1150,7 +1216,10 @@ const WatchPage: NextPage = () => {
             const res = await uploadMultipleImages(files)
             const urls = ((res as any)?.uploadedImages || []).map((it: any) => it?.url).filter(Boolean)
             if (urls.length) {
-              const existingUrls = (form.slider || '').split(',').map(s => s.trim()).filter(Boolean)
+              const existingUrls = (form.slider || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean)
               const allUrls = [...existingUrls, ...urls]
               setForm(p => ({ ...p, slider: allUrls.join(', ') }))
             } else {
@@ -1283,7 +1352,9 @@ const WatchPage: NextPage = () => {
                     // Fallback: fetch variants separately
                     const vRes = await getWatchVariants()
                     const all = ((vRes as any)?.variants?.items || []) as TWatchVariant[]
-                    setViewVariants(all.filter(i => String(i.watch_id) === String(viewingWatch.id) && i.del_flag !== '1'))
+                    setViewVariants(
+                      all.filter(i => String(i.watch_id) === String(viewingWatch.id) && i.del_flag !== '1')
+                    )
                   }
                 }
               } catch (e: any) {
@@ -1361,7 +1432,10 @@ const WatchPage: NextPage = () => {
             const res = await uploadMultipleImages(files)
             const urls = ((res as any)?.uploadedImages || []).map((i: any) => i?.url).filter(Boolean)
             if (urls.length) {
-              const existingUrls = (editForm.slider || '').split(',').map(s => s.trim()).filter(Boolean)
+              const existingUrls = (editForm.slider || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean)
               const allUrls = [...existingUrls, ...urls]
               setEditForm(p => ({ ...p, slider: allUrls.join(', ') }))
             }

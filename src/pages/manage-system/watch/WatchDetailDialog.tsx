@@ -94,11 +94,24 @@ const WatchDetailDialog: React.FC<WatchDetailDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth='md'>
-      <DialogTitle sx={{ fontWeight: 700, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}>{watch?.name || 'Thông tin đồng hồ'}</DialogTitle>
+      <DialogTitle
+        sx={{ fontWeight: 700, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}
+      >
+        {watch?.name || 'Thông tin đồng hồ'}
+      </DialogTitle>
       <DialogContent sx={{ pb: 3 }}>
         {watch ? (
           <Stack spacing={3} sx={{ mt: 1 }}>
-            <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: 'none', boxShadow: 'none', bgcolor: theme => theme.palette.background.paper }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: 'none',
+                boxShadow: 'none',
+                bgcolor: theme => theme.palette.background.paper
+              }}
+            >
               <Grid container spacing={3}>
                 <Grid item xs={12} md={5}>
                   <Box
@@ -117,7 +130,10 @@ const WatchDetailDialog: React.FC<WatchDetailDialogProps> = ({
                 <Grid item xs={12} md={7}>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
-                      <InfoItem label='Mã' value={<Typography sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{watch.code}</Typography>} />
+                      <InfoItem
+                        label='Mã'
+                        value={<Typography sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{watch.code}</Typography>}
+                      />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <InfoItem label='Model' value={watch.model || '-'} />
@@ -184,82 +200,91 @@ const WatchDetailDialog: React.FC<WatchDetailDialogProps> = ({
                     opacity: expandMlInfo ? 1 : 0
                   }}
                 >
-                <Grid container spacing={2}>
-                  {(watch as any).price_tier && (
-                    <Grid item xs={12} md={4}>
-                      <InfoItem label='Phân khúc giá' value={(watch as any).price_tier} />
-                    </Grid>
-                  )}
-                  {(watch as any).gender_target && (
-                    <Grid item xs={12} md={4}>
-                      <InfoItem label='Đối tượng giới tính' value={(watch as any).gender_target} />
-                    </Grid>
-                  )}
-                  {(watch as any).size_category && (
-                    <Grid item xs={12} md={4}>
-                      <InfoItem label='Phân loại kích thước' value={(watch as any).size_category} />
-                    </Grid>
-                  )}
-                </Grid>
+                  <Grid container spacing={2}>
+                    {(watch as any).price_tier && (
+                      <Grid item xs={12} md={4}>
+                        <InfoItem label='Phân khúc giá' value={(watch as any).price_tier} />
+                      </Grid>
+                    )}
+                    {(watch as any).gender_target && (
+                      <Grid item xs={12} md={4}>
+                        <InfoItem label='Đối tượng giới tính' value={(watch as any).gender_target} />
+                      </Grid>
+                    )}
+                    {(watch as any).size_category && (
+                      <Grid item xs={12} md={4}>
+                        <InfoItem label='Phân loại kích thước' value={(watch as any).size_category} />
+                      </Grid>
+                    )}
+                  </Grid>
 
-                <Stack spacing={1.5} sx={{ mt: 2 }}>
-                  {(watch as any).style_tags?.length > 0 && (
-                    <Box>
-                      <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
-                        Thẻ phong cách
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(watch as any).style_tags.map((tag: string) => (
-                          <Chip key={tag} label={tag} color='primary' size='small' />
-                        ))}
+                  <Stack spacing={1.5} sx={{ mt: 2 }}>
+                    {(watch as any).style_tags?.length > 0 && (
+                      <Box>
+                        <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                          Thẻ phong cách
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(watch as any).style_tags.map((tag: string) => (
+                            <Chip key={tag} label={tag} color='primary' size='small' />
+                          ))}
+                        </Box>
                       </Box>
-                    </Box>
-                  )}
+                    )}
 
-                  {(watch as any).material_tags?.length > 0 && (
-                    <Box>
-                      <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
-                        Thẻ vật liệu
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(watch as any).material_tags.map((tag: string) => (
-                          <Chip key={tag} label={tag} color='secondary' size='small' />
-                        ))}
+                    {(watch as any).material_tags?.length > 0 && (
+                      <Box>
+                        <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                          Thẻ vật liệu
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(watch as any).material_tags.map((tag: string) => (
+                            <Chip key={tag} label={tag} color='secondary' size='small' />
+                          ))}
+                        </Box>
                       </Box>
-                    </Box>
-                  )}
+                    )}
 
-                  {(watch as any).color_tags?.length > 0 && (
-                    <Box>
-                      <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
-                        Thẻ màu sắc
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(watch as any).color_tags.map((tag: string) => (
-                          <Chip key={tag} label={tag} color='success' size='small' />
-                        ))}
+                    {(watch as any).color_tags?.length > 0 && (
+                      <Box>
+                        <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                          Thẻ màu sắc
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(watch as any).color_tags.map((tag: string) => (
+                            <Chip key={tag} label={tag} color='success' size='small' />
+                          ))}
+                        </Box>
                       </Box>
-                    </Box>
-                  )}
+                    )}
 
-                  {(watch as any).movement_type_tags?.length > 0 && (
-                    <Box>
-                      <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
-                        Thẻ loại máy
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(watch as any).movement_type_tags.map((tag: string) => (
-                          <Chip key={tag} label={tag} color='warning' size='small' />
-                        ))}
+                    {(watch as any).movement_type_tags?.length > 0 && (
+                      <Box>
+                        <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 0.5 }}>
+                          Thẻ loại máy
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {(watch as any).movement_type_tags.map((tag: string) => (
+                            <Chip key={tag} label={tag} color='warning' size='small' />
+                          ))}
+                        </Box>
                       </Box>
-                    </Box>
-                  )}
-                </Stack>
+                    )}
+                  </Stack>
                 </Box>
               </Box>
             )}
 
-            <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: 'none', boxShadow: 'none', bgcolor: theme => theme.palette.background.paper }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: 'none',
+                boxShadow: 'none',
+                bgcolor: theme => theme.palette.background.paper
+              }}
+            >
               <Typography variant='subtitle1' sx={{ fontWeight: 700, color: 'primary.main' }}>
                 Ảnh mô tả sản phẩm
               </Typography>
@@ -328,17 +353,21 @@ const WatchDetailDialog: React.FC<WatchDetailDialogProps> = ({
               )}
             </Paper>
 
-            <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: 'none', boxShadow: 'none', bgcolor: theme => theme.palette.background.paper }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: 'none',
+                boxShadow: 'none',
+                bgcolor: theme => theme.palette.background.paper
+              }}
+            >
               <Stack direction='row' alignItems='center' justifyContent='space-between' sx={{ mb: 1 }}>
                 <Typography variant='subtitle1' sx={{ fontWeight: 700 }}>
                   Danh sách phân loại sản phẩm
                 </Typography>
-                <Button
-                  size='small'
-                  variant='outlined'
-                  startIcon={<AddIcon />}
-                  onClick={() => onAddVariant(watch)}
-                >
+                <Button size='small' variant='outlined' startIcon={<AddIcon />} onClick={() => onAddVariant(watch)}>
                   Thêm biến thể
                 </Button>
               </Stack>
@@ -355,30 +384,32 @@ const WatchDetailDialog: React.FC<WatchDetailDialogProps> = ({
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {variants.filter(v => v.del_flag !== '1').map((variant, index) => (
-                      <TableRow key={variant.id}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>
-                          {colors.find(c => String(c.id) === String(variant.color_id))?.name || variant.color_id}
-                        </TableCell>
-                        <TableCell>
-                          {strapMaterials.find(s => String(s.id) === String(variant.strap_material_id))?.name ||
-                            variant.strap_material_id}
-                        </TableCell>
-                        <TableCell>{variant.stock_quantity}</TableCell>
-                        <TableCell>{(variant.price || 0).toLocaleString('vi-VN')}</TableCell>
-                        <TableCell align='right'>
-                          <Stack direction='row' spacing={1} justifyContent='flex-end'>
-                            <IconButton size='small' onClick={() => onEditVariant(variant)}>
-                              <EditIcon fontSize='small' />
-                            </IconButton>
-                            <IconButton size='small' onClick={() => onDeleteVariant(variant)}>
-                              <DeleteIcon fontSize='small' />
-                            </IconButton>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {variants
+                      .filter(v => v.del_flag !== '1')
+                      .map((variant, index) => (
+                        <TableRow key={variant.id}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>
+                            {colors.find(c => String(c.id) === String(variant.color_id))?.name || variant.color_id}
+                          </TableCell>
+                          <TableCell>
+                            {strapMaterials.find(s => String(s.id) === String(variant.strap_material_id))?.name ||
+                              variant.strap_material_id}
+                          </TableCell>
+                          <TableCell>{variant.stock_quantity}</TableCell>
+                          <TableCell>{(variant.price || 0).toLocaleString('vi-VN')}</TableCell>
+                          <TableCell align='right'>
+                            <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                              <IconButton size='small' onClick={() => onEditVariant(variant)}>
+                                <EditIcon fontSize='small' />
+                              </IconButton>
+                              <IconButton size='small' onClick={() => onDeleteVariant(variant)}>
+                                <DeleteIcon fontSize='small' />
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     {variants.filter(v => v.del_flag !== '1').length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} align='center'>

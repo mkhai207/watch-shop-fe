@@ -19,6 +19,8 @@ export type TWatch = {
   category_id: string | number
   brand_id: string | number
   movement_type_id: string | number
+  totalInventory?: number | 0
+
   // ML Fields
   price_tier?: string | null
   gender_target?: string | null

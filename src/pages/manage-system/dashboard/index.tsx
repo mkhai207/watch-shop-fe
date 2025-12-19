@@ -133,8 +133,8 @@ const DashboardPage: NextPage = () => {
 
   return (
     <Box>
-      <Typography variant='h5' fontWeight={700} sx={{ mb: 3 }}>
-        Dashboard
+      <Typography variant='h5' fontWeight={700} sx={{ mb: 3, color: 'primary.main', fontSize: 18 }}>
+        Tổng quan
       </Typography>
 
       {/* Date Filter */}

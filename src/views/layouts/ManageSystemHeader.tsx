@@ -6,7 +6,7 @@ type TProps = {
   title?: string
 }
 
-const ManageSystemHeader: React.FC<TProps> = ({ title = 'Dashboard' }) => {
+const ManageSystemHeader: React.FC<TProps> = ({ title = 'Trang quản trị hệ thống' }) => {
   return (
     <AppBar
       position='sticky'
@@ -15,7 +15,7 @@ const ManageSystemHeader: React.FC<TProps> = ({ title = 'Dashboard' }) => {
       sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}` }}
     >
       <Toolbar sx={{ gap: 2, minHeight: 64 }}>
-        <Typography variant='h6' fontWeight={700} sx={{ mr: 'auto' }}>
+        <Typography variant='h6' fontWeight={700} sx={{ mr: 'auto', color: 'primary.main', fontSize: 20 }}>
           {title}
         </Typography>
 
