@@ -337,7 +337,7 @@ const WatchPage: NextPage = () => {
     release_date: getTodayReleaseDate(),
     base_price: 0,
     rating: 0,
-    status: '1',
+    status: true,
     thumbnail: '',
     slider: '',
     category_id: '' as any,
@@ -623,7 +623,7 @@ const WatchPage: NextPage = () => {
       release_date: getTodayReleaseDate(),
       base_price: 0,
       rating: 0,
-      status: '1',
+      status: true,
       thumbnail: '',
       slider: '',
       category_id: '' as any,
@@ -719,8 +719,13 @@ const WatchPage: NextPage = () => {
     }
     try {
       setActionLoading(true)
+      let releaseDate = form.release_date || ''
+      if (releaseDate && releaseDate.length < 14) {
+        releaseDate = releaseDate.padEnd(14, '0')
+      }
       const payload = {
         ...form,
+        release_date: releaseDate,
         brand_id: Number(form.brand_id),
         category_id: Number(form.category_id),
         movement_type_id: Number(form.movement_type_id),
@@ -731,7 +736,7 @@ const WatchPage: NextPage = () => {
         })),
         sold: undefined as any,
         rating: undefined as any,
-        status: '1' as any
+        status: true
       }
       const res = await createWatch(payload as any)
       if ((res as any)?.watch?.watch?.id) {
@@ -775,7 +780,7 @@ const WatchPage: NextPage = () => {
     release_date: getTodayReleaseDate(),
     base_price: 0,
     rating: 0,
-    status: '1',
+    status: true,
     thumbnail: '',
     slider: '',
     category_id: '' as any,
@@ -1397,14 +1402,18 @@ const WatchPage: NextPage = () => {
           if (!selected) return
           try {
             setActionLoading(true)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { variants, ...rest } = editForm as any
+            let releaseDate = rest.release_date || ''
+            if (releaseDate && releaseDate.length < 14) {
+              releaseDate = releaseDate.padEnd(14, '0')
+            }
             const payload = {
               ...rest,
+              release_date: releaseDate,
               brand_id: Number(rest.brand_id),
               category_id: Number(rest.category_id),
               movement_type_id: Number(rest.movement_type_id),
-              status: String(editForm.status || '1') as any
+              status: Boolean(editForm.status)
             }
             await updateWatch(String(selected.id), payload as any)
             toast.success('Cập nhật thành công')
