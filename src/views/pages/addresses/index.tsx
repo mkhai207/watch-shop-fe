@@ -99,7 +99,7 @@ const AddressPage = () => {
 
       if (data.is_default) {
         const updatePromises = addresses
-          .filter(addr => addr.is_default === true && addr.id !== editingAddress?.id)
+          .filter(addr => addr.is_default === '1' && addr.id !== editingAddress?.id)
           .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
 
         await Promise.all(updatePromises)
@@ -178,7 +178,7 @@ const AddressPage = () => {
     if (address) {
       try {
         const updatePromises = addresses
-          .filter(addr => addr.is_default === true && addr.id !== address.id)
+          .filter(addr => addr.is_default === '1' && addr.id !== address.id)
           .map(addr => updateAddressDefaultStatus(parseInt(addr.id), false))
 
         await Promise.all(updatePromises)
@@ -378,7 +378,7 @@ const AddressPage = () => {
                     ward: editingAddress.ward,
                     district: editingAddress.district,
                     city: editingAddress.city,
-                    is_default: editingAddress.is_default
+                    is_default: editingAddress.is_default === '1'
                   }
                 : undefined
             }

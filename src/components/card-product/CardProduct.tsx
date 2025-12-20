@@ -85,7 +85,7 @@ const CardProduct = (props: TCardProduct) => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'nowrap', minHeight: '24px' }}>
-            <Typography
+            {/* <Typography
               variant='body2'
               sx={{
                 fontWeight: 'bold',
@@ -97,7 +97,7 @@ const CardProduct = (props: TCardProduct) => {
               }}
             >
               500.000 VND
-            </Typography>
+            </Typography> */}
 
             <Typography
               variant='h6'
