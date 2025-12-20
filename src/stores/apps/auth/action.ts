@@ -28,17 +28,28 @@ export const registerAuthAsync = createAsyncThunk('auth/register', async (data: 
 })
 
 // ** update me
-export const updateMeAuthAsync = createAsyncThunk('auth/update-me', async (data: any) => {
-  const response = await updateAuthMe(data)
-  console.log('registerResponse', response)
+export const updateMeAuthAsync = createAsyncThunk('auth/update-me', async (data: any, { rejectWithValue }) => {
+  try {
+    const response = await updateAuthMe(data)
+    console.log('registerResponse', response)
 
-  if (response?.data) {
-    return response
-  }
+    if (response?.data) {
+      return {
+        data: response.data,
+        message: response?.message || 'Cập nhật thành công',
+        error: ''
+      }
+    }
 
-  return {
-    data: null,
-    message: response?.response.data.message,
-    error: response?.response.data.error
+    return rejectWithValue({
+      message: response?.response?.data?.message || 'Cập nhật thất bại',
+      error: response?.response?.data?.error || ''
+    })
+  } catch (error: any) {
+    const message = error?.response?.data?.message || error?.message || 'Có lỗi xảy ra'
+    return rejectWithValue({
+      message,
+      error: error?.response?.data?.error || ''
+    })
   }
 })

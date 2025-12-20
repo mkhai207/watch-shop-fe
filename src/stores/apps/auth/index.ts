@@ -41,13 +41,12 @@ export const authSlice = createSlice({
       state.isSuccess = !!action.payload?.data?.email
       state.isError = !action.payload?.data?.email
       state.message = action.payload?.message
-      state.error = action.payload?.error
+      state.error = ''
     })
     builder.addCase(registerAuthAsync.rejected, (state, action) => {
       state.isLoading = false
       state.isSuccess = false
       state.isError = true
-      // Lấy message từ rejectWithValue
       state.message = (action.payload as any)?.message || 'Có lỗi xảy ra'
       state.error = (action.payload as any)?.message || 'Có lỗi xảy ra'
     })
@@ -59,17 +58,17 @@ export const authSlice = createSlice({
     builder.addCase(updateMeAuthAsync.fulfilled, (state, action) => {
       console.log('action', { action })
       state.isLoading = false
-      state.isSuccessUpdateMe = !!action.payload?.data?.email
-      state.isErrorUpdateMe = !action.payload?.data?.email
+      state.isSuccessUpdateMe = !!action.payload?.data
+      state.isErrorUpdateMe = !action.payload?.data
       state.messageUpdateMe = action.payload?.message
-      state.error = action.payload?.error
+      state.error = action.payload?.error || ''
     })
     builder.addCase(updateMeAuthAsync.rejected, (state, action) => {
       state.isLoading = false
       state.isSuccessUpdateMe = false
       state.isErrorUpdateMe = true
-      state.messageUpdateMe = ''
-      state.error = ''
+      state.messageUpdateMe = (action.payload as any)?.message || 'Có lỗi xảy ra'
+      state.error = (action.payload as any)?.error || ''
     })
   }
 })
