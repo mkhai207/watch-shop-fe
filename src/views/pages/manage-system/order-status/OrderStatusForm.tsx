@@ -80,7 +80,7 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
     }
   }, [status])
 
-  const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
       ...prev,
       [field]: event.target.value
@@ -141,6 +141,7 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
 
     if (!formData.code.trim() || !formData.name.trim()) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc')
+
       return
     }
 
@@ -303,6 +304,7 @@ const OrderStatusForm = ({ status, onSubmit, onCancel }: OrderStatusFormProps) =
           <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(10, 24px)', gap: 1 }}>
             {PRESET_COLORS.map(color => {
               const selected = isValidHex(formData.hex_code) && formData.hex_code.toUpperCase() === color.toUpperCase()
+
               return (
                 <Box
                   key={color}
