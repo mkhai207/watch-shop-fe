@@ -63,7 +63,7 @@ const LuxuryHeader: React.FC = () => {
 
   const navigationItems = [
     { label: 'Sản phẩm', href: ROUTE_CONFIG.PRODUCT },
-    { label: 'Thương hiệu', href: '/brands' },
+    { label: 'Thương hiệu', href: ROUTE_CONFIG.PRODUCT },
     { label: 'Về chúng tôi', href: '/about' },
     { label: 'Liên hệ', href: '/contact' }
   ]

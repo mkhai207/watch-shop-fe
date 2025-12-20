@@ -124,6 +124,21 @@ const CartPage: NextPage<TProps> = () => {
 
         return
       }
+
+      const selectedItems = items.filter(item => ids.includes(item.id))
+      const outOfStockItems = selectedItems.filter(item => {
+        const stockQuantity = Number((item as any)?.variant?.stock_quantity) || 0
+
+        return item.quantity > stockQuantity
+      })
+
+      if (outOfStockItems.length > 0) {
+        const itemNames = outOfStockItems.map(item => (item as any)?.variant?.watch?.name || 'Sản phẩm').join(', ')
+        toast.error(`Một số sản phẩm vượt quá số lượng tồn kho: ${itemNames}. Vui lòng điều chỉnh số lượng.`)
+
+        return
+      }
+
       localStorage.setItem('selectedCartItemIds', JSON.stringify(ids))
     } catch {}
     router.push(ROUTE_CONFIG.CHECKOUT)

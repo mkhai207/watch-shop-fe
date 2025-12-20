@@ -832,7 +832,39 @@ const DetailProductPage: NextPage<TProps> = () => {
                     {!!watchDetail?.release_date && (
                       <Grid item xs={12} sm={6}>
                         <Typography variant='body2'>
-                          Ra mắt: <b>{watchDetail.release_date}</b>
+                          Ngày ra mắt:{' '}
+                          <b>
+                            {(() => {
+                              try {
+                                const dateStr = watchDetail.release_date
+                                if (dateStr.length === 14 && !dateStr.includes('-')) {
+                                  const year = dateStr.substring(0, 4)
+                                  const month = dateStr.substring(4, 6)
+                                  const day = dateStr.substring(6, 8)
+
+                                  return `${day}/${month}/${year}`
+                                }
+
+                                if (dateStr.length === 8 && !dateStr.includes('-')) {
+                                  const year = dateStr.substring(0, 4)
+                                  const month = dateStr.substring(4, 6)
+                                  const day = dateStr.substring(6, 8)
+
+                                  return `${day}/${month}/${year}`
+                                }
+
+                                if (dateStr.includes('-')) {
+                                  const [year, month, day] = dateStr.split('-')
+
+                                  return `${day}/${month}/${year}`
+                                }
+
+                                return dateStr
+                              } catch {
+                                return watchDetail.release_date
+                              }
+                            })()}
+                          </b>
                         </Typography>
                       </Grid>
                     )}
