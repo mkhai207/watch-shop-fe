@@ -41,8 +41,8 @@ export type UserDataType = {
     id: number
     name: string
     code: string
+    permissions?: Permission[]
   }
-  permissions?: Permission[]
   avatar?: string | null
 }
 

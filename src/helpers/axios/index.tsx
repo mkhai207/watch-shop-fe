@@ -55,7 +55,6 @@ const requestInterceptor = instanceAxios.interceptors.request.use(async config =
             })
             console.log('res', { response })
 
-            // const newAccessToken = response.data.data.accessToken
             const newAccessToken = response.data.accessToken
             if (newAccessToken) {
               setAccessToken(newAccessToken)

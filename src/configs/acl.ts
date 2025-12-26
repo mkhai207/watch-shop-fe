@@ -44,28 +44,43 @@ const mapMethodToAction = (method: string): Actions => {
   }
 }
 
-// Helper function để map module sang subject
 const mapModuleToSubject = (module: string): string => {
-  const moduleSubjectMap: Record<string, string> = {
-    auth: 'Auth',
-    users: 'User',
-    categories: 'Category',
-    brands: 'Brand',
-    products: 'Product',
-    sizes: 'Size',
-    colors: 'Color',
-    variants: 'ProductVariant',
-    carts: 'Cart',
-    orders: 'Order',
-    payment: 'Payment',
-    discounts: 'Discount',
-    reviews: 'Review',
-    upload: 'Upload',
-    'user-interactions': 'UserInteraction',
-    permissions: 'Permission'
+  const map: Record<string, string> = {
+    Auth: 'Auth',
+    User: 'User',
+    Role: 'Role',
+    Docs: 'Docs',
+
+    Brand: 'Brand',
+    Category: 'Category',
+    Color: 'Color',
+    StrapMaterial: 'StrapMaterial',
+    MovementType: 'MovementType',
+
+    Watch: 'Watch',
+    WatchVariant: 'WatchVariant',
+
+    Cart: 'Cart',
+    CartItem: 'CartItem',
+
+    Order: 'Order',
+    OrderStatus: 'OrderStatus',
+    OrderStatusHistory: 'OrderStatusHistory',
+
+    Payment: 'Payment',
+    Discount: 'Discount',
+    Review: 'Review',
+
+    Search: 'Search',
+    Recommendation: 'Recommendation',
+    Report: 'Report',
+    Upload: 'Upload',
+    Address: 'Address',
+
+    Permission: 'Permission'
   }
 
-  return moduleSubjectMap[module] || module
+  return map[module] || module
 }
 
 const defineRulesFor = (role: string, permissions: Permission[] = []) => {
@@ -152,4 +167,3 @@ export const defaultACLObj: ACLObj = {
 }
 
 export default defineRulesFor
- 

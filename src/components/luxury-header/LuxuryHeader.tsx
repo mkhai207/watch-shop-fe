@@ -34,6 +34,7 @@ import { ROUTE_CONFIG } from 'src/configs/route'
 import { useFilter } from 'src/contexts/FilterContext'
 import Image from 'next/image'
 import MegaMenu from './MegaMenu'
+import PermissionGuard from '../auth/PermissionGuard'
 
 const LuxuryHeader: React.FC = () => {
   const router = useRouter()
@@ -313,7 +314,7 @@ const LuxuryHeader: React.FC = () => {
                   </Box>
                   <Divider />
                   {/* Admin Management Option */}
-                  {user?.role?.code === 'ADMIN' && (
+                  {/* {user?.role?.code === 'ADMIN' && (
                     <>
                       <MenuItem
                         onClick={e => {
@@ -328,7 +329,21 @@ const LuxuryHeader: React.FC = () => {
                       </MenuItem>
                       <Divider />
                     </>
-                  )}
+                  )} */}
+                  <PermissionGuard adminOnly>
+                    <MenuItem
+                      onClick={e => {
+                        e.preventDefault()
+                        router.push('/manage-system/dashboard')
+                        handleUserMenuClose()
+                      }}
+                      sx={{ py: 1.5, backgroundColor: 'primary.light', color: 'primary.contrastText' }}
+                    >
+                      <AdminPanelSettings sx={{ mr: 2, fontSize: 20 }} />
+                      Quản trị hệ thống
+                    </MenuItem>
+                    <Divider />
+                  </PermissionGuard>
                   <MenuItem
                     onClick={e => {
                       e.preventDefault()

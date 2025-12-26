@@ -132,7 +132,7 @@ const AclGuard = (props: AclGuardProps) => {
   // Lấy thông tin user và permissions
   const user = auth.user
   const roleCode = user?.role?.code ?? ''
-  const permissions = user?.permissions ?? []
+  const permissions = user?.role?.permissions ?? []
   let ability: AppAbility
 
   // Tạo ability dựa trên permissions thực tế từ backend

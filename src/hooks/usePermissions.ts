@@ -6,7 +6,7 @@ import { TPermission } from 'src/types/auth'
 export const usePermissions = () => {
   const { user } = useAuth()
   const ability = useContext(AbilityContext)
-  const permissions = user?.permissions ?? []
+  const permissions = user?.role?.permissions ?? []
 
   // Kiểm tra quyền cụ thể theo API path và method
   const hasPermission = (apiPath: string, method: string): boolean => {
