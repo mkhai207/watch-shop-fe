@@ -8,6 +8,12 @@ export const setLocalUserData = (userData: string, accessToken: string, refreshT
   }
 }
 
+export const setAccessToken = (accessToken: string) => {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(ACCESS_TOKEN, accessToken)
+}
+
+
 export const getLocalUserData = () => {
   if (typeof window !== 'undefined') {
     return {

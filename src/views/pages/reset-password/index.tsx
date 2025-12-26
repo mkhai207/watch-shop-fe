@@ -68,7 +68,6 @@ const ResetPasswordPage: NextPage<TProps> = () => {
     resolver: yupResolver(schema)
   })
 
-  // Extract token from URL on component mount
   useEffect(() => {
     if (router.isReady) {
       const urlToken = router.query.token as string
@@ -83,6 +82,7 @@ const ResetPasswordPage: NextPage<TProps> = () => {
   const onSubmit = async (data: { password: string; confirmPassword: string }) => {
     if (!token) {
       toast.error('Token không hợp lệ')
+
       return
     }
 
@@ -96,7 +96,6 @@ const ResetPasswordPage: NextPage<TProps> = () => {
           toast.success('Đặt lại mật khẩu thành công!')
           reset()
 
-          // Redirect to login after 3 seconds
           setTimeout(() => {
             router.push('/login')
           }, 3000)
