@@ -49,6 +49,8 @@ const paymentMethodMap: Record<string, string> = {
   '1': 'Thanh toán VNPay'
 }
 
+const FINAL_STATUS_IDS = [5, 6]
+
 const OrderManagementPage: NextPage = () => {
   const [orders, setOrders] = useState<Order[]>([])
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([])
@@ -796,8 +798,10 @@ const OrderManagementPage: NextPage = () => {
                             value={order.current_status_id}
                             onChange={e => updateOrderStatus(order.id, e.target.value)}
                             disabled={
-                              orderStatuses.filter(status => parseInt(status.id) > parseInt(order.current_status_id))
-                                .length === 0
+                              FINAL_STATUS_IDS.includes(Number(order.current_status_id))
+
+                              // orderStatuses.filter(status => parseInt(status.id) > parseInt(order.current_status_id))
+                              //   .length === 0
                             }
                             sx={{
                               fontSize: '0.7rem',
